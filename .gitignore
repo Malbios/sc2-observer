@@ -2,3 +2,9 @@ node_modules/
 maps/*
 !maps/.gitkeep
 *.log
+dist/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+!fixtures/*.sqlite

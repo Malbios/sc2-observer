@@ -1,14 +1,24 @@
 {
-  "name": "sc2-observer-spike",
+  "name": "sc2-observer",
   "version": "0.0.0",
   "private": true,
-  "description": "Phase 0 throwaway spike: headless SC2 container + bot-facing proxy",
-  "main": "spike/proxy.js",
+  "description": "Spectator: headless SC2 container, bot-facing proxy, and per-game recording",
+  "main": "dist/cli/record.js",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "record": "node dist/cli/record.js",
+    "dump": "node dist/cli/dump.js",
     "spike": "node spike/proxy.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "protobufjs": "^7.4.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.6.2",
+    "@types/ws": "^8.18.1",
+    "typescript": "^7.0.2"
   }
 }
