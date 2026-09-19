@@ -1,0 +1,4 @@
+node_modules/
+maps/*
+!maps/.gitkeep
+*.log

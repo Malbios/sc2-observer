@@ -1,0 +1,14 @@
+{
+  "name": "sc2-observer-spike",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Phase 0 throwaway spike: headless SC2 container + bot-facing proxy",
+  "main": "spike/proxy.js",
+  "scripts": {
+    "spike": "node spike/proxy.js"
+  },
+  "dependencies": {
+    "protobufjs": "^7.4.0",
+    "ws": "^8.18.0"
+  }
+}
