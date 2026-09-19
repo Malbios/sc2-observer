@@ -105,7 +105,27 @@ function startProxyServer() {
   server.on("connection", async (botWs, req) => {
     console.log(`[spike] bot connected (${req.url})`);
 
-    let sc2Ws;
+    let frameCount = 0;
+
+    // Attach the bot-side listener synchronously, before the `await` below
+    // yields control. Otherwise a frame the bot sends while we're still
+    // opening the SC2-side connection fires 'message' with nobody listening
+    // yet and is silently dropped forever (ws does not buffer for latecomer
+    // listeners) -- both sides then wait on each other indefinitely. Buffer
+    // anything that arrives before sc2Ws is ready and flush it in order.
+    const pending = [];
+    let sc2Ws = null;
+
+    botWs.on("message", (data) => {
+      if (sc2Ws) {
+        frameCount += 1;
+        console.log(`[spike] #${frameCount} bot -> sc2  (${data.length}B) ${JSON.stringify(describeFrame(Request, data))}`);
+        sc2Ws.send(data);
+      } else {
+        pending.push(data);
+      }
+    });
+
     try {
       sc2Ws = await connectSc2();
     } catch (err) {
@@ -114,13 +134,11 @@ function startProxyServer() {
       return;
     }
 
-    let frameCount = 0;
-
-    botWs.on("message", (data) => {
+    for (const data of pending.splice(0)) {
       frameCount += 1;
-      console.log(`[spike] #${frameCount} bot -> sc2  (${data.length}B) ${JSON.stringify(describeFrame(Request, data))}`);
+      console.log(`[spike] #${frameCount} bot -> sc2  (${data.length}B, buffered) ${JSON.stringify(describeFrame(Request, data))}`);
       sc2Ws.send(data);
-    });
+    }
 
     sc2Ws.on("message", (data) => {
       frameCount += 1;
