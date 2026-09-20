@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import * as PIXI from "pixi.js";
 import type { FrameAtLoopIpc, TerrainDataIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
 import { colorForCategory, colorForOwner, lightenTint } from "../colors";

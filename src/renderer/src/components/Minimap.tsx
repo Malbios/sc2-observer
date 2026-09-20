@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type JSX } from "react";
 import type { FrameAtLoopIpc, TerrainDataIpc } from "../../../shared/ipc-types";
 import { colorForOwner, cssColor } from "../colors";
 

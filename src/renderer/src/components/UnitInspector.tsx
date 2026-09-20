@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
 import { colorForCategory, colorForOwner, cssColor } from "../colors";
 

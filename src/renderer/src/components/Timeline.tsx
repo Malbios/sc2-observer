@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 interface Props {
   loop: number;
   maxLoop: number;

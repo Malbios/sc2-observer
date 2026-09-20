@@ -6,6 +6,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
     "record": "node dist/cli/record.js",
     "dump": "node dist/cli/dump.js",
     "testbot": "node dist/cli/testbot.js",

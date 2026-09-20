@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { FrameAtLoopIpc, RecordingInfo, TerrainDataIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../shared/ipc-types";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
