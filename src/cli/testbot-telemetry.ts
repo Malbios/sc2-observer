@@ -1,6 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { UnitSummary } from "../state/frames";
+import {
+  TELEMETRY_SCHEMA_VERSION,
+  type ChannelDeclaration,
+  type EventLevel,
+  type GridShape,
+  type OverlayShape,
+  type Point2,
+  type TelemetryMessage,
+} from "../shared/telemetry-types";
 
 /**
  * Test-data producer for the telemetry contract (plan §3). This is NOT the
@@ -16,8 +25,15 @@ import type { UnitSummary } from "../state/frames";
  * grow loop by loop, which is the behaviour Phase 3 needs to test against.
  */
 
-const SCHEMA_VERSION = 1;
 const EMITTER = "testbot/1";
+
+/**
+ * A message as the writer hands it over: the envelope's `v` and `seq` are the
+ * writer's to assign, everything else is the caller's. Distributes over the
+ * union so each `kind` still checks against its own payload type.
+ */
+type Outgoing<M> = M extends TelemetryMessage ? Omit<M, "v" | "seq"> : never;
+type OutgoingMessage = Outgoing<TelemetryMessage>;
 
 /** Cells per side of the synthetic influence map on `test/heat`. */
 const GRID_SIZE = 16;
@@ -29,7 +45,7 @@ const ENTITY_EVERY = 2;
 /** Entities are one message per (ch, tag), so this caps line volume. */
 const ENTITY_LIMIT = 8;
 
-const EVENT_LEVELS = ["debug", "info", "warn", "error"];
+const EVENT_LEVELS: EventLevel[] = ["debug", "info", "warn", "error"];
 const ENTITY_TASKS = ["mine", "scout", "defend", "build", "idle"];
 
 export interface Point {
@@ -61,7 +77,7 @@ function r2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function pointPair(p: Point): [number, number] {
+function pointPair(p: Point): Point2 {
   return [r2(p.x), r2(p.y)];
 }
 
@@ -107,8 +123,8 @@ export class TestTelemetryWriter {
     this.flush();
   }
 
-  private push(message: Record<string, unknown>): void {
-    this.pending.push(JSON.stringify({ v: SCHEMA_VERSION, seq: this.seq++, ...message }));
+  private push(message: OutgoingMessage): void {
+    this.pending.push(JSON.stringify({ v: TELEMETRY_SCHEMA_VERSION, seq: this.seq++, ...message }));
   }
 
   private flush(): void {
@@ -124,7 +140,7 @@ export class TestTelemetryWriter {
    * one. Values are a pattern that moves with the loop, so consecutive
    * updates are visibly different.
    */
-  private heatGrid(loop: number): Record<string, unknown> {
+  private heatGrid(loop: number): GridShape {
     const { x0, y0, x1, y1 } = this.mapInfo.playableArea;
     const cell = r2(Math.max(x1 - x0, y1 - y0) / GRID_SIZE);
     const values = new Uint8Array(GRID_SIZE * GRID_SIZE);
@@ -149,13 +165,11 @@ export class TestTelemetryWriter {
   }
 
   /**
-   * Shape field spellings are a first concrete rendering of §3.3's shape
-   * vocabulary (point/circle/line/polyline/polygon/rect/text/grid); the plan
-   * names the shapes but not their fields. Phase 3's overlay renderer owns
-   * the final contract -- if it settles on different names, this is the file
-   * that follows it, not the other way round.
+   * §3.3 names the shape vocabulary but not its field names; the spellings
+   * live in ../shared/telemetry-types.ts, which both this writer and the
+   * viewer's renderer compile against, so the two cannot drift apart.
    */
-  private shapes(loop: number): Record<string, unknown>[] {
+  private shapes(loop: number): OverlayShape[] {
     const our = this.mapInfo.ourStart;
     const enemy = this.mapInfo.enemyStart;
     const mid = { x: (our.x + enemy.x) / 2, y: (our.y + enemy.y) / 2 };
