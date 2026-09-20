@@ -278,6 +278,8 @@ flowchart LR
 
 Testing approach across phases: every component below the viewer is tested against recorded frames, never against a live game, so tests are deterministic. Phase 1 must produce at least one committed fixture recording (a short bot game) that later phases reuse.
 
+The live path itself (proxy, session controller, telemetry tailer) cannot be covered that way, so a scripted SC2 API client lives in `src/cli/testbot.ts`: it joins like a real bot, steps for a configurable number of loops, optionally writes a §3-conformant telemetry file, and then ends the game on command (surrender, leave, abrupt disconnect, or hang forever) so the failure modes in §7.1 can be reproduced in seconds rather than a full game. It is a dev tool only. A real python-sc2 bot stays the realism oracle, and the bot-ignorance rule applies with full force: no app code may reference the test bot or behave differently when it is the peer.
+
 ### 7.1 Unknowns that must be verified, not assumed
 
 | Unknown | Why it matters | How to verify |

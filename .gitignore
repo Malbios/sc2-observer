@@ -4,6 +4,7 @@ maps/*
 *.log
 dist/
 out/
+telemetry/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
