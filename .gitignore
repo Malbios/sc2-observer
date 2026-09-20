@@ -3,6 +3,7 @@ maps/*
 !maps/.gitkeep
 *.log
 dist/
+out/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal

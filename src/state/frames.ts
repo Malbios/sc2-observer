@@ -39,7 +39,31 @@ export interface UnitSummary {
   tag: number;
   unitType: number;
   owner: number;
+  radius: number;
+  /** [0, 1]; 1 (the default when absent, e.g. for non-buildings) means
+   * fully built. */
+  buildProgress: number;
   pos: { x: number; y: number; z: number } | null;
+}
+
+/**
+ * `tag` is a uint64 (raw.proto), which protobufjs decodes as a `Long`
+ * instance (the optional `long` package is installed here) rather than a
+ * plain number. That's invisible in string contexts -- Long's toString()
+ * happens to print the right decimal value, which is how this went unnoticed
+ * in the CLI's template-string dump output -- but breaks silently anywhere
+ * that needs a real number: Electron IPC's structured clone strips Long's
+ * prototype down to a bare {low,high,unsigned} object, and `===` comparisons
+ * (e.g. matching the selected unit) never match across two separately
+ * decoded instances even for the same logical tag. SC2 tags fit well within
+ * Number.MAX_SAFE_INTEGER, so a plain conversion loses nothing.
+ */
+function toSafeNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (value && typeof (value as { toNumber?: () => number }).toNumber === "function") {
+    return (value as { toNumber: () => number }).toNumber();
+  }
+  return Number(value);
 }
 
 /** Scoped-down "game state model": exactly what the Phase 1 dump CLI needs
@@ -48,9 +72,11 @@ export interface UnitSummary {
 export function extractUnits(observationResponse: Response): UnitSummary[] {
   const units = observationResponse?.observation?.observation?.raw_data?.units ?? [];
   return units.map((u: any) => ({
-    tag: u.tag,
+    tag: toSafeNumber(u.tag),
     unitType: u.unit_type,
     owner: u.owner,
+    radius: typeof u.radius === "number" ? u.radius : 0.5,
+    buildProgress: typeof u.build_progress === "number" ? u.build_progress : 1,
     pos: u.pos ? { x: u.pos.x, y: u.pos.y, z: u.pos.z } : null,
   }));
 }

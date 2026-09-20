@@ -3,12 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "description": "Spectator: headless SC2 container, bot-facing proxy, and per-game recording",
-  "main": "dist/cli/record.js",
+  "main": "out/main/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "record": "node dist/cli/record.js",
     "dump": "node dist/cli/dump.js",
-    "spike": "node spike/proxy.js"
+    "verify": "npm run build && node dist/cli/verify-extraction.js",
+    "spike": "node spike/proxy.js",
+    "dev": "electron-vite dev",
+    "build:app": "electron-vite build"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -18,7 +21,16 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.1",
-    "typescript": "^7.0.2"
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^44.4.3",
+    "electron-vite": "^5.0.0",
+    "pixi.js": "^8.21.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6"
   }
 }

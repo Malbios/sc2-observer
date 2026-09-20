@@ -67,6 +67,13 @@ export class HistoryStore {
     return row ? brotliDecompressSync(row.bytes) : undefined;
   }
 
+  getMaxLoop(): number {
+    const row = this.db.prepare("SELECT MAX(loop) as maxLoop FROM frames WHERE kind = 'observation'").get() as
+      | { maxLoop: number | null }
+      | undefined;
+    return row?.maxLoop ?? 0;
+  }
+
   close(): void {
     this.flush();
     this.db.close();

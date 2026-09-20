@@ -301,7 +301,7 @@ Testing approach across phases: every component below the viewer is tested again
 - Launching or restarting the bot process. An optional "run this command" button may come after v1; it is not part of the design.
 - Bot-vs-bot games. The proxy accepts one bot; two would need two proxies and a second game slot.
 - The cross-game comparison UI. The data model supports it (§6.5); the view is a later effort.
-- Unit icons, sprites, or any Blizzard art assets. Units are drawn as shapes coloured by owner and labelled by type name.
+- Unit icons, sprites, or any Blizzard art assets for v1: units are drawn as shapes coloured by owner, labelled by type name on click/hover. This is a first-draft simplification, not a permanent ceiling — icon rendering can follow later once the rest of the viewer is solid.
 - macOS and Linux packaging.
 - A socket transport for telemetry (§3.4 keeps it as a later option).
 
