@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { FrameAtLoopIpc, RecordingInfo, TerrainDataIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../shared/ipc-types";
+import type { ChannelIpc, TelemetryStateIpc } from "../../shared/telemetry-types";
+import { ChannelTree } from "./components/ChannelTree";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { Timeline } from "./components/Timeline";
@@ -19,10 +21,26 @@ export function App(): JSX.Element {
   const [selectedUnit, setSelectedUnit] = useState<UnitSummaryIpc | null>(null);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [channels, setChannels] = useState<ChannelIpc[]>([]);
+  const [streamCount, setStreamCount] = useState(0);
+  const [visibleChannels, setVisibleChannels] = useState<ReadonlySet<string>>(new Set());
+  const [telemetry, setTelemetry] = useState<TelemetryStateIpc | null>(null);
 
   const mapHandleRef = useRef<MapViewHandle | null>(null);
   const loopRef = useRef(0);
   const lastFetchedLoopRef = useRef(-1);
+
+  /** Channels default to whatever the bot's `hello` declared, falling back to
+   * visible, so attaching a file shows something rather than an empty map. */
+  const loadChannels = useCallback(async () => {
+    const [channelList, streams] = await Promise.all([
+      window.spectator.getChannels(),
+      window.spectator.getTelemetryStreams(),
+    ]);
+    setChannels(channelList);
+    setStreamCount(streams.length);
+    setVisibleChannels(new Set(channelList.filter((c) => c.defaultVisible).map((c) => c.ch)));
+  }, []);
 
   const openRecording = useCallback(async () => {
     const info = await window.spectator.pickAndOpenRecording();
@@ -33,22 +51,47 @@ export function App(): JSX.Element {
     loopRef.current = 0;
     setLoop(0);
     lastFetchedLoopRef.current = -1;
+    setTelemetry(null);
 
     const [terrainData, typeInfo] = await Promise.all([window.spectator.getTerrain(), window.spectator.getUnitTypeInfo()]);
     setTerrain(terrainData);
     setUnitTypeInfo(typeInfo);
-  }, []);
+    await loadChannels();
+  }, [loadChannels]);
 
-  // Fetch the frame for the current loop whenever it changes (seek, or a
-  // playback tick that crossed to a new integer loop).
+  const attachTelemetry = useCallback(async () => {
+    const result = await window.spectator.attachTelemetry();
+    if (!result) return;
+    if (result.ingested && result.ingested.rejectedCount > 0) {
+      // Rejections are never fatal (§4), but silently dropping lines would
+      // leave a bot author debugging a gap that the app already knows about.
+      console.warn(
+        `[telemetry] ${result.ingested.rejectedCount} line(s) rejected:`,
+        result.ingested.rejections.map((r) => `line ${r.line}: ${r.reason}`)
+      );
+    }
+    await loadChannels();
+    // The loop has not changed, so the fetch effect will not re-run; pull the
+    // newly-ingested state for where the cursor already is.
+    setTelemetry(await window.spectator.getTelemetryAtLoop(loop));
+  }, [loadChannels, loop]);
+
+  // Fetch the frame and the telemetry state for the current loop whenever it
+  // changes (seek, or a playback tick that crossed to a new integer loop).
+  // Both in one round so the map never shows a unit frame and an overlay from
+  // different loops.
   useEffect(() => {
     if (!recording) return;
     if (loop === lastFetchedLoopRef.current) return;
     lastFetchedLoopRef.current = loop;
     let cancelled = false;
-    window.spectator.getFrameAtLoop(loop).then((result) => {
-      if (!cancelled) setFrame(result);
-    });
+    Promise.all([window.spectator.getFrameAtLoop(loop), window.spectator.getTelemetryAtLoop(loop)]).then(
+      ([frameResult, telemetryResult]) => {
+        if (cancelled) return;
+        setFrame(frameResult);
+        setTelemetry(telemetryResult);
+      }
+    );
     return () => {
       cancelled = true;
     };
@@ -88,6 +131,17 @@ export function App(): JSX.Element {
     mapHandleRef.current?.recenterOn(worldX, worldY);
   }, []);
 
+  const handleToggleChannels = useCallback((paths: string[], show: boolean) => {
+    setVisibleChannels((current) => {
+      const next = new Set(current);
+      for (const path of paths) {
+        if (show) next.add(path);
+        else next.delete(path);
+      }
+      return next;
+    });
+  }, []);
+
   if (!recording) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -109,6 +163,25 @@ export function App(): JSX.Element {
       </div>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <div
+          style={{
+            width: 200,
+            borderRight: "1px solid #2b323d",
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+          }}
+        >
+          <ChannelTree
+            channels={channels}
+            visible={visibleChannels}
+            onToggle={handleToggleChannels}
+            onAttach={attachTelemetry}
+            streamCount={streamCount}
+          />
+        </div>
+
         <div style={{ flex: 1, position: "relative" }}>
           <MapView
             terrain={terrain}
@@ -117,6 +190,8 @@ export function App(): JSX.Element {
             onSelectUnit={setSelectedUnit}
             unitTypeInfo={unitTypeInfo}
             mapHandleRef={mapHandleRef}
+            telemetry={telemetry}
+            visibleChannels={visibleChannels}
           />
         </div>
 

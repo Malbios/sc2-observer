@@ -38,3 +38,34 @@ const CATEGORY_COLORS: Record<string, number> = {
 export function colorForCategory(category: string | undefined): number {
   return CATEGORY_COLORS[category ?? "unit"] ?? CATEGORY_COLORS.unit;
 }
+
+/** Deliberately distinct from the owner and category ramps above: telemetry
+ * is the bot's annotation of the map, and it should never be mistaken for the
+ * game's own colors. */
+const CHANNEL_PALETTE = [0x7cd6ff, 0xff9ecb, 0xa0f0a8, 0xffd68a, 0xc5a8ff, 0x8ce0d8, 0xffb08a, 0xa8c4ff];
+
+/**
+ * A stable color for a channel that declared no `style.color`. Hashing the
+ * name rather than assigning by index means a channel keeps its color when
+ * other channels appear or disappear, so nothing shifts hue mid-session just
+ * because the bot started writing somewhere new.
+ */
+export function colorForChannel(ch: string): number {
+  let hash = 0;
+  for (let i = 0; i < ch.length; i++) {
+    hash = (hash * 31 + ch.charCodeAt(i)) | 0;
+  }
+  return CHANNEL_PALETTE[Math.abs(hash) % CHANNEL_PALETTE.length]!;
+}
+
+/** Log levels, for event ticks and the log panel. */
+const LEVEL_COLORS: Record<string, number> = {
+  debug: 0x6b7482,
+  info: 0x7cd6ff,
+  warn: 0xffc24f,
+  error: 0xff6b5b,
+};
+
+export function colorForLevel(level: string | undefined): number {
+  return LEVEL_COLORS[level ?? "info"] ?? LEVEL_COLORS.info!;
+}

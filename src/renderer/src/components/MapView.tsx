@@ -1,8 +1,32 @@
 import { useEffect, useRef, useState, type JSX } from "react";
 import * as PIXI from "pixi.js";
 import type { FrameAtLoopIpc, TerrainDataIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
+import type { GridShape, TelemetryStateIpc, TextShape } from "../../../shared/telemetry-types";
 import { colorForCategory, colorForOwner, lightenTint } from "../colors";
 import { loadIconTexture } from "../icons";
+import { buildGridTexture, contextFor, drawShapes, gridBounds, makeText, TEXT_ANCHOR_OFFSET } from "../overlayShapes";
+
+/** One telemetry overlay channel's display objects, pooled by channel name so
+ * scrubbing reuses them instead of rebuilding GPU geometry every loop -- the
+ * same reason the unit markers are pooled. */
+interface OverlayVisual {
+  container: PIXI.Container;
+  graphics: PIXI.Graphics;
+  extras: PIXI.Container;
+  /** The loop whose content is currently drawn, so scrubbing across loops
+   * that did not change a channel skips the redraw entirely. Retention gives
+   * one overlay message per channel, so the same loop means the same shapes. */
+  drawnLoop: number;
+}
+
+/**
+ * Text and grid children own generated textures. Pixi does not free a
+ * sprite's texture on destroy() unless asked, and a grid channel produces a
+ * new texture every time it is redrawn, so omitting this leaks GPU memory
+ * until the WebGL context dies -- the same failure the unit pool exists to
+ * avoid.
+ */
+const DESTROY_WITH_TEXTURE = { children: true, texture: true, textureSource: true } as const;
 
 interface UnitVisual {
   container: PIXI.Container;
@@ -23,6 +47,9 @@ interface Props {
   onSelectUnit(unit: UnitSummaryIpc): void;
   unitTypeInfo: Record<number, UnitTypeInfoIpc>;
   mapHandleRef: React.MutableRefObject<MapViewHandle | null>;
+  telemetry: TelemetryStateIpc | null;
+  /** Channel names the tree currently has switched on. */
+  visibleChannels: ReadonlySet<string>;
 }
 
 interface HoverInfo {
@@ -76,12 +103,23 @@ function buildTerrainCanvas(terrain: TerrainDataIpc): HTMLCanvasElement {
   return canvas;
 }
 
-export function MapView({ terrain, frame, selectedTag, onSelectUnit, unitTypeInfo, mapHandleRef }: Props): JSX.Element {
+export function MapView({
+  terrain,
+  frame,
+  selectedTag,
+  onSelectUnit,
+  unitTypeInfo,
+  mapHandleRef,
+  telemetry,
+  visibleChannels,
+}: Props): JSX.Element {
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const worldRef = useRef<PIXI.Container | null>(null);
   const unitsLayerRef = useRef<PIXI.Container | null>(null);
+  const overlayLayerRef = useRef<PIXI.Container | null>(null);
+  const overlayVisualsRef = useRef<Map<string, OverlayVisual>>(new Map());
   const terrainSpriteRef = useRef<PIXI.Sprite | null>(null);
   const terrainRef = useRef<TerrainDataIpc | null>(null);
   const hasFitCameraRef = useRef(false);
@@ -131,14 +169,25 @@ export function MapView({ terrain, frame, selectedTag, onSelectUnit, unitTypeInf
       appRef.current = app;
 
       const world = new PIXI.Container();
+      // Explicit zIndex rather than insertion order, now that three layers
+      // share this container: terrain (0), telemetry overlays (1), units (2).
+      // Overlays sit above the ground they annotate but below the units, so a
+      // bot's heatmap never hides what it is drawn about.
+      world.sortableChildren = true;
       app.stage.addChild(world);
       worldRef.current = world;
+
+      const overlayLayer = new PIXI.Container();
+      overlayLayer.zIndex = 1;
+      world.addChild(overlayLayer);
+      overlayLayerRef.current = overlayLayer;
 
       const unitsLayer = new PIXI.Container();
       // zIndex-based stacking (units over buildings over neutral resources)
       // instead of insertion order, since frame.units isn't sorted by
       // category -- see where zIndex is set per-marker below.
       unitsLayer.sortableChildren = true;
+      unitsLayer.zIndex = 2;
       world.addChild(unitsLayer);
       unitsLayerRef.current = unitsLayer;
 
@@ -279,8 +328,9 @@ export function MapView({ terrain, frame, selectedTag, onSelectUnit, unitTypeInf
     // (e.g. a unit's real footprint next to a ramp) at a glance.
     texture.source.scaleMode = "nearest";
     const sprite = new PIXI.Sprite(texture);
+    sprite.zIndex = 0;
     terrainSpriteRef.current?.destroy();
-    world.addChildAt(sprite, 0);
+    world.addChild(sprite);
     terrainSpriteRef.current = sprite;
 
     fitCameraRef.current();
@@ -457,6 +507,82 @@ export function MapView({ terrain, frame, selectedTag, onSelectUnit, unitTypeInf
     };
     updateHoverRef.current();
   }, [frame, selectedTag, terrain, pixiReady, unitTypeInfo, iconVersion]);
+
+  // Telemetry overlays: one pooled container per channel, redrawn when the
+  // resolved state changes. Depends on pixiReady for the same reason the
+  // effects above do -- telemetry can arrive before Pixi has finished its
+  // async init, and this would otherwise read a null ref once and never
+  // re-run.
+  useEffect(() => {
+    const layer = overlayLayerRef.current;
+    if (!layer || !terrain) return;
+
+    const pool = overlayVisualsRef.current;
+    const seen = new Set<string>();
+
+    for (const overlay of telemetry?.overlays ?? []) {
+      if (!visibleChannels.has(overlay.ch)) continue;
+      seen.add(overlay.ch);
+
+      let visual = pool.get(overlay.ch);
+      if (!visual) {
+        const container = new PIXI.Container();
+        const graphics = new PIXI.Graphics();
+        // Text and grids are display objects rather than paths, so they live
+        // in their own child container that is emptied per redraw; the
+        // Graphics is simply cleared.
+        const extras = new PIXI.Container();
+        container.addChild(graphics, extras);
+        layer.addChild(container);
+        visual = { container, graphics, extras, drawnLoop: -1 };
+        pool.set(overlay.ch, visual);
+      }
+      visual.container.visible = true;
+      // Nothing changed for this channel since it was last drawn; rebuilding a
+      // grid texture per scrub tick would be the expensive part of playback.
+      if (visual.drawnLoop === overlay.loop) continue;
+      visual.drawnLoop = overlay.loop;
+
+      const ctx = contextFor(overlay.ch, overlay.style, terrain.height);
+      visual.graphics.clear();
+      drawShapes(visual.graphics, overlay.shapes, ctx);
+
+      visual.extras.removeChildren().forEach((child) => child.destroy(DESTROY_WITH_TEXTURE));
+      for (const shape of overlay.shapes) {
+        if (shape.type === "text") {
+          const textShape = shape as TextShape;
+          const text = makeText(textShape.text, ctx);
+          text.x = textShape.pos[0];
+          text.y = terrain.height - textShape.pos[1] - TEXT_ANCHOR_OFFSET;
+          visual.extras.addChild(text);
+        } else if (shape.type === "grid") {
+          const gridShape = shape as GridShape;
+          const sprite = new PIXI.Sprite(buildGridTexture(gridShape, ctx.color));
+          const bounds = gridBounds(gridShape, terrain.height);
+          sprite.x = bounds.x;
+          sprite.y = bounds.y;
+          sprite.width = bounds.width;
+          sprite.height = bounds.height;
+          sprite.alpha = ctx.alpha;
+          visual.extras.addChild(sprite);
+        }
+      }
+    }
+
+    // A channel that is switched off, or that retention has expired, keeps its
+    // container for the next time it appears; only channels gone from the
+    // recording entirely are destroyed, which scrubbing never causes.
+    for (const [ch, visual] of pool) {
+      if (!seen.has(ch)) {
+        visual.graphics.clear();
+        visual.extras.removeChildren().forEach((child) => child.destroy(DESTROY_WITH_TEXTURE));
+        visual.container.visible = false;
+        // Force a redraw if this channel comes back at the same loop it was
+        // last drawn at, which switching it off and on again does.
+        visual.drawnLoop = -1;
+      }
+    }
+  }, [telemetry, visibleChannels, terrain, pixiReady]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
