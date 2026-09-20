@@ -1,0 +1,1012 @@
+{"v":1,"seq":0,"kind":"hello","data":{"emitter":"testbot/1","name":"testbot","meta":{"url":"ws://127.0.0.1:5000/sc2api","step":8,"end":"surrender","map":"Torches AIE"},"channels":[{"ch":"econ","kind":"series","label":"Economy"},{"ch":"econ/supply","kind":"series","label":"Supply used","range":[0,200]},{"ch":"test/shapes","kind":"overlay","label":"Shapes","visible":true},{"ch":"test/heat","kind":"overlay","label":"Influence","visible":false},{"ch":"test/transient","kind":"overlay","label":"Transient","visible":true},{"ch":"test/log","kind":"event","label":"Log"},{"ch":"test/plan","kind":"snapshot","label":"Plan"},{"ch":"test/tasks","kind":"entity","label":"Unit tasks"}]}}
+{"v":1,"seq":1,"kind":"series","loop":0,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":2,"kind":"series","loop":0,"ch":"econ/supply","data":12}
+{"v":1,"seq":3,"kind":"overlay","loop":0,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 0"},{"type":"polyline","points":[[124.5,104],[134.5,104],[136.79,110.71]]}]}
+{"v":1,"seq":4,"kind":"overlay","loop":0,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"f7Da9f7y1ap4Rx8GAA8vXLDa9f7y1ap4Rx8GAA8vXI7a9f7y1ap4Rx8GAA8vXI6+9f7y1ap4Rx8GAA8vXI6+5P7y1ap4Rx8GAA8vXI6+5Pry1ap4Rx8GAA8vXI6+5Pr91ap4Rx8GAA8vXI6+5Pr97Kp4Rx8GAA8vXI6+5Pr97Ml4Rx8GAA8vXI6+5Pr97MmbRx8GAA8vXI6+5Pr97MmbaR8GAA8vXI6+5Pr97MmbaToGAA8vXI6+5Pr97MmbaToWAA8vXI6+5Pr97MmbaToWAg8vXI6+5Pr97MmbaToWAgMvXI6+5Pr97MmbaToWAgMXXI6+5Pr97MmbaToWAgMXOw=="}]}
+{"v":1,"seq":5,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4354211841,"task":"mine","priority":1,"since":0}}
+{"v":1,"seq":6,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":0}}
+{"v":1,"seq":7,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":3,"since":0}}
+{"v":1,"seq":8,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":1,"since":0}}
+{"v":1,"seq":9,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":2,"since":0}}
+{"v":1,"seq":10,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":3,"since":0}}
+{"v":1,"seq":11,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":1,"since":0}}
+{"v":1,"seq":12,"kind":"entity","loop":0,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":2,"since":0}}
+{"v":1,"seq":13,"kind":"overlay","loop":0,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":14,"kind":"event","loop":0,"ch":"test/log","data":{"msg":"step 0: 17 own units, 50 minerals","level":"debug","data":{"step":0,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":15,"kind":"snapshot","loop":0,"ch":"test/plan","data":{"revision":1,"objective":"defend","queue":["scout","defend","build","idle"],"resources":{"minerals":50,"vespene":0}}}
+{"v":1,"seq":16,"kind":"series","loop":8,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":17,"kind":"series","loop":8,"ch":"econ/supply","data":12}
+{"v":1,"seq":18,"kind":"overlay","loop":8,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 8"},{"type":"polyline","points":[[124.5,104],[134.48,104.67],[136.31,111.52]]}]}
+{"v":1,"seq":19,"kind":"series","loop":16,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":20,"kind":"series","loop":16,"ch":"econ/supply","data":12}
+{"v":1,"seq":21,"kind":"overlay","loop":16,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 16"},{"type":"polyline","points":[[124.5,104],[134.41,105.33],[135.78,112.29]]}]}
+{"v":1,"seq":22,"kind":"overlay","loop":16,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"ibrh+f3uzaBtPhkDAhQ3Zbrh+f3uzaBtPhkDAhQ3ZZjh+f3uzaBtPhkDAhQ3ZZjG+f3uzaBtPhkDAhQ3ZZjG6v3uzaBtPhkDAhQ3ZZjG6vzuzaBtPhkDAhQ3ZZjG6vz7zaBtPhkDAhQ3ZZjG6vz75qBtPhkDAhQ3ZZjG6vz75sFtPhkDAhQ3ZZjG6vz75sGRPhkDAhQ3ZZjG6vz75sGRXxkDAhQ3ZZjG6vz75sGRXzIDAhQ3ZZjG6vz75sGRXzIRAhQ3ZZjG6vz75sGRXzIRARQ3ZZjG6vz75sGRXzIRAQU3ZZjG6vz75sGRXzIRAQUdZZjG6vz75sGRXzIRAQUdRA=="}]}
+{"v":1,"seq":23,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":1,"since":16}}
+{"v":1,"seq":24,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4357619713,"task":"build","priority":2,"since":16}}
+{"v":1,"seq":25,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":3,"since":16}}
+{"v":1,"seq":26,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":1,"since":16}}
+{"v":1,"seq":27,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4356571137,"task":"scout","priority":2,"since":16}}
+{"v":1,"seq":28,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":3,"since":16}}
+{"v":1,"seq":29,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":1,"since":16}}
+{"v":1,"seq":30,"kind":"entity","loop":16,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":2,"since":16}}
+{"v":1,"seq":31,"kind":"series","loop":24,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":32,"kind":"series","loop":24,"ch":"econ/supply","data":12}
+{"v":1,"seq":33,"kind":"overlay","loop":24,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 24"},{"type":"polyline","points":[[124.5,104],[134.3,105.99],[135.21,113.02]]}]}
+{"v":1,"seq":34,"kind":"series","loop":32,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":35,"kind":"series","loop":32,"ch":"econ/supply","data":12}
+{"v":1,"seq":36,"kind":"overlay","loop":32,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 32"},{"type":"polyline","points":[[124.5,104],[134.15,106.64],[134.58,113.71]]}]}
+{"v":1,"seq":37,"kind":"overlay","loop":32,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"k8Ln+/zpxZZjNRMBBBpAb8Ln+/zpxZZjNRMBBBpAb6Ln+/zpxZZjNRMBBBpAb6LP+/zpxZZjNRMBBBpAb6LP7/zpxZZjNRMBBBpAb6LP7/3pxZZjNRMBBBpAb6LP7/34xZZjNRMBBBpAb6LP7/344JZjNRMBBBpAb6LP7/344LhjNRMBBBpAb6LP7/344LiHNRMBBBpAb6LP7/344LiHVRMBBBpAb6LP7/344LiHVSoBBBpAb6LP7/344LiHVSoMBBpAb6LP7/344LiHVSoMABpAb6LP7/344LiHVSoMAAhAb6LP7/344LiHVSoMAAgjb6LP7/344LiHVSoMAAgjTQ=="}]}
+{"v":1,"seq":38,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":1,"since":32}}
+{"v":1,"seq":39,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":2,"since":32}}
+{"v":1,"seq":40,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":3,"since":32}}
+{"v":1,"seq":41,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4356046849,"task":"defend","priority":1,"since":32}}
+{"v":1,"seq":42,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4356833281,"task":"build","priority":2,"since":32}}
+{"v":1,"seq":43,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":3,"since":32}}
+{"v":1,"seq":44,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":1,"since":32}}
+{"v":1,"seq":45,"kind":"entity","loop":32,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":2,"since":32}}
+{"v":1,"seq":46,"kind":"series","loop":40,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":47,"kind":"series","loop":40,"ch":"econ/supply","data":12}
+{"v":1,"seq":48,"kind":"overlay","loop":40,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 40"},{"type":"polyline","points":[[124.5,104],[133.95,107.27],[133.91,114.36]]}]}
+{"v":1,"seq":49,"kind":"overlay","loop":40,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":50,"kind":"event","loop":40,"ch":"test/log","data":{"msg":"step 5: 17 own units, 50 minerals","level":"info","data":{"step":5,"units":17}}}
+{"v":1,"seq":51,"kind":"series","loop":48,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":52,"kind":"series","loop":48,"ch":"econ/supply","data":12}
+{"v":1,"seq":53,"kind":"overlay","loop":48,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 48"},{"type":"polyline","points":[[124.5,104],[133.71,107.89],[133.2,114.97]]}]}
+{"v":1,"seq":54,"kind":"overlay","loop":48,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"ncvt/fnjvIxaLQ4AByBJesvt/fnjvIxaLQ4AByBJeqvt/fnjvIxaLQ4AByBJeqvW/fnjvIxaLQ4AByBJeqvW8/njvIxaLQ4AByBJeqvW8/7jvIxaLQ4AByBJeqvW8/71vIxaLQ4AByBJeqvW8/712YxaLQ4AByBJeqvW8/712a9aLQ4AByBJeqvW8/712a99LQ4AByBJeqvW8/712a99TA4AByBJeqvW8/712a99TCMAByBJeqvW8/712a99TCMIByBJeqvW8/712a99TCMIACBJeqvW8/712a99TCMIAAxJeqvW8/712a99TCMIAAwreqvW8/712a99TCMIAAwrVg=="}]}
+{"v":1,"seq":55,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":1,"since":48}}
+{"v":1,"seq":56,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":2,"since":48}}
+{"v":1,"seq":57,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":3,"since":48}}
+{"v":1,"seq":58,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":1,"since":48}}
+{"v":1,"seq":59,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4357357569,"task":"mine","priority":2,"since":48}}
+{"v":1,"seq":60,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":3,"since":48}}
+{"v":1,"seq":61,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":1,"since":48}}
+{"v":1,"seq":62,"kind":"entity","loop":48,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":2,"since":48}}
+{"v":1,"seq":63,"kind":"series","loop":56,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":64,"kind":"series","loop":56,"ch":"econ/supply","data":12}
+{"v":1,"seq":65,"kind":"overlay","loop":56,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 56"},{"type":"polyline","points":[[124.5,104],[133.43,108.5],[132.45,115.52]]}]}
+{"v":1,"seq":66,"kind":"series","loop":64,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":67,"kind":"series","loop":64,"ch":"econ/supply","data":12}
+{"v":1,"seq":68,"kind":"overlay","loop":64,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 64"},{"type":"polyline","points":[[124.5,104],[133.11,109.08],[131.67,116.03]]}]}
+{"v":1,"seq":69,"kind":"overlay","loop":64,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"p9Px/vbcs4JQJgoACidShNPx/vbcs4JQJgoACidShLXx/vbcs4JQJgoACidShLXd/vbcs4JQJgoACidShLXd9/bcs4JQJgoACidShLXd9/7cs4JQJgoACidShLXd9/7ws4JQJgoACidShLXd9/7w0YJQJgoACidShLXd9/7w0aVQJgoACidShLXd9/7w0aVzJgoACidShLXd9/7w0aVzQwoACidShLXd9/7w0aVzQxwACidShLXd9/7w0aVzQxwFCidShLXd9/7w0aVzQxwFASdShLXd9/7w0aVzQxwFARFShLXd9/7w0aVzQxwFAREzhLXd9/7w0aVzQxwFAREzYA=="}]}
+{"v":1,"seq":70,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":1,"since":64}}
+{"v":1,"seq":71,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":2,"since":64}}
+{"v":1,"seq":72,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":3,"since":64}}
+{"v":1,"seq":73,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":1,"since":64}}
+{"v":1,"seq":74,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":2,"since":64}}
+{"v":1,"seq":75,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":3,"since":64}}
+{"v":1,"seq":76,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4353949697,"task":"idle","priority":1,"since":64}}
+{"v":1,"seq":77,"kind":"entity","loop":64,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":2,"since":64}}
+{"v":1,"seq":78,"kind":"series","loop":72,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":79,"kind":"series","loop":72,"ch":"econ/supply","data":12}
+{"v":1,"seq":80,"kind":"overlay","loop":72,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 72"},{"type":"polyline","points":[[124.5,104],[132.75,109.65],[130.85,116.48]]}]}
+{"v":1,"seq":81,"kind":"series","loop":80,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":82,"kind":"series","loop":80,"ch":"econ/supply","data":12}
+{"v":1,"seq":83,"kind":"overlay","loop":80,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 80"},{"type":"polyline","points":[[124.5,104],[132.36,110.18],[130.01,116.87]]}]}
+{"v":1,"seq":84,"kind":"overlay","loop":80,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"sNr1/vLVqnhHHwYADy9cjtr1/vLVqnhHHwYADy9cjr71/vLVqnhHHwYADy9cjr7k/vLVqnhHHwYADy9cjr7k+vLVqnhHHwYADy9cjr7k+v3VqnhHHwYADy9cjr7k+v3sqnhHHwYADy9cjr7k+v3syXhHHwYADy9cjr7k+v3syZtHHwYADy9cjr7k+v3syZtpHwYADy9cjr7k+v3syZtpOgYADy9cjr7k+v3syZtpOhYADy9cjr7k+v3syZtpOhYCDy9cjr7k+v3syZtpOhYCAy9cjr7k+v3syZtpOhYCAxdcjr7k+v3syZtpOhYCAxc7jr7k+v3syZtpOhYCAxc7ag=="}]}
+{"v":1,"seq":85,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4356571137,"task":"mine","priority":1,"since":80}}
+{"v":1,"seq":86,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":2,"since":80}}
+{"v":1,"seq":87,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4354211841,"task":"defend","priority":3,"since":80}}
+{"v":1,"seq":88,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":1,"since":80}}
+{"v":1,"seq":89,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4354473985,"task":"idle","priority":2,"since":80}}
+{"v":1,"seq":90,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":3,"since":80}}
+{"v":1,"seq":91,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4357357569,"task":"scout","priority":1,"since":80}}
+{"v":1,"seq":92,"kind":"entity","loop":80,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":2,"since":80}}
+{"v":1,"seq":93,"kind":"overlay","loop":80,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":94,"kind":"event","loop":80,"ch":"test/log","data":{"msg":"step 10: 17 own units, 50 minerals","level":"warn","data":{"step":10,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":95,"kind":"snapshot","loop":80,"ch":"test/plan","data":{"revision":2,"objective":"expand","queue":["defend","build","idle"],"resources":{"minerals":50,"vespene":0}}}
+{"v":1,"seq":96,"kind":"series","loop":88,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":97,"kind":"series","loop":88,"ch":"econ/supply","data":12}
+{"v":1,"seq":98,"kind":"overlay","loop":88,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 88"},{"type":"polyline","points":[[124.5,104],[131.93,110.69],[129.14,117.21]]}]}
+{"v":1,"seq":99,"kind":"series","loop":96,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":100,"kind":"series","loop":96,"ch":"econ/supply","data":12}
+{"v":1,"seq":101,"kind":"overlay","loop":96,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 96"},{"type":"polyline","points":[[124.5,104],[131.47,111.17],[128.24,117.49]]}]}
+{"v":1,"seq":102,"kind":"overlay","loop":96,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"uuH5/e7NoG0+GQMCFDdlmOH5/e7NoG0+GQMCFDdlmMb5/e7NoG0+GQMCFDdlmMbq/e7NoG0+GQMCFDdlmMbq/O7NoG0+GQMCFDdlmMbq/PvNoG0+GQMCFDdlmMbq/PvmoG0+GQMCFDdlmMbq/PvmwW0+GQMCFDdlmMbq/PvmwZE+GQMCFDdlmMbq/PvmwZFfGQMCFDdlmMbq/PvmwZFfMgMCFDdlmMbq/PvmwZFfMhECFDdlmMbq/PvmwZFfMhEBFDdlmMbq/PvmwZFfMhEBBTdlmMbq/PvmwZFfMhEBBR1lmMbq/PvmwZFfMhEBBR1EmMbq/PvmwZFfMhEBBR1EdA=="}]}
+{"v":1,"seq":103,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":1,"since":96}}
+{"v":1,"seq":104,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":2,"since":96}}
+{"v":1,"seq":105,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":3,"since":96}}
+{"v":1,"seq":106,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4356571137,"task":"mine","priority":1,"since":96}}
+{"v":1,"seq":107,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":2,"since":96}}
+{"v":1,"seq":108,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":3,"since":96}}
+{"v":1,"seq":109,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":1,"since":96}}
+{"v":1,"seq":110,"kind":"entity","loop":96,"ch":"test/tasks","data":{"tag":4354473985,"task":"idle","priority":2,"since":96}}
+{"v":1,"seq":111,"kind":"series","loop":104,"ch":"econ","data":[{"name":"minerals","value":50},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":112,"kind":"series","loop":104,"ch":"econ/supply","data":12}
+{"v":1,"seq":113,"kind":"overlay","loop":104,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 104"},{"type":"polyline","points":[[124.5,104],[130.97,111.62],[127.34,117.71]]}]}
+{"v":1,"seq":114,"kind":"series","loop":112,"ch":"econ","data":[{"name":"minerals","value":55},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":115,"kind":"series","loop":112,"ch":"econ/supply","data":12}
+{"v":1,"seq":116,"kind":"overlay","loop":112,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 112"},{"type":"polyline","points":[[124.5,104],[130.45,112.04],[126.42,117.87]]}]}
+{"v":1,"seq":117,"kind":"overlay","loop":112,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"wuf7/OnFlmM1EwEEGkBvouf7/OnFlmM1EwEEGkBvos/7/OnFlmM1EwEEGkBvos/v/OnFlmM1EwEEGkBvos/v/enFlmM1EwEEGkBvos/v/fjFlmM1EwEEGkBvos/v/fjglmM1EwEEGkBvos/v/fjguGM1EwEEGkBvos/v/fjguIc1EwEEGkBvos/v/fjguIdVEwEEGkBvos/v/fjguIdVKgEEGkBvos/v/fjguIdVKgwEGkBvos/v/fjguIdVKgwAGkBvos/v/fjguIdVKgwACEBvos/v/fjguIdVKgwACCNvos/v/fjguIdVKgwACCNNos/v/fjguIdVKgwACCNNfg=="}]}
+{"v":1,"seq":118,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4358144001,"task":"idle","priority":1,"since":112}}
+{"v":1,"seq":119,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":2,"since":112}}
+{"v":1,"seq":120,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":3,"since":112}}
+{"v":1,"seq":121,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":1,"since":112}}
+{"v":1,"seq":122,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":2,"since":112}}
+{"v":1,"seq":123,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":3,"since":112}}
+{"v":1,"seq":124,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":1,"since":112}}
+{"v":1,"seq":125,"kind":"entity","loop":112,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":112}}
+{"v":1,"seq":126,"kind":"series","loop":120,"ch":"econ","data":[{"name":"minerals","value":55},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":127,"kind":"series","loop":120,"ch":"econ/supply","data":12}
+{"v":1,"seq":128,"kind":"overlay","loop":120,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 120"},{"type":"polyline","points":[[124.5,104],[129.9,112.41],[125.49,117.96]]}]}
+{"v":1,"seq":129,"kind":"overlay","loop":120,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":130,"kind":"event","loop":120,"ch":"test/log","data":{"msg":"step 15: 17 own units, 55 minerals","level":"error","data":{"step":15,"units":17}}}
+{"v":1,"seq":131,"kind":"series","loop":128,"ch":"econ","data":[{"name":"minerals","value":60},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":132,"kind":"series","loop":128,"ch":"econ/supply","data":12}
+{"v":1,"seq":133,"kind":"overlay","loop":128,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 128"},{"type":"polyline","points":[[124.5,104],[129.33,112.76],[124.56,118]]}]}
+{"v":1,"seq":134,"kind":"overlay","loop":128,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"y+39+eO8jFotDgAHIEl6q+39+eO8jFotDgAHIEl6q9b9+eO8jFotDgAHIEl6q9bz+eO8jFotDgAHIEl6q9bz/uO8jFotDgAHIEl6q9bz/vW8jFotDgAHIEl6q9bz/vXZjFotDgAHIEl6q9bz/vXZr1otDgAHIEl6q9bz/vXZr30tDgAHIEl6q9bz/vXZr31MDgAHIEl6q9bz/vXZr31MIwAHIEl6q9bz/vXZr31MIwgHIEl6q9bz/vXZr31MIwgAIEl6q9bz/vXZr31MIwgADEl6q9bz/vXZr31MIwgADCt6q9bz/vXZr31MIwgADCtWq9bz/vXZr31MIwgADCtWiA=="}]}
+{"v":1,"seq":135,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4355522561,"task":"scout","priority":1,"since":128}}
+{"v":1,"seq":136,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":2,"since":128}}
+{"v":1,"seq":137,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":3,"since":128}}
+{"v":1,"seq":138,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4358144001,"task":"idle","priority":1,"since":128}}
+{"v":1,"seq":139,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4356833281,"task":"mine","priority":2,"since":128}}
+{"v":1,"seq":140,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":3,"since":128}}
+{"v":1,"seq":141,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4356046849,"task":"defend","priority":1,"since":128}}
+{"v":1,"seq":142,"kind":"entity","loop":128,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":2,"since":128}}
+{"v":1,"seq":143,"kind":"series","loop":136,"ch":"econ","data":[{"name":"minerals","value":65},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":144,"kind":"series","loop":136,"ch":"econ/supply","data":12}
+{"v":1,"seq":145,"kind":"overlay","loop":136,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 136"},{"type":"polyline","points":[[124.5,104],[128.74,113.06],[123.63,117.97]]}]}
+{"v":1,"seq":146,"kind":"series","loop":144,"ch":"econ","data":[{"name":"minerals","value":70},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":147,"kind":"series","loop":144,"ch":"econ/supply","data":12}
+{"v":1,"seq":148,"kind":"overlay","loop":144,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 144"},{"type":"polyline","points":[[124.5,104],[128.12,113.32],[122.7,117.88]]}]}
+{"v":1,"seq":149,"kind":"overlay","loop":144,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"0/H+9tyzglAmCgAKJ1KEtfH+9tyzglAmCgAKJ1KEtd3+9tyzglAmCgAKJ1KEtd339tyzglAmCgAKJ1KEtd33/tyzglAmCgAKJ1KEtd33/vCzglAmCgAKJ1KEtd33/vDRglAmCgAKJ1KEtd33/vDRpVAmCgAKJ1KEtd33/vDRpXMmCgAKJ1KEtd33/vDRpXNDCgAKJ1KEtd33/vDRpXNDHAAKJ1KEtd33/vDRpXNDHAUKJ1KEtd33/vDRpXNDHAUBJ1KEtd33/vDRpXNDHAUBEVKEtd33/vDRpXNDHAUBETOEtd33/vDRpXNDHAUBETNgtd33/vDRpXNDHAUBETNgkg=="}]}
+{"v":1,"seq":150,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":1,"since":144}}
+{"v":1,"seq":151,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":2,"since":144}}
+{"v":1,"seq":152,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4356308993,"task":"mine","priority":3,"since":144}}
+{"v":1,"seq":153,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":1,"since":144}}
+{"v":1,"seq":154,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":2,"since":144}}
+{"v":1,"seq":155,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":3,"since":144}}
+{"v":1,"seq":156,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4356571137,"task":"idle","priority":1,"since":144}}
+{"v":1,"seq":157,"kind":"entity","loop":144,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":2,"since":144}}
+{"v":1,"seq":158,"kind":"series","loop":152,"ch":"econ","data":[{"name":"minerals","value":75},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":159,"kind":"series","loop":152,"ch":"econ/supply","data":12}
+{"v":1,"seq":160,"kind":"overlay","loop":152,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 152"},{"type":"polyline","points":[[124.5,104],[127.49,113.54],[121.78,117.73]]}]}
+{"v":1,"seq":161,"kind":"series","loop":160,"ch":"econ","data":[{"name":"minerals","value":90},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":162,"kind":"series","loop":160,"ch":"econ/supply","data":12}
+{"v":1,"seq":163,"kind":"overlay","loop":160,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 160"},{"type":"polyline","points":[[124.5,104],[126.85,113.72],[120.87,117.52]]}]}
+{"v":1,"seq":164,"kind":"overlay","loop":160,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"2vX+8tWqeEcfBgAPL1yOvvX+8tWqeEcfBgAPL1yOvuT+8tWqeEcfBgAPL1yOvuT68tWqeEcfBgAPL1yOvuT6/dWqeEcfBgAPL1yOvuT6/eyqeEcfBgAPL1yOvuT6/ezJeEcfBgAPL1yOvuT6/ezJm0cfBgAPL1yOvuT6/ezJm2kfBgAPL1yOvuT6/ezJm2k6BgAPL1yOvuT6/ezJm2k6FgAPL1yOvuT6/ezJm2k6FgIPL1yOvuT6/ezJm2k6FgIDL1yOvuT6/ezJm2k6FgIDF1yOvuT6/ezJm2k6FgIDFzuOvuT6/ezJm2k6FgIDFztqvuT6/ezJm2k6FgIDFztqnA=="}]}
+{"v":1,"seq":165,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":1,"since":160}}
+{"v":1,"seq":166,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":2,"since":160}}
+{"v":1,"seq":167,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":3,"since":160}}
+{"v":1,"seq":168,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":1,"since":160}}
+{"v":1,"seq":169,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4356046849,"task":"idle","priority":2,"since":160}}
+{"v":1,"seq":170,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":3,"since":160}}
+{"v":1,"seq":171,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4356308993,"task":"scout","priority":1,"since":160}}
+{"v":1,"seq":172,"kind":"entity","loop":160,"ch":"test/tasks","data":{"tag":4357357569,"task":"defend","priority":2,"since":160}}
+{"v":1,"seq":173,"kind":"overlay","loop":160,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":174,"kind":"event","loop":160,"ch":"test/log","data":{"msg":"step 20: 17 own units, 90 minerals","level":"debug","data":{"step":20,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":175,"kind":"snapshot","loop":160,"ch":"test/plan","data":{"revision":3,"objective":"defend","queue":["build","idle"],"resources":{"minerals":90,"vespene":0}}}
+{"v":1,"seq":176,"kind":"series","loop":168,"ch":"econ","data":[{"name":"minerals","value":90},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":177,"kind":"series","loop":168,"ch":"econ/supply","data":12}
+{"v":1,"seq":178,"kind":"overlay","loop":168,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 168"},{"type":"polyline","points":[[124.5,104],[126.2,113.85],[119.97,117.25]]}]}
+{"v":1,"seq":179,"kind":"series","loop":176,"ch":"econ","data":[{"name":"minerals","value":95},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":180,"kind":"series","loop":176,"ch":"econ/supply","data":12}
+{"v":1,"seq":181,"kind":"overlay","loop":176,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 176"},{"type":"polyline","points":[[124.5,104],[125.54,113.95],[119.1,116.92]]}]}
+{"v":1,"seq":182,"kind":"overlay","loop":176,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"4fn97s2gbT4ZAwIUN2WYxvn97s2gbT4ZAwIUN2WYxur97s2gbT4ZAwIUN2WYxur87s2gbT4ZAwIUN2WYxur8+82gbT4ZAwIUN2WYxur8++agbT4ZAwIUN2WYxur8++bBbT4ZAwIUN2WYxur8++bBkT4ZAwIUN2WYxur8++bBkV8ZAwIUN2WYxur8++bBkV8yAwIUN2WYxur8++bBkV8yEQIUN2WYxur8++bBkV8yEQEUN2WYxur8++bBkV8yEQEFN2WYxur8++bBkV8yEQEFHWWYxur8++bBkV8yEQEFHUSYxur8++bBkV8yEQEFHUR0xur8++bBkV8yEQEFHUR0pg=="}]}
+{"v":1,"seq":183,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":1,"since":176}}
+{"v":1,"seq":184,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4357357569,"task":"build","priority":2,"since":176}}
+{"v":1,"seq":185,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":3,"since":176}}
+{"v":1,"seq":186,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":1,"since":176}}
+{"v":1,"seq":187,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":2,"since":176}}
+{"v":1,"seq":188,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":3,"since":176}}
+{"v":1,"seq":189,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":1,"since":176}}
+{"v":1,"seq":190,"kind":"entity","loop":176,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":2,"since":176}}
+{"v":1,"seq":191,"kind":"series","loop":184,"ch":"econ","data":[{"name":"minerals","value":100},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":192,"kind":"series","loop":184,"ch":"econ/supply","data":12}
+{"v":1,"seq":193,"kind":"overlay","loop":184,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 184"},{"type":"polyline","points":[[124.5,104],[124.87,113.99],[118.25,116.53]]}]}
+{"v":1,"seq":194,"kind":"series","loop":192,"ch":"econ","data":[{"name":"minerals","value":105},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":195,"kind":"series","loop":192,"ch":"econ/supply","data":12}
+{"v":1,"seq":196,"kind":"overlay","loop":192,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 192"},{"type":"polyline","points":[[124.5,104],[124.21,114],[117.43,116.08]]}]}
+{"v":1,"seq":197,"kind":"overlay","loop":192,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"5/v86cWWYzUTAQQaQG+iz/v86cWWYzUTAQQaQG+iz+/86cWWYzUTAQQaQG+iz+/96cWWYzUTAQQaQG+iz+/9+MWWYzUTAQQaQG+iz+/9+OCWYzUTAQQaQG+iz+/9+OC4YzUTAQQaQG+iz+/9+OC4hzUTAQQaQG+iz+/9+OC4h1UTAQQaQG+iz+/9+OC4h1UqAQQaQG+iz+/9+OC4h1UqDAQaQG+iz+/9+OC4h1UqDAAaQG+iz+/9+OC4h1UqDAAIQG+iz+/9+OC4h1UqDAAII2+iz+/9+OC4h1UqDAAII02iz+/9+OC4h1UqDAAII01+z+/9+OC4h1UqDAAII01+sA=="}]}
+{"v":1,"seq":198,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4356046849,"task":"idle","priority":1,"since":192}}
+{"v":1,"seq":199,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":2,"since":192}}
+{"v":1,"seq":200,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":3,"since":192}}
+{"v":1,"seq":201,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":1,"since":192}}
+{"v":1,"seq":202,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":2,"since":192}}
+{"v":1,"seq":203,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":3,"since":192}}
+{"v":1,"seq":204,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":192}}
+{"v":1,"seq":205,"kind":"entity","loop":192,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":2,"since":192}}
+{"v":1,"seq":206,"kind":"series","loop":200,"ch":"econ","data":[{"name":"minerals","value":110},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":207,"kind":"series","loop":200,"ch":"econ/supply","data":12}
+{"v":1,"seq":208,"kind":"overlay","loop":200,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 200"},{"type":"polyline","points":[[124.5,104],[123.54,113.95],[116.64,115.59]]}]}
+{"v":1,"seq":209,"kind":"overlay","loop":200,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":210,"kind":"event","loop":200,"ch":"test/log","data":{"msg":"step 25: 17 own units, 110 minerals","level":"info","data":{"step":25,"units":17}}}
+{"v":1,"seq":211,"kind":"series","loop":208,"ch":"econ","data":[{"name":"minerals","value":110},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":212,"kind":"series","loop":208,"ch":"econ/supply","data":12}
+{"v":1,"seq":213,"kind":"overlay","loop":208,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 208"},{"type":"polyline","points":[[124.5,104],[122.88,113.87],[115.89,115.04]]}]}
+{"v":1,"seq":214,"kind":"overlay","loop":208,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"7f3547yMWi0OAAcgSXqr1v3547yMWi0OAAcgSXqr1vP547yMWi0OAAcgSXqr1vP+47yMWi0OAAcgSXqr1vP+9byMWi0OAAcgSXqr1vP+9dmMWi0OAAcgSXqr1vP+9dmvWi0OAAcgSXqr1vP+9dmvfS0OAAcgSXqr1vP+9dmvfUwOAAcgSXqr1vP+9dmvfUwjAAcgSXqr1vP+9dmvfUwjCAcgSXqr1vP+9dmvfUwjCAAgSXqr1vP+9dmvfUwjCAAMSXqr1vP+9dmvfUwjCAAMK3qr1vP+9dmvfUwjCAAMK1ar1vP+9dmvfUwjCAAMK1aI1vP+9dmvfUwjCAAMK1aIuQ=="}]}
+{"v":1,"seq":215,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":1,"since":208}}
+{"v":1,"seq":216,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4355784705,"task":"defend","priority":2,"since":208}}
+{"v":1,"seq":217,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4357095425,"task":"build","priority":3,"since":208}}
+{"v":1,"seq":218,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4357619713,"task":"idle","priority":1,"since":208}}
+{"v":1,"seq":219,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4354211841,"task":"mine","priority":2,"since":208}}
+{"v":1,"seq":220,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4353949697,"task":"scout","priority":3,"since":208}}
+{"v":1,"seq":221,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":1,"since":208}}
+{"v":1,"seq":222,"kind":"entity","loop":208,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":2,"since":208}}
+{"v":1,"seq":223,"kind":"series","loop":216,"ch":"econ","data":[{"name":"minerals","value":110},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":224,"kind":"series","loop":216,"ch":"econ/supply","data":12}
+{"v":1,"seq":225,"kind":"overlay","loop":216,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 216"},{"type":"polyline","points":[[124.5,104],[122.23,113.74],[115.17,114.44]]}]}
+{"v":1,"seq":226,"kind":"series","loop":224,"ch":"econ","data":[{"name":"minerals","value":110},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":227,"kind":"series","loop":224,"ch":"econ/supply","data":12}
+{"v":1,"seq":228,"kind":"overlay","loop":224,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 224"},{"type":"polyline","points":[[124.5,104],[121.58,113.57],[114.5,113.8]]}]}
+{"v":1,"seq":229,"kind":"overlay","loop":224,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"8f723LOCUCYKAAonUoS13f723LOCUCYKAAonUoS13ff23LOCUCYKAAonUoS13ff+3LOCUCYKAAonUoS13ff+8LOCUCYKAAonUoS13ff+8NGCUCYKAAonUoS13ff+8NGlUCYKAAonUoS13ff+8NGlcyYKAAonUoS13ff+8NGlc0MKAAonUoS13ff+8NGlc0McAAonUoS13ff+8NGlc0McBQonUoS13ff+8NGlc0McBQEnUoS13ff+8NGlc0McBQERUoS13ff+8NGlc0McBQERM4S13ff+8NGlc0McBQERM2C13ff+8NGlc0McBQERM2CS3ff+8NGlc0McBQERM2CSwg=="}]}
+{"v":1,"seq":230,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":1,"since":224}}
+{"v":1,"seq":231,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4353949697,"task":"idle","priority":2,"since":224}}
+{"v":1,"seq":232,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4355260417,"task":"mine","priority":3,"since":224}}
+{"v":1,"seq":233,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4356308993,"task":"scout","priority":1,"since":224}}
+{"v":1,"seq":234,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4354211841,"task":"defend","priority":2,"since":224}}
+{"v":1,"seq":235,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":3,"since":224}}
+{"v":1,"seq":236,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4357619713,"task":"idle","priority":1,"since":224}}
+{"v":1,"seq":237,"kind":"entity","loop":224,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":2,"since":224}}
+{"v":1,"seq":238,"kind":"series","loop":232,"ch":"econ","data":[{"name":"minerals","value":110},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":239,"kind":"series","loop":232,"ch":"econ/supply","data":12}
+{"v":1,"seq":240,"kind":"overlay","loop":232,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 232"},{"type":"polyline","points":[[124.5,104],[120.95,113.35],[113.87,113.11]]}]}
+{"v":1,"seq":241,"kind":"series","loop":240,"ch":"econ","data":[{"name":"minerals","value":115},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":242,"kind":"series","loop":240,"ch":"econ/supply","data":12}
+{"v":1,"seq":243,"kind":"overlay","loop":240,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 240"},{"type":"polyline","points":[[124.5,104],[120.34,113.09],[113.28,112.38]]}]}
+{"v":1,"seq":244,"kind":"overlay","loop":240,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"9f7y1ap4Rx8GAA8vXI6+5P7y1ap4Rx8GAA8vXI6+5Pry1ap4Rx8GAA8vXI6+5Pr91ap4Rx8GAA8vXI6+5Pr97Kp4Rx8GAA8vXI6+5Pr97Ml4Rx8GAA8vXI6+5Pr97MmbRx8GAA8vXI6+5Pr97MmbaR8GAA8vXI6+5Pr97MmbaToGAA8vXI6+5Pr97MmbaToWAA8vXI6+5Pr97MmbaToWAg8vXI6+5Pr97MmbaToWAgMvXI6+5Pr97MmbaToWAgMXXI6+5Pr97MmbaToWAgMXO46+5Pr97MmbaToWAgMXO2q+5Pr97MmbaToWAgMXO2qc5Pr97MmbaToWAgMXO2qcyg=="}]}
+{"v":1,"seq":245,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":240}}
+{"v":1,"seq":246,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":240}}
+{"v":1,"seq":247,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":3,"since":240}}
+{"v":1,"seq":248,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4354211841,"task":"build","priority":1,"since":240}}
+{"v":1,"seq":249,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":2,"since":240}}
+{"v":1,"seq":250,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":3,"since":240}}
+{"v":1,"seq":251,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":1,"since":240}}
+{"v":1,"seq":252,"kind":"entity","loop":240,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":2,"since":240}}
+{"v":1,"seq":253,"kind":"overlay","loop":240,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":254,"kind":"event","loop":240,"ch":"test/log","data":{"msg":"step 30: 17 own units, 115 minerals","level":"warn","data":{"step":30,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":255,"kind":"snapshot","loop":240,"ch":"test/plan","data":{"revision":4,"objective":"expand","queue":["idle"],"resources":{"minerals":115,"vespene":0}}}
+{"v":1,"seq":256,"kind":"series","loop":248,"ch":"econ","data":[{"name":"minerals","value":120},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":257,"kind":"series","loop":248,"ch":"econ/supply","data":12}
+{"v":1,"seq":258,"kind":"overlay","loop":248,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 248"},{"type":"polyline","points":[[124.5,104],[119.74,112.8],[112.75,111.61]]}]}
+{"v":1,"seq":259,"kind":"series","loop":256,"ch":"econ","data":[{"name":"minerals","value":135},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":260,"kind":"series","loop":256,"ch":"econ/supply","data":12}
+{"v":1,"seq":261,"kind":"overlay","loop":256,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 256"},{"type":"polyline","points":[[124.5,104],[119.17,112.46],[112.27,110.81]]}]}
+{"v":1,"seq":262,"kind":"overlay","loop":256,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"+f3uzaBtPhkDAhQ3ZZjG6v3uzaBtPhkDAhQ3ZZjG6vzuzaBtPhkDAhQ3ZZjG6vz7zaBtPhkDAhQ3ZZjG6vz75qBtPhkDAhQ3ZZjG6vz75sFtPhkDAhQ3ZZjG6vz75sGRPhkDAhQ3ZZjG6vz75sGRXxkDAhQ3ZZjG6vz75sGRXzIDAhQ3ZZjG6vz75sGRXzIRAhQ3ZZjG6vz75sGRXzIRARQ3ZZjG6vz75sGRXzIRAQU3ZZjG6vz75sGRXzIRAQUdZZjG6vz75sGRXzIRAQUdRJjG6vz75sGRXzIRAQUdRHTG6vz75sGRXzIRAQUdRHSm6vz75sGRXzIRAQUdRHSm0g=="}]}
+{"v":1,"seq":263,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":1,"since":256}}
+{"v":1,"seq":264,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":2,"since":256}}
+{"v":1,"seq":265,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":3,"since":256}}
+{"v":1,"seq":266,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":1,"since":256}}
+{"v":1,"seq":267,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":2,"since":256}}
+{"v":1,"seq":268,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":3,"since":256}}
+{"v":1,"seq":269,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":1,"since":256}}
+{"v":1,"seq":270,"kind":"entity","loop":256,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":2,"since":256}}
+{"v":1,"seq":271,"kind":"series","loop":264,"ch":"econ","data":[{"name":"minerals","value":140},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":272,"kind":"series","loop":264,"ch":"econ/supply","data":12}
+{"v":1,"seq":273,"kind":"overlay","loop":264,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 264"},{"type":"polyline","points":[[124.5,104],[118.61,112.08],[111.84,109.98]]}]}
+{"v":1,"seq":274,"kind":"series","loop":272,"ch":"econ","data":[{"name":"minerals","value":140},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":275,"kind":"series","loop":272,"ch":"econ/supply","data":12}
+{"v":1,"seq":276,"kind":"overlay","loop":272,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 272"},{"type":"polyline","points":[[124.5,104],[118.09,111.67],[111.47,109.13]]}]}
+{"v":1,"seq":277,"kind":"overlay","loop":272,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"+/zpxZZjNRMBBBpAb6LP7/zpxZZjNRMBBBpAb6LP7/3pxZZjNRMBBBpAb6LP7/34xZZjNRMBBBpAb6LP7/344JZjNRMBBBpAb6LP7/344LhjNRMBBBpAb6LP7/344LiHNRMBBBpAb6LP7/344LiHVRMBBBpAb6LP7/344LiHVSoBBBpAb6LP7/344LiHVSoMBBpAb6LP7/344LiHVSoMABpAb6LP7/344LiHVSoMAAhAb6LP7/344LiHVSoMAAgjb6LP7/344LiHVSoMAAgjTaLP7/344LiHVSoMAAgjTX7P7/344LiHVSoMAAgjTX6w7/344LiHVSoMAAgjTX6w2g=="}]}
+{"v":1,"seq":278,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4358144001,"task":"idle","priority":1,"since":272}}
+{"v":1,"seq":279,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4354998273,"task":"mine","priority":2,"since":272}}
+{"v":1,"seq":280,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":3,"since":272}}
+{"v":1,"seq":281,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4357357569,"task":"defend","priority":1,"since":272}}
+{"v":1,"seq":282,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4356833281,"task":"build","priority":2,"since":272}}
+{"v":1,"seq":283,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":3,"since":272}}
+{"v":1,"seq":284,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":272}}
+{"v":1,"seq":285,"kind":"entity","loop":272,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":2,"since":272}}
+{"v":1,"seq":286,"kind":"series","loop":280,"ch":"econ","data":[{"name":"minerals","value":150},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":287,"kind":"series","loop":280,"ch":"econ/supply","data":12}
+{"v":1,"seq":288,"kind":"overlay","loop":280,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 280"},{"type":"polyline","points":[[124.5,104],[117.59,111.23],[111.16,108.25]]}]}
+{"v":1,"seq":289,"kind":"overlay","loop":280,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":290,"kind":"event","loop":280,"ch":"test/log","data":{"msg":"step 35: 17 own units, 150 minerals","level":"error","data":{"step":35,"units":17}}}
+{"v":1,"seq":291,"kind":"series","loop":288,"ch":"econ","data":[{"name":"minerals","value":150},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":292,"kind":"series","loop":288,"ch":"econ/supply","data":12}
+{"v":1,"seq":293,"kind":"overlay","loop":288,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 288"},{"type":"polyline","points":[[124.5,104],[117.13,110.75],[110.91,107.35]]}]}
+{"v":1,"seq":294,"kind":"overlay","loop":288,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"/fnjvIxaLQ4AByBJeqvW8/njvIxaLQ4AByBJeqvW8/7jvIxaLQ4AByBJeqvW8/71vIxaLQ4AByBJeqvW8/712YxaLQ4AByBJeqvW8/712a9aLQ4AByBJeqvW8/712a99LQ4AByBJeqvW8/712a99TA4AByBJeqvW8/712a99TCMAByBJeqvW8/712a99TCMIByBJeqvW8/712a99TCMIACBJeqvW8/712a99TCMIAAxJeqvW8/712a99TCMIAAwreqvW8/712a99TCMIAAwrVqvW8/712a99TCMIAAwrVojW8/712a99TCMIAAwrVoi58/712a99TCMIAAwrVoi54A=="}]}
+{"v":1,"seq":295,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4356833281,"task":"scout","priority":1,"since":288}}
+{"v":1,"seq":296,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":2,"since":288}}
+{"v":1,"seq":297,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":3,"since":288}}
+{"v":1,"seq":298,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":1,"since":288}}
+{"v":1,"seq":299,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":2,"since":288}}
+{"v":1,"seq":300,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4354211841,"task":"scout","priority":3,"since":288}}
+{"v":1,"seq":301,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":1,"since":288}}
+{"v":1,"seq":302,"kind":"entity","loop":288,"ch":"test/tasks","data":{"tag":4357357569,"task":"build","priority":2,"since":288}}
+{"v":1,"seq":303,"kind":"series","loop":296,"ch":"econ","data":[{"name":"minerals","value":155},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":304,"kind":"series","loop":296,"ch":"econ/supply","data":12}
+{"v":1,"seq":305,"kind":"overlay","loop":296,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 296"},{"type":"polyline","points":[[124.5,104],[116.69,110.25],[110.71,106.44]]}]}
+{"v":1,"seq":306,"kind":"series","loop":304,"ch":"econ","data":[{"name":"minerals","value":165},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":307,"kind":"series","loop":304,"ch":"econ/supply","data":12}
+{"v":1,"seq":308,"kind":"overlay","loop":304,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 304"},{"type":"polyline","points":[[124.5,104],[116.29,109.71],[110.58,105.51]]}]}
+{"v":1,"seq":309,"kind":"overlay","loop":304,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"/vbcs4JQJgoACidShLXd9/bcs4JQJgoACidShLXd9/7cs4JQJgoACidShLXd9/7ws4JQJgoACidShLXd9/7w0YJQJgoACidShLXd9/7w0aVQJgoACidShLXd9/7w0aVzJgoACidShLXd9/7w0aVzQwoACidShLXd9/7w0aVzQxwACidShLXd9/7w0aVzQxwFCidShLXd9/7w0aVzQxwFASdShLXd9/7w0aVzQxwFARFShLXd9/7w0aVzQxwFAREzhLXd9/7w0aVzQxwFAREzYLXd9/7w0aVzQxwFAREzYJLd9/7w0aVzQxwFAREzYJLC9/7w0aVzQxwFAREzYJLC5w=="}]}
+{"v":1,"seq":310,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":1,"since":304}}
+{"v":1,"seq":311,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":2,"since":304}}
+{"v":1,"seq":312,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":3,"since":304}}
+{"v":1,"seq":313,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":1,"since":304}}
+{"v":1,"seq":314,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":2,"since":304}}
+{"v":1,"seq":315,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":3,"since":304}}
+{"v":1,"seq":316,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":1,"since":304}}
+{"v":1,"seq":317,"kind":"entity","loop":304,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":2,"since":304}}
+{"v":1,"seq":318,"kind":"series","loop":312,"ch":"econ","data":[{"name":"minerals","value":165},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":319,"kind":"series","loop":312,"ch":"econ/supply","data":12}
+{"v":1,"seq":320,"kind":"overlay","loop":312,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 312"},{"type":"polyline","points":[[124.5,104],[115.93,109.16],[110.51,104.58]]}]}
+{"v":1,"seq":321,"kind":"series","loop":320,"ch":"econ","data":[{"name":"minerals","value":170},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":322,"kind":"series","loop":320,"ch":"econ/supply","data":12}
+{"v":1,"seq":323,"kind":"overlay","loop":320,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 320"},{"type":"polyline","points":[[124.5,104],[115.61,108.57],[110.5,103.65]]}]}
+{"v":1,"seq":324,"kind":"overlay","loop":320,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"/vLVqnhHHwYADy9cjr7k+vLVqnhHHwYADy9cjr7k+v3VqnhHHwYADy9cjr7k+v3sqnhHHwYADy9cjr7k+v3syXhHHwYADy9cjr7k+v3syZtHHwYADy9cjr7k+v3syZtpHwYADy9cjr7k+v3syZtpOgYADy9cjr7k+v3syZtpOhYADy9cjr7k+v3syZtpOhYCDy9cjr7k+v3syZtpOhYCAy9cjr7k+v3syZtpOhYCAxdcjr7k+v3syZtpOhYCAxc7jr7k+v3syZtpOhYCAxc7ar7k+v3syZtpOhYCAxc7apzk+v3syZtpOhYCAxc7apzK+v3syZtpOhYCAxc7apzK7A=="}]}
+{"v":1,"seq":325,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":320}}
+{"v":1,"seq":326,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4356046849,"task":"scout","priority":2,"since":320}}
+{"v":1,"seq":327,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":3,"since":320}}
+{"v":1,"seq":328,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":1,"since":320}}
+{"v":1,"seq":329,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":2,"since":320}}
+{"v":1,"seq":330,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":3,"since":320}}
+{"v":1,"seq":331,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":1,"since":320}}
+{"v":1,"seq":332,"kind":"entity","loop":320,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":2,"since":320}}
+{"v":1,"seq":333,"kind":"overlay","loop":320,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":334,"kind":"event","loop":320,"ch":"test/log","data":{"msg":"step 40: 17 own units, 170 minerals","level":"debug","data":{"step":40,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":335,"kind":"snapshot","loop":320,"ch":"test/plan","data":{"revision":5,"objective":"defend","queue":["mine","scout","defend","build","idle"],"resources":{"minerals":170,"vespene":0}}}
+{"v":1,"seq":336,"kind":"series","loop":328,"ch":"econ","data":[{"name":"minerals","value":170},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":337,"kind":"series","loop":328,"ch":"econ/supply","data":12}
+{"v":1,"seq":338,"kind":"overlay","loop":328,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 328"},{"type":"polyline","points":[[124.5,104],[115.32,107.97],[110.56,102.72]]}]}
+{"v":1,"seq":339,"kind":"series","loop":336,"ch":"econ","data":[{"name":"minerals","value":170},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":340,"kind":"series","loop":336,"ch":"econ/supply","data":12}
+{"v":1,"seq":341,"kind":"overlay","loop":336,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 336"},{"type":"polyline","points":[[124.5,104],[115.08,107.35],[110.68,101.79]]}]}
+{"v":1,"seq":342,"kind":"overlay","loop":336,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"/e7NoG0+GQMCFDdlmMbq/O7NoG0+GQMCFDdlmMbq/PvNoG0+GQMCFDdlmMbq/PvmoG0+GQMCFDdlmMbq/PvmwW0+GQMCFDdlmMbq/PvmwZE+GQMCFDdlmMbq/PvmwZFfGQMCFDdlmMbq/PvmwZFfMgMCFDdlmMbq/PvmwZFfMhECFDdlmMbq/PvmwZFfMhEBFDdlmMbq/PvmwZFfMhEBBTdlmMbq/PvmwZFfMhEBBR1lmMbq/PvmwZFfMhEBBR1EmMbq/PvmwZFfMhEBBR1EdMbq/PvmwZFfMhEBBR1EdKbq/PvmwZFfMhEBBR1EdKbS/PvmwZFfMhEBBR1EdKbS8Q=="}]}
+{"v":1,"seq":343,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":1,"since":336}}
+{"v":1,"seq":344,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":2,"since":336}}
+{"v":1,"seq":345,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4356308993,"task":"idle","priority":3,"since":336}}
+{"v":1,"seq":346,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":1,"since":336}}
+{"v":1,"seq":347,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":2,"since":336}}
+{"v":1,"seq":348,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":3,"since":336}}
+{"v":1,"seq":349,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":1,"since":336}}
+{"v":1,"seq":350,"kind":"entity","loop":336,"ch":"test/tasks","data":{"tag":4357095425,"task":"idle","priority":2,"since":336}}
+{"v":1,"seq":351,"kind":"series","loop":344,"ch":"econ","data":[{"name":"minerals","value":170},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":352,"kind":"series","loop":344,"ch":"econ/supply","data":12}
+{"v":1,"seq":353,"kind":"overlay","loop":344,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 344"},{"type":"polyline","points":[[124.5,104],[114.88,106.71],[110.85,100.88]]}]}
+{"v":1,"seq":354,"kind":"series","loop":352,"ch":"econ","data":[{"name":"minerals","value":170},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":355,"kind":"series","loop":352,"ch":"econ/supply","data":12}
+{"v":1,"seq":356,"kind":"overlay","loop":352,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 352"},{"type":"polyline","points":[[124.5,104],[114.72,106.07],[111.09,99.97]]}]}
+{"v":1,"seq":357,"kind":"overlay","loop":352,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"/OnFlmM1EwEEGkBvos/v/enFlmM1EwEEGkBvos/v/fjFlmM1EwEEGkBvos/v/fjglmM1EwEEGkBvos/v/fjguGM1EwEEGkBvos/v/fjguIc1EwEEGkBvos/v/fjguIdVEwEEGkBvos/v/fjguIdVKgEEGkBvos/v/fjguIdVKgwEGkBvos/v/fjguIdVKgwAGkBvos/v/fjguIdVKgwACEBvos/v/fjguIdVKgwACCNvos/v/fjguIdVKgwACCNNos/v/fjguIdVKgwACCNNfs/v/fjguIdVKgwACCNNfrDv/fjguIdVKgwACCNNfrDa/fjguIdVKgwACCNNfrDa9Q=="}]}
+{"v":1,"seq":358,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":1,"since":352}}
+{"v":1,"seq":359,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":352}}
+{"v":1,"seq":360,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":3,"since":352}}
+{"v":1,"seq":361,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":1,"since":352}}
+{"v":1,"seq":362,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4354211841,"task":"build","priority":2,"since":352}}
+{"v":1,"seq":363,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":3,"since":352}}
+{"v":1,"seq":364,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":352}}
+{"v":1,"seq":365,"kind":"entity","loop":352,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":2,"since":352}}
+{"v":1,"seq":366,"kind":"series","loop":360,"ch":"econ","data":[{"name":"minerals","value":180},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":367,"kind":"series","loop":360,"ch":"econ/supply","data":12}
+{"v":1,"seq":368,"kind":"overlay","loop":360,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 360"},{"type":"polyline","points":[[124.5,104],[114.6,105.41],[111.39,99.09]]}]}
+{"v":1,"seq":369,"kind":"overlay","loop":360,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":370,"kind":"event","loop":360,"ch":"test/log","data":{"msg":"step 45: 17 own units, 180 minerals","level":"info","data":{"step":45,"units":17}}}
+{"v":1,"seq":371,"kind":"series","loop":368,"ch":"econ","data":[{"name":"minerals","value":190},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":372,"kind":"series","loop":368,"ch":"econ/supply","data":12}
+{"v":1,"seq":373,"kind":"overlay","loop":368,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 368"},{"type":"polyline","points":[[124.5,104],[114.53,104.75],[111.75,98.23]]}]}
+{"v":1,"seq":374,"kind":"overlay","loop":368,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"+eO8jFotDgAHIEl6q9bz/uO8jFotDgAHIEl6q9bz/vW8jFotDgAHIEl6q9bz/vXZjFotDgAHIEl6q9bz/vXZr1otDgAHIEl6q9bz/vXZr30tDgAHIEl6q9bz/vXZr31MDgAHIEl6q9bz/vXZr31MIwAHIEl6q9bz/vXZr31MIwgHIEl6q9bz/vXZr31MIwgAIEl6q9bz/vXZr31MIwgADEl6q9bz/vXZr31MIwgADCt6q9bz/vXZr31MIwgADCtWq9bz/vXZr31MIwgADCtWiNbz/vXZr31MIwgADCtWiLnz/vXZr31MIwgADCtWiLng/vXZr31MIwgADCtWiLng+A=="}]}
+{"v":1,"seq":375,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4354211841,"task":"scout","priority":1,"since":368}}
+{"v":1,"seq":376,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":2,"since":368}}
+{"v":1,"seq":377,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4354998273,"task":"build","priority":3,"since":368}}
+{"v":1,"seq":378,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":1,"since":368}}
+{"v":1,"seq":379,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":368}}
+{"v":1,"seq":380,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4356308993,"task":"scout","priority":3,"since":368}}
+{"v":1,"seq":381,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":1,"since":368}}
+{"v":1,"seq":382,"kind":"entity","loop":368,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":2,"since":368}}
+{"v":1,"seq":383,"kind":"series","loop":376,"ch":"econ","data":[{"name":"minerals","value":200},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":384,"kind":"series","loop":376,"ch":"econ/supply","data":12}
+{"v":1,"seq":385,"kind":"overlay","loop":376,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 376"},{"type":"polyline","points":[[124.5,104],[114.5,104.08],[112.16,97.39]]}]}
+{"v":1,"seq":386,"kind":"series","loop":384,"ch":"econ","data":[{"name":"minerals","value":200},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":387,"kind":"series","loop":384,"ch":"econ/supply","data":12}
+{"v":1,"seq":388,"kind":"overlay","loop":384,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 384"},{"type":"polyline","points":[[124.5,104],[114.52,103.42],[112.63,96.58]]}]}
+{"v":1,"seq":389,"kind":"overlay","loop":384,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"9tyzglAmCgAKJ1KEtd33/tyzglAmCgAKJ1KEtd33/vCzglAmCgAKJ1KEtd33/vDRglAmCgAKJ1KEtd33/vDRpVAmCgAKJ1KEtd33/vDRpXMmCgAKJ1KEtd33/vDRpXNDCgAKJ1KEtd33/vDRpXNDHAAKJ1KEtd33/vDRpXNDHAUKJ1KEtd33/vDRpXNDHAUBJ1KEtd33/vDRpXNDHAUBEVKEtd33/vDRpXNDHAUBETOEtd33/vDRpXNDHAUBETNgtd33/vDRpXNDHAUBETNgkt33/vDRpXNDHAUBETNgksL3/vDRpXNDHAUBETNgksLn/vDRpXNDHAUBETNgksLn+w=="}]}
+{"v":1,"seq":390,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":1,"since":384}}
+{"v":1,"seq":391,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4357619713,"task":"idle","priority":2,"since":384}}
+{"v":1,"seq":392,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4355260417,"task":"mine","priority":3,"since":384}}
+{"v":1,"seq":393,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4355522561,"task":"scout","priority":1,"since":384}}
+{"v":1,"seq":394,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":2,"since":384}}
+{"v":1,"seq":395,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4357357569,"task":"build","priority":3,"since":384}}
+{"v":1,"seq":396,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":1,"since":384}}
+{"v":1,"seq":397,"kind":"entity","loop":384,"ch":"test/tasks","data":{"tag":4356571137,"task":"mine","priority":2,"since":384}}
+{"v":1,"seq":398,"kind":"series","loop":392,"ch":"econ","data":[{"name":"minerals","value":200},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":399,"kind":"series","loop":392,"ch":"econ/supply","data":12}
+{"v":1,"seq":400,"kind":"overlay","loop":392,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 392"},{"type":"polyline","points":[[124.5,104],[114.58,102.75],[113.15,95.81]]}]}
+{"v":1,"seq":401,"kind":"series","loop":400,"ch":"econ","data":[{"name":"minerals","value":205},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":402,"kind":"series","loop":400,"ch":"econ/supply","data":12}
+{"v":1,"seq":403,"kind":"overlay","loop":400,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 400"},{"type":"polyline","points":[[124.5,104],[114.68,102.09],[113.72,95.07]]}]}
+{"v":1,"seq":404,"kind":"overlay","loop":400,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"8tWqeEcfBgAPL1yOvuT6/dWqeEcfBgAPL1yOvuT6/eyqeEcfBgAPL1yOvuT6/ezJeEcfBgAPL1yOvuT6/ezJm0cfBgAPL1yOvuT6/ezJm2kfBgAPL1yOvuT6/ezJm2k6BgAPL1yOvuT6/ezJm2k6FgAPL1yOvuT6/ezJm2k6FgIPL1yOvuT6/ezJm2k6FgIDL1yOvuT6/ezJm2k6FgIDF1yOvuT6/ezJm2k6FgIDFzuOvuT6/ezJm2k6FgIDFztqvuT6/ezJm2k6FgIDFztqnOT6/ezJm2k6FgIDFztqnMr6/ezJm2k6FgIDFztqnMrs/ezJm2k6FgIDFztqnMrs/Q=="}]}
+{"v":1,"seq":405,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4355260417,"task":"mine","priority":1,"since":400}}
+{"v":1,"seq":406,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4353949697,"task":"scout","priority":2,"since":400}}
+{"v":1,"seq":407,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":3,"since":400}}
+{"v":1,"seq":408,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":1,"since":400}}
+{"v":1,"seq":409,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":2,"since":400}}
+{"v":1,"seq":410,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":3,"since":400}}
+{"v":1,"seq":411,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4354211841,"task":"scout","priority":1,"since":400}}
+{"v":1,"seq":412,"kind":"entity","loop":400,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":2,"since":400}}
+{"v":1,"seq":413,"kind":"overlay","loop":400,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":414,"kind":"event","loop":400,"ch":"test/log","data":{"msg":"step 50: 17 own units, 205 minerals","level":"warn","data":{"step":50,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":415,"kind":"snapshot","loop":400,"ch":"test/plan","data":{"revision":6,"objective":"expand","queue":["scout","defend","build","idle"],"resources":{"minerals":205,"vespene":0}}}
+{"v":1,"seq":416,"kind":"series","loop":408,"ch":"econ","data":[{"name":"minerals","value":205},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":417,"kind":"series","loop":408,"ch":"econ/supply","data":12}
+{"v":1,"seq":418,"kind":"overlay","loop":408,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 408"},{"type":"polyline","points":[[124.5,104],[114.83,101.44],[114.34,94.37]]}]}
+{"v":1,"seq":419,"kind":"series","loop":416,"ch":"econ","data":[{"name":"minerals","value":220},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":420,"kind":"series","loop":416,"ch":"econ/supply","data":12}
+{"v":1,"seq":421,"kind":"overlay","loop":416,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 416"},{"type":"polyline","points":[[124.5,104],[115.02,100.81],[115,93.72]]}]}
+{"v":1,"seq":422,"kind":"overlay","loop":416,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"7s2gbT4ZAwIUN2WYxur8+82gbT4ZAwIUN2WYxur8++agbT4ZAwIUN2WYxur8++bBbT4ZAwIUN2WYxur8++bBkT4ZAwIUN2WYxur8++bBkV8ZAwIUN2WYxur8++bBkV8yAwIUN2WYxur8++bBkV8yEQIUN2WYxur8++bBkV8yEQEUN2WYxur8++bBkV8yEQEFN2WYxur8++bBkV8yEQEFHWWYxur8++bBkV8yEQEFHUSYxur8++bBkV8yEQEFHUR0xur8++bBkV8yEQEFHUR0pur8++bBkV8yEQEFHUR0ptL8++bBkV8yEQEFHUR0ptLx++bBkV8yEQEFHUR0ptLx/g=="}]}
+{"v":1,"seq":423,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":1,"since":416}}
+{"v":1,"seq":424,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":2,"since":416}}
+{"v":1,"seq":425,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":3,"since":416}}
+{"v":1,"seq":426,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":416}}
+{"v":1,"seq":427,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4356046849,"task":"scout","priority":2,"since":416}}
+{"v":1,"seq":428,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":3,"since":416}}
+{"v":1,"seq":429,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":1,"since":416}}
+{"v":1,"seq":430,"kind":"entity","loop":416,"ch":"test/tasks","data":{"tag":4356571137,"task":"idle","priority":2,"since":416}}
+{"v":1,"seq":431,"kind":"series","loop":424,"ch":"econ","data":[{"name":"minerals","value":225},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":432,"kind":"series","loop":424,"ch":"econ/supply","data":12}
+{"v":1,"seq":433,"kind":"overlay","loop":424,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 424"},{"type":"polyline","points":[[124.5,104],[115.26,100.18],[115.71,93.11]]}]}
+{"v":1,"seq":434,"kind":"series","loop":432,"ch":"econ","data":[{"name":"minerals","value":225},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":435,"kind":"series","loop":432,"ch":"econ/supply","data":12}
+{"v":1,"seq":436,"kind":"overlay","loop":432,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 432"},{"type":"polyline","points":[[124.5,104],[115.53,99.57],[116.45,92.54]]}]}
+{"v":1,"seq":437,"kind":"overlay","loop":432,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"6cWWYzUTAQQaQG+iz+/9+MWWYzUTAQQaQG+iz+/9+OCWYzUTAQQaQG+iz+/9+OC4YzUTAQQaQG+iz+/9+OC4hzUTAQQaQG+iz+/9+OC4h1UTAQQaQG+iz+/9+OC4h1UqAQQaQG+iz+/9+OC4h1UqDAQaQG+iz+/9+OC4h1UqDAAaQG+iz+/9+OC4h1UqDAAIQG+iz+/9+OC4h1UqDAAII2+iz+/9+OC4h1UqDAAII02iz+/9+OC4h1UqDAAII01+z+/9+OC4h1UqDAAII01+sO/9+OC4h1UqDAAII01+sNr9+OC4h1UqDAAII01+sNr1+OC4h1UqDAAII01+sNr1/g=="}]}
+{"v":1,"seq":438,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4356308993,"task":"idle","priority":1,"since":432}}
+{"v":1,"seq":439,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4354736129,"task":"mine","priority":2,"since":432}}
+{"v":1,"seq":440,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4356046849,"task":"scout","priority":3,"since":432}}
+{"v":1,"seq":441,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4355260417,"task":"defend","priority":1,"since":432}}
+{"v":1,"seq":442,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4357095425,"task":"build","priority":2,"since":432}}
+{"v":1,"seq":443,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4358144001,"task":"idle","priority":3,"since":432}}
+{"v":1,"seq":444,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4357357569,"task":"mine","priority":1,"since":432}}
+{"v":1,"seq":445,"kind":"entity","loop":432,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":432}}
+{"v":1,"seq":446,"kind":"series","loop":440,"ch":"econ","data":[{"name":"minerals","value":230},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":447,"kind":"series","loop":440,"ch":"econ/supply","data":12}
+{"v":1,"seq":448,"kind":"overlay","loop":440,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 440"},{"type":"polyline","points":[[124.5,104],[115.85,98.99],[117.23,92.03]]}]}
+{"v":1,"seq":449,"kind":"overlay","loop":440,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":450,"kind":"event","loop":440,"ch":"test/log","data":{"msg":"step 55: 17 own units, 230 minerals","level":"error","data":{"step":55,"units":17}}}
+{"v":1,"seq":451,"kind":"series","loop":448,"ch":"econ","data":[{"name":"minerals","value":230},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":452,"kind":"series","loop":448,"ch":"econ/supply","data":12}
+{"v":1,"seq":453,"kind":"overlay","loop":448,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 448"},{"type":"polyline","points":[[124.5,104],[116.2,98.42],[118.05,91.58]]}]}
+{"v":1,"seq":454,"kind":"overlay","loop":448,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"47yMWi0OAAcgSXqr1vP+9byMWi0OAAcgSXqr1vP+9dmMWi0OAAcgSXqr1vP+9dmvWi0OAAcgSXqr1vP+9dmvfS0OAAcgSXqr1vP+9dmvfUwOAAcgSXqr1vP+9dmvfUwjAAcgSXqr1vP+9dmvfUwjCAcgSXqr1vP+9dmvfUwjCAAgSXqr1vP+9dmvfUwjCAAMSXqr1vP+9dmvfUwjCAAMK3qr1vP+9dmvfUwjCAAMK1ar1vP+9dmvfUwjCAAMK1aI1vP+9dmvfUwjCAAMK1aIufP+9dmvfUwjCAAMK1aIueD+9dmvfUwjCAAMK1aIueD49dmvfUwjCAAMK1aIueD4/Q=="}]}
+{"v":1,"seq":455,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":1,"since":448}}
+{"v":1,"seq":456,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":2,"since":448}}
+{"v":1,"seq":457,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":3,"since":448}}
+{"v":1,"seq":458,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":1,"since":448}}
+{"v":1,"seq":459,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":448}}
+{"v":1,"seq":460,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4356308993,"task":"scout","priority":3,"since":448}}
+{"v":1,"seq":461,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4357357569,"task":"defend","priority":1,"since":448}}
+{"v":1,"seq":462,"kind":"entity","loop":448,"ch":"test/tasks","data":{"tag":4357619713,"task":"build","priority":2,"since":448}}
+{"v":1,"seq":463,"kind":"series","loop":456,"ch":"econ","data":[{"name":"minerals","value":230},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":464,"kind":"series","loop":456,"ch":"econ/supply","data":12}
+{"v":1,"seq":465,"kind":"overlay","loop":456,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 456"},{"type":"polyline","points":[[124.5,104],[116.59,97.88],[118.89,91.17]]}]}
+{"v":1,"seq":466,"kind":"series","loop":464,"ch":"econ","data":[{"name":"minerals","value":235},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":467,"kind":"series","loop":464,"ch":"econ/supply","data":12}
+{"v":1,"seq":468,"kind":"overlay","loop":464,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 464"},{"type":"polyline","points":[[124.5,104],[117.02,97.37],[119.76,90.83]]}]}
+{"v":1,"seq":469,"kind":"overlay","loop":464,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"3LOCUCYKAAonUoS13ff+8LOCUCYKAAonUoS13ff+8NGCUCYKAAonUoS13ff+8NGlUCYKAAonUoS13ff+8NGlcyYKAAonUoS13ff+8NGlc0MKAAonUoS13ff+8NGlc0McAAonUoS13ff+8NGlc0McBQonUoS13ff+8NGlc0McBQEnUoS13ff+8NGlc0McBQERUoS13ff+8NGlc0McBQERM4S13ff+8NGlc0McBQERM2C13ff+8NGlc0McBQERM2CS3ff+8NGlc0McBQERM2CSwvf+8NGlc0McBQERM2CSwuf+8NGlc0McBQERM2CSwuf78NGlc0McBQERM2CSwuf7/A=="}]}
+{"v":1,"seq":470,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":1,"since":464}}
+{"v":1,"seq":471,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":2,"since":464}}
+{"v":1,"seq":472,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":3,"since":464}}
+{"v":1,"seq":473,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":1,"since":464}}
+{"v":1,"seq":474,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":2,"since":464}}
+{"v":1,"seq":475,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":3,"since":464}}
+{"v":1,"seq":476,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":1,"since":464}}
+{"v":1,"seq":477,"kind":"entity","loop":464,"ch":"test/tasks","data":{"tag":4355260417,"task":"mine","priority":2,"since":464}}
+{"v":1,"seq":478,"kind":"series","loop":472,"ch":"econ","data":[{"name":"minerals","value":240},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":479,"kind":"series","loop":472,"ch":"econ/supply","data":12}
+{"v":1,"seq":480,"kind":"overlay","loop":472,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 472"},{"type":"polyline","points":[[124.5,104],[117.47,96.88],[120.64,90.54]]}]}
+{"v":1,"seq":481,"kind":"series","loop":480,"ch":"econ","data":[{"name":"minerals","value":245},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":482,"kind":"series","loop":480,"ch":"econ/supply","data":12}
+{"v":1,"seq":483,"kind":"overlay","loop":480,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 480"},{"type":"polyline","points":[[124.5,104],[117.96,96.43],[121.55,90.31]]}]}
+{"v":1,"seq":484,"kind":"overlay","loop":480,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"1ap4Rx8GAA8vXI6+5Pr97Kp4Rx8GAA8vXI6+5Pr97Ml4Rx8GAA8vXI6+5Pr97MmbRx8GAA8vXI6+5Pr97MmbaR8GAA8vXI6+5Pr97MmbaToGAA8vXI6+5Pr97MmbaToWAA8vXI6+5Pr97MmbaToWAg8vXI6+5Pr97MmbaToWAgMvXI6+5Pr97MmbaToWAgMXXI6+5Pr97MmbaToWAgMXO46+5Pr97MmbaToWAgMXO2q+5Pr97MmbaToWAgMXO2qc5Pr97MmbaToWAgMXO2qcyvr97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz9+g=="}]}
+{"v":1,"seq":485,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":1,"since":480}}
+{"v":1,"seq":486,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":2,"since":480}}
+{"v":1,"seq":487,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":3,"since":480}}
+{"v":1,"seq":488,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":1,"since":480}}
+{"v":1,"seq":489,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":2,"since":480}}
+{"v":1,"seq":490,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":3,"since":480}}
+{"v":1,"seq":491,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4357357569,"task":"scout","priority":1,"since":480}}
+{"v":1,"seq":492,"kind":"entity","loop":480,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":2,"since":480}}
+{"v":1,"seq":493,"kind":"overlay","loop":480,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":494,"kind":"event","loop":480,"ch":"test/log","data":{"msg":"step 60: 17 own units, 245 minerals","level":"debug","data":{"step":60,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":495,"kind":"snapshot","loop":480,"ch":"test/plan","data":{"revision":7,"objective":"defend","queue":["defend","build","idle"],"resources":{"minerals":245,"vespene":0}}}
+{"v":1,"seq":496,"kind":"series","loop":488,"ch":"econ","data":[{"name":"minerals","value":250},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":497,"kind":"series","loop":488,"ch":"econ/supply","data":12}
+{"v":1,"seq":498,"kind":"overlay","loop":488,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 488"},{"type":"polyline","points":[[124.5,104],[118.48,96.01],[122.47,90.15]]}]}
+{"v":1,"seq":499,"kind":"series","loop":496,"ch":"econ","data":[{"name":"minerals","value":255},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":500,"kind":"series","loop":496,"ch":"econ/supply","data":12}
+{"v":1,"seq":501,"kind":"overlay","loop":496,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 496"},{"type":"polyline","points":[[124.5,104],[119.03,95.63],[123.39,90.04]]}]}
+{"v":1,"seq":502,"kind":"overlay","loop":496,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"zaBtPhkDAhQ3ZZjG6vz75qBtPhkDAhQ3ZZjG6vz75sFtPhkDAhQ3ZZjG6vz75sGRPhkDAhQ3ZZjG6vz75sGRXxkDAhQ3ZZjG6vz75sGRXzIDAhQ3ZZjG6vz75sGRXzIRAhQ3ZZjG6vz75sGRXzIRARQ3ZZjG6vz75sGRXzIRAQU3ZZjG6vz75sGRXzIRAQUdZZjG6vz75sGRXzIRAQUdRJjG6vz75sGRXzIRAQUdRHTG6vz75sGRXzIRAQUdRHSm6vz75sGRXzIRAQUdRHSm0vz75sGRXzIRAQUdRHSm0vH75sGRXzIRAQUdRHSm0vH+5sGRXzIRAQUdRHSm0vH+9w=="}]}
+{"v":1,"seq":503,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":1,"since":496}}
+{"v":1,"seq":504,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":2,"since":496}}
+{"v":1,"seq":505,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":3,"since":496}}
+{"v":1,"seq":506,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4356308993,"task":"mine","priority":1,"since":496}}
+{"v":1,"seq":507,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":2,"since":496}}
+{"v":1,"seq":508,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":3,"since":496}}
+{"v":1,"seq":509,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":1,"since":496}}
+{"v":1,"seq":510,"kind":"entity","loop":496,"ch":"test/tasks","data":{"tag":4357095425,"task":"idle","priority":2,"since":496}}
+{"v":1,"seq":511,"kind":"series","loop":504,"ch":"econ","data":[{"name":"minerals","value":260},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":512,"kind":"series","loop":504,"ch":"econ/supply","data":12}
+{"v":1,"seq":513,"kind":"overlay","loop":504,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 504"},{"type":"polyline","points":[[124.5,104],[119.6,95.28],[124.33,90]]}]}
+{"v":1,"seq":514,"kind":"series","loop":512,"ch":"econ","data":[{"name":"minerals","value":260},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":515,"kind":"series","loop":512,"ch":"econ/supply","data":12}
+{"v":1,"seq":516,"kind":"overlay","loop":512,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 512"},{"type":"polyline","points":[[124.5,104],[120.19,94.98],[125.26,90.02]]}]}
+{"v":1,"seq":517,"kind":"overlay","loop":512,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"xZZjNRMBBBpAb6LP7/344JZjNRMBBBpAb6LP7/344LhjNRMBBBpAb6LP7/344LiHNRMBBBpAb6LP7/344LiHVRMBBBpAb6LP7/344LiHVSoBBBpAb6LP7/344LiHVSoMBBpAb6LP7/344LiHVSoMABpAb6LP7/344LiHVSoMAAhAb6LP7/344LiHVSoMAAgjb6LP7/344LiHVSoMAAgjTaLP7/344LiHVSoMAAgjTX7P7/344LiHVSoMAAgjTX6w7/344LiHVSoMAAgjTX6w2v344LiHVSoMAAgjTX6w2vX44LiHVSoMAAgjTX6w2vX+4LiHVSoMAAgjTX6w2vX+8w=="}]}
+{"v":1,"seq":518,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4356833281,"task":"idle","priority":1,"since":512}}
+{"v":1,"seq":519,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":2,"since":512}}
+{"v":1,"seq":520,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4353949697,"task":"scout","priority":3,"since":512}}
+{"v":1,"seq":521,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":1,"since":512}}
+{"v":1,"seq":522,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":2,"since":512}}
+{"v":1,"seq":523,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":3,"since":512}}
+{"v":1,"seq":524,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4357357569,"task":"mine","priority":1,"since":512}}
+{"v":1,"seq":525,"kind":"entity","loop":512,"ch":"test/tasks","data":{"tag":4354211841,"task":"scout","priority":2,"since":512}}
+{"v":1,"seq":526,"kind":"series","loop":520,"ch":"econ","data":[{"name":"minerals","value":270},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":527,"kind":"series","loop":520,"ch":"econ/supply","data":12}
+{"v":1,"seq":528,"kind":"overlay","loop":520,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 520"},{"type":"polyline","points":[[124.5,104],[120.8,94.71],[126.19,90.1]]}]}
+{"v":1,"seq":529,"kind":"overlay","loop":520,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":530,"kind":"event","loop":520,"ch":"test/log","data":{"msg":"step 65: 17 own units, 270 minerals","level":"info","data":{"step":65,"units":17}}}
+{"v":1,"seq":531,"kind":"series","loop":528,"ch":"econ","data":[{"name":"minerals","value":270},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":532,"kind":"series","loop":528,"ch":"econ/supply","data":12}
+{"v":1,"seq":533,"kind":"overlay","loop":528,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 528"},{"type":"polyline","points":[[124.5,104],[121.43,94.48],[127.11,90.25]]}]}
+{"v":1,"seq":534,"kind":"overlay","loop":528,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"vIxaLQ4AByBJeqvW8/712YxaLQ4AByBJeqvW8/712a9aLQ4AByBJeqvW8/712a99LQ4AByBJeqvW8/712a99TA4AByBJeqvW8/712a99TCMAByBJeqvW8/712a99TCMIByBJeqvW8/712a99TCMIACBJeqvW8/712a99TCMIAAxJeqvW8/712a99TCMIAAwreqvW8/712a99TCMIAAwrVqvW8/712a99TCMIAAwrVojW8/712a99TCMIAAwrVoi58/712a99TCMIAAwrVoi54P712a99TCMIAAwrVoi54Pj12a99TCMIAAwrVoi54Pj92a99TCMIAAwrVoi54Pj97g=="}]}
+{"v":1,"seq":535,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4356571137,"task":"scout","priority":1,"since":528}}
+{"v":1,"seq":536,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":2,"since":528}}
+{"v":1,"seq":537,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":3,"since":528}}
+{"v":1,"seq":538,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4355784705,"task":"idle","priority":1,"since":528}}
+{"v":1,"seq":539,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":2,"since":528}}
+{"v":1,"seq":540,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4356833281,"task":"scout","priority":3,"since":528}}
+{"v":1,"seq":541,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4356046849,"task":"defend","priority":1,"since":528}}
+{"v":1,"seq":542,"kind":"entity","loop":528,"ch":"test/tasks","data":{"tag":4354998273,"task":"build","priority":2,"since":528}}
+{"v":1,"seq":543,"kind":"series","loop":536,"ch":"econ","data":[{"name":"minerals","value":280},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":544,"kind":"series","loop":536,"ch":"econ/supply","data":12}
+{"v":1,"seq":545,"kind":"overlay","loop":536,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 536"},{"type":"polyline","points":[[124.5,104],[122.07,94.3],[128.02,90.45]]}]}
+{"v":1,"seq":546,"kind":"series","loop":544,"ch":"econ","data":[{"name":"minerals","value":280},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":547,"kind":"series","loop":544,"ch":"econ/supply","data":12}
+{"v":1,"seq":548,"kind":"overlay","loop":544,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 544"},{"type":"polyline","points":[[124.5,104],[122.72,94.16],[128.92,90.71]]}]}
+{"v":1,"seq":549,"kind":"overlay","loop":544,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"s4JQJgoACidShLXd9/7w0YJQJgoACidShLXd9/7w0aVQJgoACidShLXd9/7w0aVzJgoACidShLXd9/7w0aVzQwoACidShLXd9/7w0aVzQxwACidShLXd9/7w0aVzQxwFCidShLXd9/7w0aVzQxwFASdShLXd9/7w0aVzQxwFARFShLXd9/7w0aVzQxwFAREzhLXd9/7w0aVzQxwFAREzYLXd9/7w0aVzQxwFAREzYJLd9/7w0aVzQxwFAREzYJLC9/7w0aVzQxwFAREzYJLC5/7w0aVzQxwFAREzYJLC5/vw0aVzQxwFAREzYJLC5/v80aVzQxwFAREzYJLC5/v86Q=="}]}
+{"v":1,"seq":550,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":1,"since":544}}
+{"v":1,"seq":551,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4356833281,"task":"idle","priority":2,"since":544}}
+{"v":1,"seq":552,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4354211841,"task":"mine","priority":3,"since":544}}
+{"v":1,"seq":553,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":1,"since":544}}
+{"v":1,"seq":554,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":2,"since":544}}
+{"v":1,"seq":555,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4355784705,"task":"build","priority":3,"since":544}}
+{"v":1,"seq":556,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":1,"since":544}}
+{"v":1,"seq":557,"kind":"entity","loop":544,"ch":"test/tasks","data":{"tag":4354736129,"task":"mine","priority":2,"since":544}}
+{"v":1,"seq":558,"kind":"series","loop":552,"ch":"econ","data":[{"name":"minerals","value":285},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":559,"kind":"series","loop":552,"ch":"econ/supply","data":12}
+{"v":1,"seq":560,"kind":"overlay","loop":552,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 552"},{"type":"polyline","points":[[124.5,104],[123.38,94.06],[129.79,91.04]]}]}
+{"v":1,"seq":561,"kind":"series","loop":560,"ch":"econ","data":[{"name":"minerals","value":285},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":562,"kind":"series","loop":560,"ch":"econ/supply","data":12}
+{"v":1,"seq":563,"kind":"overlay","loop":560,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 560"},{"type":"polyline","points":[[124.5,104],[124.04,94.01],[130.64,91.42]]}]}
+{"v":1,"seq":564,"kind":"overlay","loop":560,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"qnhHHwYADy9cjr7k+v3syXhHHwYADy9cjr7k+v3syZtHHwYADy9cjr7k+v3syZtpHwYADy9cjr7k+v3syZtpOgYADy9cjr7k+v3syZtpOhYADy9cjr7k+v3syZtpOhYCDy9cjr7k+v3syZtpOhYCAy9cjr7k+v3syZtpOhYCAxdcjr7k+v3syZtpOhYCAxc7jr7k+v3syZtpOhYCAxc7ar7k+v3syZtpOhYCAxc7apzk+v3syZtpOhYCAxc7apzK+v3syZtpOhYCAxc7apzK7P3syZtpOhYCAxc7apzK7P3syZtpOhYCAxc7apzK7P36yZtpOhYCAxc7apzK7P364w=="}]}
+{"v":1,"seq":565,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":1,"since":560}}
+{"v":1,"seq":566,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":2,"since":560}}
+{"v":1,"seq":567,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":3,"since":560}}
+{"v":1,"seq":568,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":1,"since":560}}
+{"v":1,"seq":569,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":2,"since":560}}
+{"v":1,"seq":570,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":3,"since":560}}
+{"v":1,"seq":571,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":1,"since":560}}
+{"v":1,"seq":572,"kind":"entity","loop":560,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":2,"since":560}}
+{"v":1,"seq":573,"kind":"overlay","loop":560,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":574,"kind":"event","loop":560,"ch":"test/log","data":{"msg":"step 70: 17 own units, 285 minerals","level":"warn","data":{"step":70,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":575,"kind":"snapshot","loop":560,"ch":"test/plan","data":{"revision":8,"objective":"expand","queue":["build","idle"],"resources":{"minerals":285,"vespene":0}}}
+{"v":1,"seq":576,"kind":"series","loop":568,"ch":"econ","data":[{"name":"minerals","value":295},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":577,"kind":"series","loop":568,"ch":"econ/supply","data":12}
+{"v":1,"seq":578,"kind":"overlay","loop":568,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 568"},{"type":"polyline","points":[[124.5,104],[124.71,94],[131.47,91.86]]}]}
+{"v":1,"seq":579,"kind":"series","loop":576,"ch":"econ","data":[{"name":"minerals","value":295},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":580,"kind":"series","loop":576,"ch":"econ/supply","data":12}
+{"v":1,"seq":581,"kind":"overlay","loop":576,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 576"},{"type":"polyline","points":[[124.5,104],[125.37,94.04],[132.26,92.35]]}]}
+{"v":1,"seq":582,"kind":"overlay","loop":576,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"oG0+GQMCFDdlmMbq/PvmwW0+GQMCFDdlmMbq/PvmwZE+GQMCFDdlmMbq/PvmwZFfGQMCFDdlmMbq/PvmwZFfMgMCFDdlmMbq/PvmwZFfMhECFDdlmMbq/PvmwZFfMhEBFDdlmMbq/PvmwZFfMhEBBTdlmMbq/PvmwZFfMhEBBR1lmMbq/PvmwZFfMhEBBR1EmMbq/PvmwZFfMhEBBR1EdMbq/PvmwZFfMhEBBR1EdKbq/PvmwZFfMhEBBR1EdKbS/PvmwZFfMhEBBR1EdKbS8fvmwZFfMhEBBR1EdKbS8f7mwZFfMhEBBR1EdKbS8f73wZFfMhEBBR1EdKbS8f733Q=="}]}
+{"v":1,"seq":583,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":1,"since":576}}
+{"v":1,"seq":584,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":2,"since":576}}
+{"v":1,"seq":585,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4354473985,"task":"idle","priority":3,"since":576}}
+{"v":1,"seq":586,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":576}}
+{"v":1,"seq":587,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4356308993,"task":"scout","priority":2,"since":576}}
+{"v":1,"seq":588,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":3,"since":576}}
+{"v":1,"seq":589,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":1,"since":576}}
+{"v":1,"seq":590,"kind":"entity","loop":576,"ch":"test/tasks","data":{"tag":4357619713,"task":"idle","priority":2,"since":576}}
+{"v":1,"seq":591,"kind":"series","loop":584,"ch":"econ","data":[{"name":"minerals","value":305},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":592,"kind":"series","loop":584,"ch":"econ/supply","data":12}
+{"v":1,"seq":593,"kind":"overlay","loop":584,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 584"},{"type":"polyline","points":[[124.5,104],[126.04,94.12],[133.02,92.89]]}]}
+{"v":1,"seq":594,"kind":"series","loop":592,"ch":"econ","data":[{"name":"minerals","value":305},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":595,"kind":"series","loop":592,"ch":"econ/supply","data":12}
+{"v":1,"seq":596,"kind":"overlay","loop":592,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 592"},{"type":"polyline","points":[[124.5,104],[126.69,94.24],[133.74,93.48]]}]}
+{"v":1,"seq":597,"kind":"overlay","loop":592,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"lmM1EwEEGkBvos/v/fjguGM1EwEEGkBvos/v/fjguIc1EwEEGkBvos/v/fjguIdVEwEEGkBvos/v/fjguIdVKgEEGkBvos/v/fjguIdVKgwEGkBvos/v/fjguIdVKgwAGkBvos/v/fjguIdVKgwACEBvos/v/fjguIdVKgwACCNvos/v/fjguIdVKgwACCNNos/v/fjguIdVKgwACCNNfs/v/fjguIdVKgwACCNNfrDv/fjguIdVKgwACCNNfrDa/fjguIdVKgwACCNNfrDa9fjguIdVKgwACCNNfrDa9f7guIdVKgwACCNNfrDa9f7zuIdVKgwACCNNfrDa9f7z1Q=="}]}
+{"v":1,"seq":598,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":1,"since":592}}
+{"v":1,"seq":599,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":2,"since":592}}
+{"v":1,"seq":600,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":3,"since":592}}
+{"v":1,"seq":601,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":1,"since":592}}
+{"v":1,"seq":602,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":2,"since":592}}
+{"v":1,"seq":603,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":3,"since":592}}
+{"v":1,"seq":604,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":1,"since":592}}
+{"v":1,"seq":605,"kind":"entity","loop":592,"ch":"test/tasks","data":{"tag":4356571137,"task":"scout","priority":2,"since":592}}
+{"v":1,"seq":606,"kind":"series","loop":600,"ch":"econ","data":[{"name":"minerals","value":305},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":607,"kind":"series","loop":600,"ch":"econ/supply","data":12}
+{"v":1,"seq":608,"kind":"overlay","loop":600,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 600"},{"type":"polyline","points":[[124.5,104],[127.34,94.41],[134.42,94.12]]}]}
+{"v":1,"seq":609,"kind":"overlay","loop":600,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":610,"kind":"event","loop":600,"ch":"test/log","data":{"msg":"step 75: 17 own units, 305 minerals","level":"error","data":{"step":75,"units":17}}}
+{"v":1,"seq":611,"kind":"series","loop":608,"ch":"econ","data":[{"name":"minerals","value":310},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":612,"kind":"series","loop":608,"ch":"econ/supply","data":12}
+{"v":1,"seq":613,"kind":"overlay","loop":608,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 608"},{"type":"polyline","points":[[124.5,104],[127.97,94.62],[135.06,94.81]]}]}
+{"v":1,"seq":614,"kind":"overlay","loop":608,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"jFotDgAHIEl6q9bz/vXZr1otDgAHIEl6q9bz/vXZr30tDgAHIEl6q9bz/vXZr31MDgAHIEl6q9bz/vXZr31MIwAHIEl6q9bz/vXZr31MIwgHIEl6q9bz/vXZr31MIwgAIEl6q9bz/vXZr31MIwgADEl6q9bz/vXZr31MIwgADCt6q9bz/vXZr31MIwgADCtWq9bz/vXZr31MIwgADCtWiNbz/vXZr31MIwgADCtWiLnz/vXZr31MIwgADCtWiLng/vXZr31MIwgADCtWiLng+PXZr31MIwgADCtWiLng+P3Zr31MIwgADCtWiLng+P3ur31MIwgADCtWiLng+P3uzg=="}]}
+{"v":1,"seq":615,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":1,"since":608}}
+{"v":1,"seq":616,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":2,"since":608}}
+{"v":1,"seq":617,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4357357569,"task":"build","priority":3,"since":608}}
+{"v":1,"seq":618,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":1,"since":608}}
+{"v":1,"seq":619,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":608}}
+{"v":1,"seq":620,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4356571137,"task":"scout","priority":3,"since":608}}
+{"v":1,"seq":621,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4355784705,"task":"defend","priority":1,"since":608}}
+{"v":1,"seq":622,"kind":"entity","loop":608,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":2,"since":608}}
+{"v":1,"seq":623,"kind":"series","loop":616,"ch":"econ","data":[{"name":"minerals","value":315},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":624,"kind":"series","loop":616,"ch":"econ/supply","data":12}
+{"v":1,"seq":625,"kind":"overlay","loop":616,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 616"},{"type":"polyline","points":[[124.5,104],[128.59,94.87],[135.65,95.53]]}]}
+{"v":1,"seq":626,"kind":"series","loop":624,"ch":"econ","data":[{"name":"minerals","value":320},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":627,"kind":"series","loop":624,"ch":"econ/supply","data":12}
+{"v":1,"seq":628,"kind":"overlay","loop":624,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 624"},{"type":"polyline","points":[[124.5,104],[129.19,95.17],[136.19,96.29]]}]}
+{"v":1,"seq":629,"kind":"overlay","loop":624,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"glAmCgAKJ1KEtd33/vDRpVAmCgAKJ1KEtd33/vDRpXMmCgAKJ1KEtd33/vDRpXNDCgAKJ1KEtd33/vDRpXNDHAAKJ1KEtd33/vDRpXNDHAUKJ1KEtd33/vDRpXNDHAUBJ1KEtd33/vDRpXNDHAUBEVKEtd33/vDRpXNDHAUBETOEtd33/vDRpXNDHAUBETNgtd33/vDRpXNDHAUBETNgkt33/vDRpXNDHAUBETNgksL3/vDRpXNDHAUBETNgksLn/vDRpXNDHAUBETNgksLn+/DRpXNDHAUBETNgksLn+/zRpXNDHAUBETNgksLn+/zppXNDHAUBETNgksLn+/zpxQ=="}]}
+{"v":1,"seq":630,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4354998273,"task":"build","priority":1,"since":624}}
+{"v":1,"seq":631,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":2,"since":624}}
+{"v":1,"seq":632,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4355260417,"task":"mine","priority":3,"since":624}}
+{"v":1,"seq":633,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":1,"since":624}}
+{"v":1,"seq":634,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4357095425,"task":"defend","priority":2,"since":624}}
+{"v":1,"seq":635,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":3,"since":624}}
+{"v":1,"seq":636,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":1,"since":624}}
+{"v":1,"seq":637,"kind":"entity","loop":624,"ch":"test/tasks","data":{"tag":4356833281,"task":"mine","priority":2,"since":624}}
+{"v":1,"seq":638,"kind":"series","loop":632,"ch":"econ","data":[{"name":"minerals","value":325},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":639,"kind":"series","loop":632,"ch":"econ/supply","data":12}
+{"v":1,"seq":640,"kind":"overlay","loop":632,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 632"},{"type":"polyline","points":[[124.5,104],[129.76,95.5],[136.67,97.09]]}]}
+{"v":1,"seq":641,"kind":"series","loop":640,"ch":"econ","data":[{"name":"minerals","value":330},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":642,"kind":"series","loop":640,"ch":"econ/supply","data":12}
+{"v":1,"seq":643,"kind":"overlay","loop":640,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 640"},{"type":"polyline","points":[[124.5,104],[130.32,95.87],[137.11,97.91]]}]}
+{"v":1,"seq":644,"kind":"overlay","loop":640,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"eEcfBgAPL1yOvuT6/ezJm0cfBgAPL1yOvuT6/ezJm2kfBgAPL1yOvuT6/ezJm2k6BgAPL1yOvuT6/ezJm2k6FgAPL1yOvuT6/ezJm2k6FgIPL1yOvuT6/ezJm2k6FgIDL1yOvuT6/ezJm2k6FgIDF1yOvuT6/ezJm2k6FgIDFzuOvuT6/ezJm2k6FgIDFztqvuT6/ezJm2k6FgIDFztqnOT6/ezJm2k6FgIDFztqnMr6/ezJm2k6FgIDFztqnMrs/ezJm2k6FgIDFztqnMrs/ezJm2k6FgIDFztqnMrs/frJm2k6FgIDFztqnMrs/frjm2k6FgIDFztqnMrs/frjvQ=="}]}
+{"v":1,"seq":645,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":640}}
+{"v":1,"seq":646,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":2,"since":640}}
+{"v":1,"seq":647,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":3,"since":640}}
+{"v":1,"seq":648,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":1,"since":640}}
+{"v":1,"seq":649,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":2,"since":640}}
+{"v":1,"seq":650,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":3,"since":640}}
+{"v":1,"seq":651,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":1,"since":640}}
+{"v":1,"seq":652,"kind":"entity","loop":640,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":2,"since":640}}
+{"v":1,"seq":653,"kind":"overlay","loop":640,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":654,"kind":"event","loop":640,"ch":"test/log","data":{"msg":"step 80: 17 own units, 330 minerals","level":"debug","data":{"step":80,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":655,"kind":"snapshot","loop":640,"ch":"test/plan","data":{"revision":9,"objective":"defend","queue":["idle"],"resources":{"minerals":330,"vespene":0}}}
+{"v":1,"seq":656,"kind":"series","loop":648,"ch":"econ","data":[{"name":"minerals","value":330},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":657,"kind":"series","loop":648,"ch":"econ/supply","data":12}
+{"v":1,"seq":658,"kind":"overlay","loop":648,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 648"},{"type":"polyline","points":[[124.5,104],[130.85,96.27],[137.48,98.77]]}]}
+{"v":1,"seq":659,"kind":"series","loop":656,"ch":"econ","data":[{"name":"minerals","value":335},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":660,"kind":"series","loop":656,"ch":"econ/supply","data":12}
+{"v":1,"seq":661,"kind":"overlay","loop":656,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 656"},{"type":"polyline","points":[[124.5,104],[131.35,96.71],[137.8,99.64]]}]}
+{"v":1,"seq":662,"kind":"overlay","loop":656,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"bT4ZAwIUN2WYxur8++bBkT4ZAwIUN2WYxur8++bBkV8ZAwIUN2WYxur8++bBkV8yAwIUN2WYxur8++bBkV8yEQIUN2WYxur8++bBkV8yEQEUN2WYxur8++bBkV8yEQEFN2WYxur8++bBkV8yEQEFHWWYxur8++bBkV8yEQEFHUSYxur8++bBkV8yEQEFHUR0xur8++bBkV8yEQEFHUR0pur8++bBkV8yEQEFHUR0ptL8++bBkV8yEQEFHUR0ptLx++bBkV8yEQEFHUR0ptLx/ubBkV8yEQEFHUR0ptLx/vfBkV8yEQEFHUR0ptLx/vfdkV8yEQEFHUR0ptLx/vfdtA=="}]}
+{"v":1,"seq":663,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4355784705,"task":"defend","priority":1,"since":656}}
+{"v":1,"seq":664,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":2,"since":656}}
+{"v":1,"seq":665,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4356833281,"task":"idle","priority":3,"since":656}}
+{"v":1,"seq":666,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4356571137,"task":"mine","priority":1,"since":656}}
+{"v":1,"seq":667,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4357357569,"task":"scout","priority":2,"since":656}}
+{"v":1,"seq":668,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":3,"since":656}}
+{"v":1,"seq":669,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":1,"since":656}}
+{"v":1,"seq":670,"kind":"entity","loop":656,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":2,"since":656}}
+{"v":1,"seq":671,"kind":"series","loop":664,"ch":"econ","data":[{"name":"minerals","value":340},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":672,"kind":"series","loop":664,"ch":"econ/supply","data":12}
+{"v":1,"seq":673,"kind":"overlay","loop":664,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 664"},{"type":"polyline","points":[[124.5,104],[131.82,97.18],[138.07,100.54]]}]}
+{"v":1,"seq":674,"kind":"series","loop":672,"ch":"econ","data":[{"name":"minerals","value":350},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":675,"kind":"series","loop":672,"ch":"econ/supply","data":12}
+{"v":1,"seq":676,"kind":"overlay","loop":672,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 672"},{"type":"polyline","points":[[124.5,104],[132.26,97.69],[138.27,101.45]]}]}
+{"v":1,"seq":677,"kind":"overlay","loop":672,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"YzUTAQQaQG+iz+/9+OC4hzUTAQQaQG+iz+/9+OC4h1UTAQQaQG+iz+/9+OC4h1UqAQQaQG+iz+/9+OC4h1UqDAQaQG+iz+/9+OC4h1UqDAAaQG+iz+/9+OC4h1UqDAAIQG+iz+/9+OC4h1UqDAAII2+iz+/9+OC4h1UqDAAII02iz+/9+OC4h1UqDAAII01+z+/9+OC4h1UqDAAII01+sO/9+OC4h1UqDAAII01+sNr9+OC4h1UqDAAII01+sNr1+OC4h1UqDAAII01+sNr1/uC4h1UqDAAII01+sNr1/vO4h1UqDAAII01+sNr1/vPVh1UqDAAII01+sNr1/vPVqg=="}]}
+{"v":1,"seq":678,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4356308993,"task":"idle","priority":1,"since":672}}
+{"v":1,"seq":679,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":2,"since":672}}
+{"v":1,"seq":680,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":3,"since":672}}
+{"v":1,"seq":681,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4355784705,"task":"defend","priority":1,"since":672}}
+{"v":1,"seq":682,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4356833281,"task":"build","priority":2,"since":672}}
+{"v":1,"seq":683,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":3,"since":672}}
+{"v":1,"seq":684,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":1,"since":672}}
+{"v":1,"seq":685,"kind":"entity","loop":672,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":2,"since":672}}
+{"v":1,"seq":686,"kind":"series","loop":680,"ch":"econ","data":[{"name":"minerals","value":350},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":687,"kind":"series","loop":680,"ch":"econ/supply","data":12}
+{"v":1,"seq":688,"kind":"overlay","loop":680,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 680"},{"type":"polyline","points":[[124.5,104],[132.66,98.22],[138.41,102.37]]}]}
+{"v":1,"seq":689,"kind":"overlay","loop":680,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":690,"kind":"event","loop":680,"ch":"test/log","data":{"msg":"step 85: 17 own units, 350 minerals","level":"info","data":{"step":85,"units":17}}}
+{"v":1,"seq":691,"kind":"series","loop":688,"ch":"econ","data":[{"name":"minerals","value":365},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":692,"kind":"series","loop":688,"ch":"econ/supply","data":12}
+{"v":1,"seq":693,"kind":"overlay","loop":688,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 688"},{"type":"polyline","points":[[124.5,104],[133.03,98.77],[138.48,103.3]]}]}
+{"v":1,"seq":694,"kind":"overlay","loop":688,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"Wi0OAAcgSXqr1vP+9dmvfS0OAAcgSXqr1vP+9dmvfUwOAAcgSXqr1vP+9dmvfUwjAAcgSXqr1vP+9dmvfUwjCAcgSXqr1vP+9dmvfUwjCAAgSXqr1vP+9dmvfUwjCAAMSXqr1vP+9dmvfUwjCAAMK3qr1vP+9dmvfUwjCAAMK1ar1vP+9dmvfUwjCAAMK1aI1vP+9dmvfUwjCAAMK1aIufP+9dmvfUwjCAAMK1aIueD+9dmvfUwjCAAMK1aIueD49dmvfUwjCAAMK1aIueD4/dmvfUwjCAAMK1aIueD4/e6vfUwjCAAMK1aIueD4/e7OfUwjCAAMK1aIueD4/e7OoQ=="}]}
+{"v":1,"seq":695,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":1,"since":688}}
+{"v":1,"seq":696,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4354998273,"task":"defend","priority":2,"since":688}}
+{"v":1,"seq":697,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4355784705,"task":"build","priority":3,"since":688}}
+{"v":1,"seq":698,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":1,"since":688}}
+{"v":1,"seq":699,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":688}}
+{"v":1,"seq":700,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":3,"since":688}}
+{"v":1,"seq":701,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":1,"since":688}}
+{"v":1,"seq":702,"kind":"entity","loop":688,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":2,"since":688}}
+{"v":1,"seq":703,"kind":"series","loop":696,"ch":"econ","data":[{"name":"minerals","value":365},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":704,"kind":"series","loop":696,"ch":"econ/supply","data":12}
+{"v":1,"seq":705,"kind":"overlay","loop":696,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 696"},{"type":"polyline","points":[[124.5,104],[133.36,99.35],[138.5,104.24]]}]}
+{"v":1,"seq":706,"kind":"series","loop":704,"ch":"econ","data":[{"name":"minerals","value":365},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":707,"kind":"series","loop":704,"ch":"econ/supply","data":12}
+{"v":1,"seq":708,"kind":"overlay","loop":704,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 704"},{"type":"polyline","points":[[124.5,104],[133.65,99.95],[138.45,105.17]]}]}
+{"v":1,"seq":709,"kind":"overlay","loop":704,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"UCYKAAonUoS13ff+8NGlcyYKAAonUoS13ff+8NGlc0MKAAonUoS13ff+8NGlc0McAAonUoS13ff+8NGlc0McBQonUoS13ff+8NGlc0McBQEnUoS13ff+8NGlc0McBQERUoS13ff+8NGlc0McBQERM4S13ff+8NGlc0McBQERM2C13ff+8NGlc0McBQERM2CS3ff+8NGlc0McBQERM2CSwvf+8NGlc0McBQERM2CSwuf+8NGlc0McBQERM2CSwuf78NGlc0McBQERM2CSwuf7/NGlc0McBQERM2CSwuf7/Omlc0McBQERM2CSwuf7/OnFc0McBQERM2CSwuf7/OnFlw=="}]}
+{"v":1,"seq":710,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":1,"since":704}}
+{"v":1,"seq":711,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":2,"since":704}}
+{"v":1,"seq":712,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":3,"since":704}}
+{"v":1,"seq":713,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4356833281,"task":"scout","priority":1,"since":704}}
+{"v":1,"seq":714,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":2,"since":704}}
+{"v":1,"seq":715,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":3,"since":704}}
+{"v":1,"seq":716,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":1,"since":704}}
+{"v":1,"seq":717,"kind":"entity","loop":704,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":2,"since":704}}
+{"v":1,"seq":718,"kind":"series","loop":712,"ch":"econ","data":[{"name":"minerals","value":365},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":719,"kind":"series","loop":712,"ch":"econ/supply","data":12}
+{"v":1,"seq":720,"kind":"overlay","loop":712,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 712"},{"type":"polyline","points":[[124.5,104],[133.89,100.57],[138.34,106.09]]}]}
+{"v":1,"seq":721,"kind":"series","loop":720,"ch":"econ","data":[{"name":"minerals","value":365},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":722,"kind":"series","loop":720,"ch":"econ/supply","data":12}
+{"v":1,"seq":723,"kind":"overlay","loop":720,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 720"},{"type":"polyline","points":[[124.5,104],[134.1,101.21],[138.17,107.01]]}]}
+{"v":1,"seq":724,"kind":"overlay","loop":720,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"Rx8GAA8vXI6+5Pr97MmbaR8GAA8vXI6+5Pr97MmbaToGAA8vXI6+5Pr97MmbaToWAA8vXI6+5Pr97MmbaToWAg8vXI6+5Pr97MmbaToWAgMvXI6+5Pr97MmbaToWAgMXXI6+5Pr97MmbaToWAgMXO46+5Pr97MmbaToWAgMXO2q+5Pr97MmbaToWAgMXO2qc5Pr97MmbaToWAgMXO2qcyvr97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz9+smbaToWAgMXO2qcyuz9+uObaToWAgMXO2qcyuz9+uO9aToWAgMXO2qcyuz9+uO9jQ=="}]}
+{"v":1,"seq":725,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":720}}
+{"v":1,"seq":726,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4357357569,"task":"scout","priority":2,"since":720}}
+{"v":1,"seq":727,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":3,"since":720}}
+{"v":1,"seq":728,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":1,"since":720}}
+{"v":1,"seq":729,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4355522561,"task":"idle","priority":2,"since":720}}
+{"v":1,"seq":730,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4354736129,"task":"mine","priority":3,"since":720}}
+{"v":1,"seq":731,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":1,"since":720}}
+{"v":1,"seq":732,"kind":"entity","loop":720,"ch":"test/tasks","data":{"tag":4357881857,"task":"defend","priority":2,"since":720}}
+{"v":1,"seq":733,"kind":"overlay","loop":720,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":734,"kind":"event","loop":720,"ch":"test/log","data":{"msg":"step 90: 17 own units, 365 minerals","level":"warn","data":{"step":90,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":735,"kind":"snapshot","loop":720,"ch":"test/plan","data":{"revision":10,"objective":"expand","queue":["mine","scout","defend","build","idle"],"resources":{"minerals":365,"vespene":0}}}
+{"v":1,"seq":736,"kind":"series","loop":728,"ch":"econ","data":[{"name":"minerals","value":370},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":737,"kind":"series","loop":728,"ch":"econ/supply","data":12}
+{"v":1,"seq":738,"kind":"overlay","loop":728,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 728"},{"type":"polyline","points":[[124.5,104],[134.27,101.85],[137.94,107.92]]}]}
+{"v":1,"seq":739,"kind":"series","loop":736,"ch":"econ","data":[{"name":"minerals","value":370},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":740,"kind":"series","loop":736,"ch":"econ/supply","data":12}
+{"v":1,"seq":741,"kind":"overlay","loop":736,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 736"},{"type":"polyline","points":[[124.5,104],[134.39,102.51],[137.65,108.8]]}]}
+{"v":1,"seq":742,"kind":"overlay","loop":736,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"PhkDAhQ3ZZjG6vz75sGRXxkDAhQ3ZZjG6vz75sGRXzIDAhQ3ZZjG6vz75sGRXzIRAhQ3ZZjG6vz75sGRXzIRARQ3ZZjG6vz75sGRXzIRAQU3ZZjG6vz75sGRXzIRAQUdZZjG6vz75sGRXzIRAQUdRJjG6vz75sGRXzIRAQUdRHTG6vz75sGRXzIRAQUdRHSm6vz75sGRXzIRAQUdRHSm0vz75sGRXzIRAQUdRHSm0vH75sGRXzIRAQUdRHSm0vH+5sGRXzIRAQUdRHSm0vH+98GRXzIRAQUdRHSm0vH+992RXzIRAQUdRHSm0vH+9920XzIRAQUdRHSm0vH+9920gw=="}]}
+{"v":1,"seq":743,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":1,"since":736}}
+{"v":1,"seq":744,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":2,"since":736}}
+{"v":1,"seq":745,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4357095425,"task":"idle","priority":3,"since":736}}
+{"v":1,"seq":746,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":1,"since":736}}
+{"v":1,"seq":747,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":736}}
+{"v":1,"seq":748,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":3,"since":736}}
+{"v":1,"seq":749,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4354998273,"task":"build","priority":1,"since":736}}
+{"v":1,"seq":750,"kind":"entity","loop":736,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":2,"since":736}}
+{"v":1,"seq":751,"kind":"series","loop":744,"ch":"econ","data":[{"name":"minerals","value":385},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":752,"kind":"series","loop":744,"ch":"econ/supply","data":12}
+{"v":1,"seq":753,"kind":"overlay","loop":744,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 744"},{"type":"polyline","points":[[124.5,104],[134.47,103.17],[137.3,109.67]]}]}
+{"v":1,"seq":754,"kind":"series","loop":752,"ch":"econ","data":[{"name":"minerals","value":385},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":755,"kind":"series","loop":752,"ch":"econ/supply","data":12}
+{"v":1,"seq":756,"kind":"overlay","loop":752,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 752"},{"type":"polyline","points":[[124.5,104],[134.5,103.83],[136.9,110.51]]}]}
+{"v":1,"seq":757,"kind":"overlay","loop":752,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"NRMBBBpAb6LP7/344LiHVRMBBBpAb6LP7/344LiHVSoBBBpAb6LP7/344LiHVSoMBBpAb6LP7/344LiHVSoMABpAb6LP7/344LiHVSoMAAhAb6LP7/344LiHVSoMAAgjb6LP7/344LiHVSoMAAgjTaLP7/344LiHVSoMAAgjTX7P7/344LiHVSoMAAgjTX6w7/344LiHVSoMAAgjTX6w2v344LiHVSoMAAgjTX6w2vX44LiHVSoMAAgjTX6w2vX+4LiHVSoMAAgjTX6w2vX+87iHVSoMAAgjTX6w2vX+89WHVSoMAAgjTX6w2vX+89WqVSoMAAgjTX6w2vX+89WqeA=="}]}
+{"v":1,"seq":758,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4356571137,"task":"idle","priority":1,"since":752}}
+{"v":1,"seq":759,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":2,"since":752}}
+{"v":1,"seq":760,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":3,"since":752}}
+{"v":1,"seq":761,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":1,"since":752}}
+{"v":1,"seq":762,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":2,"since":752}}
+{"v":1,"seq":763,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":3,"since":752}}
+{"v":1,"seq":764,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":1,"since":752}}
+{"v":1,"seq":765,"kind":"entity","loop":752,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":2,"since":752}}
+{"v":1,"seq":766,"kind":"series","loop":760,"ch":"econ","data":[{"name":"minerals","value":385},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":767,"kind":"series","loop":760,"ch":"econ/supply","data":12}
+{"v":1,"seq":768,"kind":"overlay","loop":760,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 760"},{"type":"polyline","points":[[124.5,104],[134.49,104.5],[136.43,111.32]]}]}
+{"v":1,"seq":769,"kind":"overlay","loop":760,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":770,"kind":"event","loop":760,"ch":"test/log","data":{"msg":"step 95: 17 own units, 385 minerals","level":"error","data":{"step":95,"units":17}}}
+{"v":1,"seq":771,"kind":"series","loop":768,"ch":"econ","data":[{"name":"minerals","value":390},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":772,"kind":"series","loop":768,"ch":"econ/supply","data":12}
+{"v":1,"seq":773,"kind":"overlay","loop":768,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 768"},{"type":"polyline","points":[[124.5,104],[134.43,105.17],[135.92,112.1]]}]}
+{"v":1,"seq":774,"kind":"overlay","loop":768,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"LQ4AByBJeqvW8/712a99TA4AByBJeqvW8/712a99TCMAByBJeqvW8/712a99TCMIByBJeqvW8/712a99TCMIACBJeqvW8/712a99TCMIAAxJeqvW8/712a99TCMIAAwreqvW8/712a99TCMIAAwrVqvW8/712a99TCMIAAwrVojW8/712a99TCMIAAwrVoi58/712a99TCMIAAwrVoi54P712a99TCMIAAwrVoi54Pj12a99TCMIAAwrVoi54Pj92a99TCMIAAwrVoi54Pj97q99TCMIAAwrVoi54Pj97s59TCMIAAwrVoi54Pj97s6hTCMIAAwrVoi54Pj97s6hbg=="}]}
+{"v":1,"seq":775,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":1,"since":768}}
+{"v":1,"seq":776,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":2,"since":768}}
+{"v":1,"seq":777,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4354736129,"task":"build","priority":3,"since":768}}
+{"v":1,"seq":778,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":1,"since":768}}
+{"v":1,"seq":779,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4356308993,"task":"mine","priority":2,"since":768}}
+{"v":1,"seq":780,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4356046849,"task":"scout","priority":3,"since":768}}
+{"v":1,"seq":781,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":1,"since":768}}
+{"v":1,"seq":782,"kind":"entity","loop":768,"ch":"test/tasks","data":{"tag":4357881857,"task":"build","priority":2,"since":768}}
+{"v":1,"seq":783,"kind":"series","loop":776,"ch":"econ","data":[{"name":"minerals","value":400},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":784,"kind":"series","loop":776,"ch":"econ/supply","data":12}
+{"v":1,"seq":785,"kind":"overlay","loop":776,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 776"},{"type":"polyline","points":[[124.5,104],[134.33,105.82],[135.36,112.84]]}]}
+{"v":1,"seq":786,"kind":"series","loop":784,"ch":"econ","data":[{"name":"minerals","value":400},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":787,"kind":"series","loop":784,"ch":"econ/supply","data":12}
+{"v":1,"seq":788,"kind":"overlay","loop":784,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 784"},{"type":"polyline","points":[[124.5,104],[134.19,106.48],[134.74,113.54]]}]}
+{"v":1,"seq":789,"kind":"overlay","loop":784,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"JgoACidShLXd9/7w0aVzQwoACidShLXd9/7w0aVzQxwACidShLXd9/7w0aVzQxwFCidShLXd9/7w0aVzQxwFASdShLXd9/7w0aVzQxwFARFShLXd9/7w0aVzQxwFAREzhLXd9/7w0aVzQxwFAREzYLXd9/7w0aVzQxwFAREzYJLd9/7w0aVzQxwFAREzYJLC9/7w0aVzQxwFAREzYJLC5/7w0aVzQxwFAREzYJLC5/vw0aVzQxwFAREzYJLC5/v80aVzQxwFAREzYJLC5/v86aVzQxwFAREzYJLC5/v86cVzQxwFAREzYJLC5/v86cWXQxwFAREzYJLC5/v86cWXZA=="}]}
+{"v":1,"seq":790,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":1,"since":784}}
+{"v":1,"seq":791,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4354998273,"task":"idle","priority":2,"since":784}}
+{"v":1,"seq":792,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4354736129,"task":"mine","priority":3,"since":784}}
+{"v":1,"seq":793,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":1,"since":784}}
+{"v":1,"seq":794,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":2,"since":784}}
+{"v":1,"seq":795,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":3,"since":784}}
+{"v":1,"seq":796,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":1,"since":784}}
+{"v":1,"seq":797,"kind":"entity","loop":784,"ch":"test/tasks","data":{"tag":4354473985,"task":"mine","priority":2,"since":784}}
+{"v":1,"seq":798,"kind":"series","loop":792,"ch":"econ","data":[{"name":"minerals","value":415},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":799,"kind":"series","loop":792,"ch":"econ/supply","data":12}
+{"v":1,"seq":800,"kind":"overlay","loop":792,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 792"},{"type":"polyline","points":[[124.5,104],[134,107.12],[134.08,114.21]]}]}
+{"v":1,"seq":801,"kind":"series","loop":800,"ch":"econ","data":[{"name":"minerals","value":420},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":802,"kind":"series","loop":800,"ch":"econ/supply","data":12}
+{"v":1,"seq":803,"kind":"overlay","loop":800,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 800"},{"type":"polyline","points":[[124.5,104],[133.77,107.74],[133.38,114.82]]}]}
+{"v":1,"seq":804,"kind":"overlay","loop":800,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"HwYADy9cjr7k+v3syZtpOgYADy9cjr7k+v3syZtpOhYADy9cjr7k+v3syZtpOhYCDy9cjr7k+v3syZtpOhYCAy9cjr7k+v3syZtpOhYCAxdcjr7k+v3syZtpOhYCAxc7jr7k+v3syZtpOhYCAxc7ar7k+v3syZtpOhYCAxc7apzk+v3syZtpOhYCAxc7apzK+v3syZtpOhYCAxc7apzK7P3syZtpOhYCAxc7apzK7P3syZtpOhYCAxc7apzK7P36yZtpOhYCAxc7apzK7P3645tpOhYCAxc7apzK7P36471pOhYCAxc7apzK7P36472NOhYCAxc7apzK7P36472NWg=="}]}
+{"v":1,"seq":805,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":1,"since":800}}
+{"v":1,"seq":806,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4356833281,"task":"scout","priority":2,"since":800}}
+{"v":1,"seq":807,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4356046849,"task":"defend","priority":3,"since":800}}
+{"v":1,"seq":808,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":1,"since":800}}
+{"v":1,"seq":809,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4354473985,"task":"idle","priority":2,"since":800}}
+{"v":1,"seq":810,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":3,"since":800}}
+{"v":1,"seq":811,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":1,"since":800}}
+{"v":1,"seq":812,"kind":"entity","loop":800,"ch":"test/tasks","data":{"tag":4354736129,"task":"defend","priority":2,"since":800}}
+{"v":1,"seq":813,"kind":"overlay","loop":800,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":814,"kind":"event","loop":800,"ch":"test/log","data":{"msg":"step 100: 17 own units, 420 minerals","level":"debug","data":{"step":100,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":815,"kind":"snapshot","loop":800,"ch":"test/plan","data":{"revision":11,"objective":"defend","queue":["scout","defend","build","idle"],"resources":{"minerals":420,"vespene":0}}}
+{"v":1,"seq":816,"kind":"series","loop":808,"ch":"econ","data":[{"name":"minerals","value":420},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":817,"kind":"series","loop":808,"ch":"econ/supply","data":12}
+{"v":1,"seq":818,"kind":"overlay","loop":808,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 808"},{"type":"polyline","points":[[124.5,104],[133.5,108.35],[132.64,115.39]]}]}
+{"v":1,"seq":819,"kind":"series","loop":816,"ch":"econ","data":[{"name":"minerals","value":425},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":820,"kind":"series","loop":816,"ch":"econ/supply","data":12}
+{"v":1,"seq":821,"kind":"overlay","loop":816,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 816"},{"type":"polyline","points":[[124.5,104],[133.19,108.94],[131.87,115.91]]}]}
+{"v":1,"seq":822,"kind":"overlay","loop":816,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"GQMCFDdlmMbq/PvmwZFfMgMCFDdlmMbq/PvmwZFfMhECFDdlmMbq/PvmwZFfMhEBFDdlmMbq/PvmwZFfMhEBBTdlmMbq/PvmwZFfMhEBBR1lmMbq/PvmwZFfMhEBBR1EmMbq/PvmwZFfMhEBBR1EdMbq/PvmwZFfMhEBBR1EdKbq/PvmwZFfMhEBBR1EdKbS/PvmwZFfMhEBBR1EdKbS8fvmwZFfMhEBBR1EdKbS8f7mwZFfMhEBBR1EdKbS8f73wZFfMhEBBR1EdKbS8f733ZFfMhEBBR1EdKbS8f733bRfMhEBBR1EdKbS8f733bSDMhEBBR1EdKbS8f733bSDUQ=="}]}
+{"v":1,"seq":823,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":1,"since":816}}
+{"v":1,"seq":824,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":2,"since":816}}
+{"v":1,"seq":825,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":3,"since":816}}
+{"v":1,"seq":826,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4354211841,"task":"mine","priority":1,"since":816}}
+{"v":1,"seq":827,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4354473985,"task":"scout","priority":2,"since":816}}
+{"v":1,"seq":828,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":3,"since":816}}
+{"v":1,"seq":829,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":1,"since":816}}
+{"v":1,"seq":830,"kind":"entity","loop":816,"ch":"test/tasks","data":{"tag":4356046849,"task":"idle","priority":2,"since":816}}
+{"v":1,"seq":831,"kind":"series","loop":824,"ch":"econ","data":[{"name":"minerals","value":425},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":832,"kind":"series","loop":824,"ch":"econ/supply","data":12}
+{"v":1,"seq":833,"kind":"overlay","loop":824,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 824"},{"type":"polyline","points":[[124.5,104],[132.85,109.51],[131.06,116.37]]}]}
+{"v":1,"seq":834,"kind":"series","loop":832,"ch":"econ","data":[{"name":"minerals","value":425},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":835,"kind":"series","loop":832,"ch":"econ/supply","data":12}
+{"v":1,"seq":836,"kind":"overlay","loop":832,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 832"},{"type":"polyline","points":[[124.5,104],[132.46,110.05],[130.22,116.78]]}]}
+{"v":1,"seq":837,"kind":"overlay","loop":832,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"EwEEGkBvos/v/fjguIdVKgEEGkBvos/v/fjguIdVKgwEGkBvos/v/fjguIdVKgwAGkBvos/v/fjguIdVKgwACEBvos/v/fjguIdVKgwACCNvos/v/fjguIdVKgwACCNNos/v/fjguIdVKgwACCNNfs/v/fjguIdVKgwACCNNfrDv/fjguIdVKgwACCNNfrDa/fjguIdVKgwACCNNfrDa9fjguIdVKgwACCNNfrDa9f7guIdVKgwACCNNfrDa9f7zuIdVKgwACCNNfrDa9f7z1YdVKgwACCNNfrDa9f7z1apVKgwACCNNfrDa9f7z1ap4KgwACCNNfrDa9f7z1ap4SA=="}]}
+{"v":1,"seq":838,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4357881857,"task":"idle","priority":1,"since":832}}
+{"v":1,"seq":839,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4356046849,"task":"mine","priority":2,"since":832}}
+{"v":1,"seq":840,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":3,"since":832}}
+{"v":1,"seq":841,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":1,"since":832}}
+{"v":1,"seq":842,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":2,"since":832}}
+{"v":1,"seq":843,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4356833281,"task":"idle","priority":3,"since":832}}
+{"v":1,"seq":844,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":1,"since":832}}
+{"v":1,"seq":845,"kind":"entity","loop":832,"ch":"test/tasks","data":{"tag":4357357569,"task":"scout","priority":2,"since":832}}
+{"v":1,"seq":846,"kind":"series","loop":840,"ch":"econ","data":[{"name":"minerals","value":425},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":847,"kind":"series","loop":840,"ch":"econ/supply","data":12}
+{"v":1,"seq":848,"kind":"overlay","loop":840,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 840"},{"type":"polyline","points":[[124.5,104],[132.04,110.57],[129.35,117.13]]}]}
+{"v":1,"seq":849,"kind":"overlay","loop":840,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":850,"kind":"event","loop":840,"ch":"test/log","data":{"msg":"step 105: 17 own units, 425 minerals","level":"info","data":{"step":105,"units":17}}}
+{"v":1,"seq":851,"kind":"series","loop":848,"ch":"econ","data":[{"name":"minerals","value":430},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":852,"kind":"series","loop":848,"ch":"econ/supply","data":12}
+{"v":1,"seq":853,"kind":"overlay","loop":848,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 848"},{"type":"polyline","points":[[124.5,104],[131.58,111.06],[128.47,117.43]]}]}
+{"v":1,"seq":854,"kind":"overlay","loop":848,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"DgAHIEl6q9bz/vXZr31MIwAHIEl6q9bz/vXZr31MIwgHIEl6q9bz/vXZr31MIwgAIEl6q9bz/vXZr31MIwgADEl6q9bz/vXZr31MIwgADCt6q9bz/vXZr31MIwgADCtWq9bz/vXZr31MIwgADCtWiNbz/vXZr31MIwgADCtWiLnz/vXZr31MIwgADCtWiLng/vXZr31MIwgADCtWiLng+PXZr31MIwgADCtWiLng+P3Zr31MIwgADCtWiLng+P3ur31MIwgADCtWiLng+P3uzn1MIwgADCtWiLng+P3uzqFMIwgADCtWiLng+P3uzqFuIwgADCtWiLng+P3uzqFuPw=="}]}
+{"v":1,"seq":855,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":1,"since":848}}
+{"v":1,"seq":856,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4356046849,"task":"defend","priority":2,"since":848}}
+{"v":1,"seq":857,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4356833281,"task":"build","priority":3,"since":848}}
+{"v":1,"seq":858,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":1,"since":848}}
+{"v":1,"seq":859,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":2,"since":848}}
+{"v":1,"seq":860,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":3,"since":848}}
+{"v":1,"seq":861,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":1,"since":848}}
+{"v":1,"seq":862,"kind":"entity","loop":848,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":2,"since":848}}
+{"v":1,"seq":863,"kind":"series","loop":856,"ch":"econ","data":[{"name":"minerals","value":435},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":864,"kind":"series","loop":856,"ch":"econ/supply","data":12}
+{"v":1,"seq":865,"kind":"overlay","loop":856,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 856"},{"type":"polyline","points":[[124.5,104],[131.1,111.51],[127.56,117.66]]}]}
+{"v":1,"seq":866,"kind":"series","loop":864,"ch":"econ","data":[{"name":"minerals","value":445},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":867,"kind":"series","loop":864,"ch":"econ/supply","data":12}
+{"v":1,"seq":868,"kind":"overlay","loop":864,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 864"},{"type":"polyline","points":[[124.5,104],[130.58,111.94],[126.65,117.83]]}]}
+{"v":1,"seq":869,"kind":"overlay","loop":864,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"CgAKJ1KEtd33/vDRpXNDHAAKJ1KEtd33/vDRpXNDHAUKJ1KEtd33/vDRpXNDHAUBJ1KEtd33/vDRpXNDHAUBEVKEtd33/vDRpXNDHAUBETOEtd33/vDRpXNDHAUBETNgtd33/vDRpXNDHAUBETNgkt33/vDRpXNDHAUBETNgksL3/vDRpXNDHAUBETNgksLn/vDRpXNDHAUBETNgksLn+/DRpXNDHAUBETNgksLn+/zRpXNDHAUBETNgksLn+/zppXNDHAUBETNgksLn+/zpxXNDHAUBETNgksLn+/zpxZdDHAUBETNgksLn+/zpxZdkHAUBETNgksLn+/zpxZdkNg=="}]}
+{"v":1,"seq":870,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4358144001,"task":"build","priority":1,"since":864}}
+{"v":1,"seq":871,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":2,"since":864}}
+{"v":1,"seq":872,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":3,"since":864}}
+{"v":1,"seq":873,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4357619713,"task":"scout","priority":1,"since":864}}
+{"v":1,"seq":874,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":2,"since":864}}
+{"v":1,"seq":875,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":3,"since":864}}
+{"v":1,"seq":876,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4354473985,"task":"idle","priority":1,"since":864}}
+{"v":1,"seq":877,"kind":"entity","loop":864,"ch":"test/tasks","data":{"tag":4357095425,"task":"mine","priority":2,"since":864}}
+{"v":1,"seq":878,"kind":"series","loop":872,"ch":"econ","data":[{"name":"minerals","value":445},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":879,"kind":"series","loop":872,"ch":"econ/supply","data":12}
+{"v":1,"seq":880,"kind":"overlay","loop":872,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 872"},{"type":"polyline","points":[[124.5,104],[130.04,112.32],[125.72,117.95]]}]}
+{"v":1,"seq":881,"kind":"series","loop":880,"ch":"econ","data":[{"name":"minerals","value":445},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":882,"kind":"series","loop":880,"ch":"econ/supply","data":12}
+{"v":1,"seq":883,"kind":"overlay","loop":880,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 880"},{"type":"polyline","points":[[124.5,104],[129.47,112.67],[124.79,118]]}]}
+{"v":1,"seq":884,"kind":"overlay","loop":880,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"BgAPL1yOvuT6/ezJm2k6FgAPL1yOvuT6/ezJm2k6FgIPL1yOvuT6/ezJm2k6FgIDL1yOvuT6/ezJm2k6FgIDF1yOvuT6/ezJm2k6FgIDFzuOvuT6/ezJm2k6FgIDFztqvuT6/ezJm2k6FgIDFztqnOT6/ezJm2k6FgIDFztqnMr6/ezJm2k6FgIDFztqnMrs/ezJm2k6FgIDFztqnMrs/ezJm2k6FgIDFztqnMrs/frJm2k6FgIDFztqnMrs/frjm2k6FgIDFztqnMrs/frjvWk6FgIDFztqnMrs/frjvY06FgIDFztqnMrs/frjvY1aFgIDFztqnMrs/frjvY1aLg=="}]}
+{"v":1,"seq":885,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":1,"since":880}}
+{"v":1,"seq":886,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":2,"since":880}}
+{"v":1,"seq":887,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4355522561,"task":"defend","priority":3,"since":880}}
+{"v":1,"seq":888,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":1,"since":880}}
+{"v":1,"seq":889,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4357095425,"task":"idle","priority":2,"since":880}}
+{"v":1,"seq":890,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4353949697,"task":"mine","priority":3,"since":880}}
+{"v":1,"seq":891,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4356046849,"task":"scout","priority":1,"since":880}}
+{"v":1,"seq":892,"kind":"entity","loop":880,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":2,"since":880}}
+{"v":1,"seq":893,"kind":"overlay","loop":880,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":894,"kind":"event","loop":880,"ch":"test/log","data":{"msg":"step 110: 17 own units, 445 minerals","level":"warn","data":{"step":110,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":895,"kind":"snapshot","loop":880,"ch":"test/plan","data":{"revision":12,"objective":"expand","queue":["defend","build","idle"],"resources":{"minerals":445,"vespene":0}}}
+{"v":1,"seq":896,"kind":"series","loop":888,"ch":"econ","data":[{"name":"minerals","value":455},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":897,"kind":"series","loop":888,"ch":"econ/supply","data":12}
+{"v":1,"seq":898,"kind":"overlay","loop":888,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 888"},{"type":"polyline","points":[[124.5,104],[128.89,112.99],[123.86,117.99]]}]}
+{"v":1,"seq":899,"kind":"series","loop":896,"ch":"econ","data":[{"name":"minerals","value":465},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":900,"kind":"series","loop":896,"ch":"econ/supply","data":12}
+{"v":1,"seq":901,"kind":"overlay","loop":896,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 896"},{"type":"polyline","points":[[124.5,104],[128.28,113.26],[122.93,117.91]]}]}
+{"v":1,"seq":902,"kind":"overlay","loop":896,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AwIUN2WYxur8++bBkV8yEQIUN2WYxur8++bBkV8yEQEUN2WYxur8++bBkV8yEQEFN2WYxur8++bBkV8yEQEFHWWYxur8++bBkV8yEQEFHUSYxur8++bBkV8yEQEFHUR0xur8++bBkV8yEQEFHUR0pur8++bBkV8yEQEFHUR0ptL8++bBkV8yEQEFHUR0ptLx++bBkV8yEQEFHUR0ptLx/ubBkV8yEQEFHUR0ptLx/vfBkV8yEQEFHUR0ptLx/vfdkV8yEQEFHUR0ptLx/vfdtF8yEQEFHUR0ptLx/vfdtIMyEQEFHUR0ptLx/vfdtINREQEFHUR0ptLx/vfdtINRJg=="}]}
+{"v":1,"seq":903,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4354211841,"task":"defend","priority":1,"since":896}}
+{"v":1,"seq":904,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":2,"since":896}}
+{"v":1,"seq":905,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":3,"since":896}}
+{"v":1,"seq":906,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":896}}
+{"v":1,"seq":907,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4355784705,"task":"scout","priority":2,"since":896}}
+{"v":1,"seq":908,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4357619713,"task":"defend","priority":3,"since":896}}
+{"v":1,"seq":909,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4354473985,"task":"build","priority":1,"since":896}}
+{"v":1,"seq":910,"kind":"entity","loop":896,"ch":"test/tasks","data":{"tag":4356833281,"task":"idle","priority":2,"since":896}}
+{"v":1,"seq":911,"kind":"series","loop":904,"ch":"econ","data":[{"name":"minerals","value":465},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":912,"kind":"series","loop":904,"ch":"econ/supply","data":12}
+{"v":1,"seq":913,"kind":"overlay","loop":904,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 904"},{"type":"polyline","points":[[124.5,104],[127.65,113.49],[122,117.78]]}]}
+{"v":1,"seq":914,"kind":"series","loop":912,"ch":"econ","data":[{"name":"minerals","value":480},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":915,"kind":"series","loop":912,"ch":"econ/supply","data":12}
+{"v":1,"seq":916,"kind":"overlay","loop":912,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 912"},{"type":"polyline","points":[[124.5,104],[127.01,113.68],[121.09,117.58]]}]}
+{"v":1,"seq":917,"kind":"overlay","loop":912,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AQQaQG+iz+/9+OC4h1UqDAQaQG+iz+/9+OC4h1UqDAAaQG+iz+/9+OC4h1UqDAAIQG+iz+/9+OC4h1UqDAAII2+iz+/9+OC4h1UqDAAII02iz+/9+OC4h1UqDAAII01+z+/9+OC4h1UqDAAII01+sO/9+OC4h1UqDAAII01+sNr9+OC4h1UqDAAII01+sNr1+OC4h1UqDAAII01+sNr1/uC4h1UqDAAII01+sNr1/vO4h1UqDAAII01+sNr1/vPVh1UqDAAII01+sNr1/vPVqlUqDAAII01+sNr1/vPVqngqDAAII01+sNr1/vPVqnhIDAAII01+sNr1/vPVqnhIHw=="}]}
+{"v":1,"seq":918,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":1,"since":912}}
+{"v":1,"seq":919,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":2,"since":912}}
+{"v":1,"seq":920,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":3,"since":912}}
+{"v":1,"seq":921,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4356308993,"task":"defend","priority":1,"since":912}}
+{"v":1,"seq":922,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4357095425,"task":"build","priority":2,"since":912}}
+{"v":1,"seq":923,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4353949697,"task":"idle","priority":3,"since":912}}
+{"v":1,"seq":924,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":1,"since":912}}
+{"v":1,"seq":925,"kind":"entity","loop":912,"ch":"test/tasks","data":{"tag":4355260417,"task":"scout","priority":2,"since":912}}
+{"v":1,"seq":926,"kind":"series","loop":920,"ch":"econ","data":[{"name":"minerals","value":480},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":927,"kind":"series","loop":920,"ch":"econ/supply","data":12}
+{"v":1,"seq":928,"kind":"overlay","loop":920,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 920"},{"type":"polyline","points":[[124.5,104],[126.36,113.83],[120.19,117.32]]}]}
+{"v":1,"seq":929,"kind":"overlay","loop":920,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":930,"kind":"event","loop":920,"ch":"test/log","data":{"msg":"step 115: 17 own units, 480 minerals","level":"error","data":{"step":115,"units":17}}}
+{"v":1,"seq":931,"kind":"series","loop":928,"ch":"econ","data":[{"name":"minerals","value":480},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":932,"kind":"series","loop":928,"ch":"econ/supply","data":12}
+{"v":1,"seq":933,"kind":"overlay","loop":928,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 928"},{"type":"polyline","points":[[124.5,104],[125.7,113.93],[119.32,117]]}]}
+{"v":1,"seq":934,"kind":"overlay","loop":928,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AAcgSXqr1vP+9dmvfUwjCAcgSXqr1vP+9dmvfUwjCAAgSXqr1vP+9dmvfUwjCAAMSXqr1vP+9dmvfUwjCAAMK3qr1vP+9dmvfUwjCAAMK1ar1vP+9dmvfUwjCAAMK1aI1vP+9dmvfUwjCAAMK1aIufP+9dmvfUwjCAAMK1aIueD+9dmvfUwjCAAMK1aIueD49dmvfUwjCAAMK1aIueD4/dmvfUwjCAAMK1aIueD4/e6vfUwjCAAMK1aIueD4/e7OfUwjCAAMK1aIueD4/e7OoUwjCAAMK1aIueD4/e7OoW4jCAAMK1aIueD4/e7OoW4/CAAMK1aIueD4/e7OoW4/GQ=="}]}
+{"v":1,"seq":935,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4357881857,"task":"scout","priority":1,"since":928}}
+{"v":1,"seq":936,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4355784705,"task":"defend","priority":2,"since":928}}
+{"v":1,"seq":937,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":3,"since":928}}
+{"v":1,"seq":938,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4355260417,"task":"idle","priority":1,"since":928}}
+{"v":1,"seq":939,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4354736129,"task":"mine","priority":2,"since":928}}
+{"v":1,"seq":940,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4358144001,"task":"scout","priority":3,"since":928}}
+{"v":1,"seq":941,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4357357569,"task":"defend","priority":1,"since":928}}
+{"v":1,"seq":942,"kind":"entity","loop":928,"ch":"test/tasks","data":{"tag":4356571137,"task":"build","priority":2,"since":928}}
+{"v":1,"seq":943,"kind":"series","loop":936,"ch":"econ","data":[{"name":"minerals","value":485},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":944,"kind":"series","loop":936,"ch":"econ/supply","data":12}
+{"v":1,"seq":945,"kind":"overlay","loop":936,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 936"},{"type":"polyline","points":[[124.5,104],[125.04,113.99],[118.46,116.63]]}]}
+{"v":1,"seq":946,"kind":"series","loop":944,"ch":"econ","data":[{"name":"minerals","value":485},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":947,"kind":"series","loop":944,"ch":"econ/supply","data":12}
+{"v":1,"seq":948,"kind":"overlay","loop":944,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 944"},{"type":"polyline","points":[[124.5,104],[124.37,114],[117.63,116.2]]}]}
+{"v":1,"seq":949,"kind":"overlay","loop":944,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AAonUoS13ff+8NGlc0McBQonUoS13ff+8NGlc0McBQEnUoS13ff+8NGlc0McBQERUoS13ff+8NGlc0McBQERM4S13ff+8NGlc0McBQERM2C13ff+8NGlc0McBQERM2CS3ff+8NGlc0McBQERM2CSwvf+8NGlc0McBQERM2CSwuf+8NGlc0McBQERM2CSwuf78NGlc0McBQERM2CSwuf7/NGlc0McBQERM2CSwuf7/Omlc0McBQERM2CSwuf7/OnFc0McBQERM2CSwuf7/OnFl0McBQERM2CSwuf7/OnFl2QcBQERM2CSwuf7/OnFl2Q2BQERM2CSwuf7/OnFl2Q2Ew=="}]}
+{"v":1,"seq":950,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4355522561,"task":"build","priority":1,"since":944}}
+{"v":1,"seq":951,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4354736129,"task":"idle","priority":2,"since":944}}
+{"v":1,"seq":952,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4358144001,"task":"mine","priority":3,"since":944}}
+{"v":1,"seq":953,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4356833281,"task":"scout","priority":1,"since":944}}
+{"v":1,"seq":954,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4354473985,"task":"defend","priority":2,"since":944}}
+{"v":1,"seq":955,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4354998273,"task":"build","priority":3,"since":944}}
+{"v":1,"seq":956,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4356308993,"task":"idle","priority":1,"since":944}}
+{"v":1,"seq":957,"kind":"entity","loop":944,"ch":"test/tasks","data":{"tag":4355784705,"task":"mine","priority":2,"since":944}}
+{"v":1,"seq":958,"kind":"series","loop":952,"ch":"econ","data":[{"name":"minerals","value":485},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":959,"kind":"series","loop":952,"ch":"econ/supply","data":12}
+{"v":1,"seq":960,"kind":"overlay","loop":952,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 952"},{"type":"polyline","points":[[124.5,104],[123.71,113.97],[116.84,115.72]]}]}
+{"v":1,"seq":961,"kind":"series","loop":960,"ch":"econ","data":[{"name":"minerals","value":490},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":962,"kind":"series","loop":960,"ch":"econ/supply","data":12}
+{"v":1,"seq":963,"kind":"overlay","loop":960,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 960"},{"type":"polyline","points":[[124.5,104],[123.04,113.89],[116.07,115.18]]}]}
+{"v":1,"seq":964,"kind":"overlay","loop":960,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AA8vXI6+5Pr97MmbaToWAg8vXI6+5Pr97MmbaToWAgMvXI6+5Pr97MmbaToWAgMXXI6+5Pr97MmbaToWAgMXO46+5Pr97MmbaToWAgMXO2q+5Pr97MmbaToWAgMXO2qc5Pr97MmbaToWAgMXO2qcyvr97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz97MmbaToWAgMXO2qcyuz9+smbaToWAgMXO2qcyuz9+uObaToWAgMXO2qcyuz9+uO9aToWAgMXO2qcyuz9+uO9jToWAgMXO2qcyuz9+uO9jVoWAgMXO2qcyuz9+uO9jVouAgMXO2qcyuz9+uO9jVouDg=="}]}
+{"v":1,"seq":965,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4355522561,"task":"mine","priority":1,"since":960}}
+{"v":1,"seq":966,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4353949697,"task":"scout","priority":2,"since":960}}
+{"v":1,"seq":967,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4358144001,"task":"defend","priority":3,"since":960}}
+{"v":1,"seq":968,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4355260417,"task":"build","priority":1,"since":960}}
+{"v":1,"seq":969,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4354211841,"task":"idle","priority":2,"since":960}}
+{"v":1,"seq":970,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":3,"since":960}}
+{"v":1,"seq":971,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4354998273,"task":"scout","priority":1,"since":960}}
+{"v":1,"seq":972,"kind":"entity","loop":960,"ch":"test/tasks","data":{"tag":4356571137,"task":"defend","priority":2,"since":960}}
+{"v":1,"seq":973,"kind":"overlay","loop":960,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":974,"kind":"event","loop":960,"ch":"test/log","data":{"msg":"step 120: 17 own units, 490 minerals","level":"debug","data":{"step":120,"units":17},"pos":[124.5,159.5]}}
+{"v":1,"seq":975,"kind":"snapshot","loop":960,"ch":"test/plan","data":{"revision":13,"objective":"defend","queue":["build","idle"],"resources":{"minerals":490,"vespene":0}}}
+{"v":1,"seq":976,"kind":"series","loop":968,"ch":"econ","data":[{"name":"minerals","value":495},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":977,"kind":"series","loop":968,"ch":"econ/supply","data":12}
+{"v":1,"seq":978,"kind":"overlay","loop":968,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 968"},{"type":"polyline","points":[[124.5,104],[122.39,113.77],[115.35,114.59]]}]}
+{"v":1,"seq":979,"kind":"series","loop":976,"ch":"econ","data":[{"name":"minerals","value":500},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":980,"kind":"series","loop":976,"ch":"econ/supply","data":12}
+{"v":1,"seq":981,"kind":"overlay","loop":976,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 976"},{"type":"polyline","points":[[124.5,104],[121.74,113.61],[114.66,113.96]]}]}
+{"v":1,"seq":982,"kind":"overlay","loop":976,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"AhQ3ZZjG6vz75sGRXzIRARQ3ZZjG6vz75sGRXzIRAQU3ZZjG6vz75sGRXzIRAQUdZZjG6vz75sGRXzIRAQUdRJjG6vz75sGRXzIRAQUdRHTG6vz75sGRXzIRAQUdRHSm6vz75sGRXzIRAQUdRHSm0vz75sGRXzIRAQUdRHSm0vH75sGRXzIRAQUdRHSm0vH+5sGRXzIRAQUdRHSm0vH+98GRXzIRAQUdRHSm0vH+992RXzIRAQUdRHSm0vH+9920XzIRAQUdRHSm0vH+9920gzIRAQUdRHSm0vH+9920g1ERAQUdRHSm0vH+9920g1EmAQUdRHSm0vH+9920g1EmCg=="}]}
+{"v":1,"seq":983,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4356833281,"task":"defend","priority":1,"since":976}}
+{"v":1,"seq":984,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4356308993,"task":"build","priority":2,"since":976}}
+{"v":1,"seq":985,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4356571137,"task":"idle","priority":3,"since":976}}
+{"v":1,"seq":986,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4357881857,"task":"mine","priority":1,"since":976}}
+{"v":1,"seq":987,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4357095425,"task":"scout","priority":2,"since":976}}
+{"v":1,"seq":988,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4354211841,"task":"defend","priority":3,"since":976}}
+{"v":1,"seq":989,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4353949697,"task":"build","priority":1,"since":976}}
+{"v":1,"seq":990,"kind":"entity","loop":976,"ch":"test/tasks","data":{"tag":4357357569,"task":"idle","priority":2,"since":976}}
+{"v":1,"seq":991,"kind":"series","loop":984,"ch":"econ","data":[{"name":"minerals","value":500},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":992,"kind":"series","loop":984,"ch":"econ/supply","data":12}
+{"v":1,"seq":993,"kind":"overlay","loop":984,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 984"},{"type":"polyline","points":[[124.5,104],[121.11,113.41],[114.02,113.28]]}]}
+{"v":1,"seq":994,"kind":"series","loop":992,"ch":"econ","data":[{"name":"minerals","value":515},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":995,"kind":"series","loop":992,"ch":"econ/supply","data":12}
+{"v":1,"seq":996,"kind":"overlay","loop":992,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 992"},{"type":"polyline","points":[[124.5,104],[120.49,113.16],[113.42,112.56]]}]}
+{"v":1,"seq":997,"kind":"overlay","loop":992,"ch":"test/heat","style":{"opacity":0.5,"z":-1},"data":[{"type":"grid","origin":[14,32],"cell":9,"w":16,"h":16,"enc":"b64u8","scale":0.00392156862745098,"offset":0,"values":"BBpAb6LP7/344LiHVSoMABpAb6LP7/344LiHVSoMAAhAb6LP7/344LiHVSoMAAgjb6LP7/344LiHVSoMAAgjTaLP7/344LiHVSoMAAgjTX7P7/344LiHVSoMAAgjTX6w7/344LiHVSoMAAgjTX6w2v344LiHVSoMAAgjTX6w2vX44LiHVSoMAAgjTX6w2vX+4LiHVSoMAAgjTX6w2vX+87iHVSoMAAgjTX6w2vX+89WHVSoMAAgjTX6w2vX+89WqVSoMAAgjTX6w2vX+89WqeCoMAAgjTX6w2vX+89WqeEgMAAgjTX6w2vX+89WqeEgfAAgjTX6w2vX+89WqeEgfBg=="}]}
+{"v":1,"seq":998,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4358144001,"task":"idle","priority":1,"since":992}}
+{"v":1,"seq":999,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4357619713,"task":"mine","priority":2,"since":992}}
+{"v":1,"seq":1000,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4354211841,"task":"scout","priority":3,"since":992}}
+{"v":1,"seq":1001,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4353949697,"task":"defend","priority":1,"since":992}}
+{"v":1,"seq":1002,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4356046849,"task":"build","priority":2,"since":992}}
+{"v":1,"seq":1003,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4356571137,"task":"idle","priority":3,"since":992}}
+{"v":1,"seq":1004,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4356308993,"task":"mine","priority":1,"since":992}}
+{"v":1,"seq":1005,"kind":"entity","loop":992,"ch":"test/tasks","data":{"tag":4354736129,"task":"scout","priority":2,"since":992}}
+{"v":1,"seq":1006,"kind":"series","loop":1000,"ch":"econ","data":[{"name":"minerals","value":515},{"name":"vespene","value":0},{"name":"army","value":0}]}
+{"v":1,"seq":1007,"kind":"series","loop":1000,"ch":"econ/supply","data":12}
+{"v":1,"seq":1008,"kind":"overlay","loop":1000,"ch":"test/shapes","style":{"color":"#4fc3f7","width":1.5,"label":"shapes"},"data":[{"type":"circle","pos":[124.5,159.5],"r":6},{"type":"line","from":[124.5,159.5],"to":[124.5,48.5]},{"type":"rect","p0":[116.5,151.5],"p1":[132.5,167.5]},{"type":"text","pos":[124.5,169.5],"text":"loop 1000"},{"type":"polyline","points":[[124.5,104],[119.89,112.87],[112.88,111.81]]}]}
+{"v":1,"seq":1009,"kind":"overlay","loop":1000,"ch":"test/transient","style":{"color":"#ff7043"},"ttl":40,"data":[{"type":"point","pos":[124.5,48.5]}]}
+{"v":1,"seq":1010,"kind":"event","loop":1000,"ch":"test/log","data":{"msg":"step 125: 17 own units, 515 minerals","level":"info","data":{"step":125,"units":17}}}
+{"v":1,"seq":1011,"kind":"end","data":{"reason":"surrender","loop":1000,"lines":1012}}
