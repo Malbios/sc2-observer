@@ -9,6 +9,7 @@
     "record": "node dist/cli/record.js",
     "dump": "node dist/cli/dump.js",
     "testbot": "node dist/cli/testbot.js",
+    "import-telemetry": "node dist/cli/import-telemetry.js",
     "verify": "npm run build && node dist/cli/verify-extraction.js",
     "spike": "node spike/proxy.js",
     "dev": "electron-vite dev",
