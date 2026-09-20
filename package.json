@@ -19,6 +19,7 @@
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "protobufjs": "^7.4.0",
+    "uplot": "^1.6.32",
     "ws": "^8.18.0"
   },
   "devDependencies": {

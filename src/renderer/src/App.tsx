@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { FrameAtLoopIpc, RecordingInfo, TerrainDataIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../shared/ipc-types";
-import type { ChannelIpc, TelemetryStateIpc } from "../../shared/telemetry-types";
+import type { ChannelIpc, EventIpc, TelemetryStateIpc } from "../../shared/telemetry-types";
 import { ChannelTree } from "./components/ChannelTree";
+import { EventLog } from "./components/EventLog";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
+import { SeriesChart } from "./components/SeriesChart";
 import { Timeline } from "./components/Timeline";
 import { UnitInspector } from "./components/UnitInspector";
 
@@ -26,6 +28,13 @@ export function App(): JSX.Element {
   const [visibleChannels, setVisibleChannels] = useState<ReadonlySet<string>>(new Set());
   const [telemetry, setTelemetry] = useState<TelemetryStateIpc | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dockTab, setDockTab] = useState<"series" | "events">("series");
+  const [dockHeight, setDockHeight] = useState(200);
+  const [selectedSeries, setSelectedSeries] = useState<ReadonlySet<string>>(new Set());
+  /** Bumped when telemetry is ingested, so panels that hold whole-game query
+   * results (the event log, the timeline ticks) know to refetch. */
+  const [telemetryRevision, setTelemetryRevision] = useState(0);
+  const [timelineEvents, setTimelineEvents] = useState<EventIpc[]>([]);
 
   const mapHandleRef = useRef<MapViewHandle | null>(null);
   const loopRef = useRef(0);
@@ -41,6 +50,8 @@ export function App(): JSX.Element {
     setChannels(channelList);
     setStreamCount(streams.length);
     setVisibleChannels(new Set(channelList.filter((c) => c.defaultVisible).map((c) => c.ch)));
+    setTimelineEvents(await window.spectator.getEvents({}));
+    setTelemetryRevision((revision) => revision + 1);
   }, []);
 
   const openRecording = useCallback(async () => {
@@ -53,6 +64,9 @@ export function App(): JSX.Element {
     setLoop(0);
     lastFetchedLoopRef.current = -1;
     setTelemetry(null);
+    setNotice(null);
+    setSelectedSeries(new Set());
+    setTimelineEvents([]);
 
     const [terrainData, typeInfo] = await Promise.all([window.spectator.getTerrain(), window.spectator.getUnitTypeInfo()]);
     setTerrain(terrainData);
@@ -142,6 +156,31 @@ export function App(): JSX.Element {
     mapHandleRef.current?.recenterOn(worldX, worldY);
   }, []);
 
+  const handleToggleSeries = useCallback((key: string, on: boolean) => {
+    setSelectedSeries((current) => {
+      const next = new Set(current);
+      if (on) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
+  /** Drag the dock's top edge. Listeners go on window so the pointer can
+   * leave the 6px handle mid-drag without the resize sticking. */
+  const startDockResize = useCallback((event: React.PointerEvent) => {
+    const startY = event.clientY;
+    const startHeight = dockHeight;
+    const onMove = (move: PointerEvent): void => {
+      setDockHeight(Math.max(0, Math.min(560, startHeight - (move.clientY - startY))));
+    };
+    const onUp = (): void => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [dockHeight]);
+
   const handleToggleChannels = useCallback((paths: string[], show: boolean) => {
     setVisibleChannels((current) => {
       const next = new Set(current);
@@ -213,6 +252,52 @@ export function App(): JSX.Element {
         </div>
       </div>
 
+      <div
+        onPointerDown={startDockResize}
+        style={{ height: 6, cursor: "ns-resize", borderTop: "1px solid #2b323d", background: "#171b21", flexShrink: 0 }}
+      />
+      <div style={{ height: dockHeight, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", gap: 4, padding: "6px 16px 0" }}>
+          {(["series", "events"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setDockTab(tab)}
+              style={{
+                fontSize: 12,
+                textTransform: "capitalize",
+                background: dockTab === tab ? "#242a33" : "transparent",
+                color: dockTab === tab ? "#e7e9ec" : "#8b93a1",
+                border: "1px solid #2b323d",
+                borderRadius: 4,
+                padding: "3px 10px",
+                cursor: "pointer",
+              }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, padding: "8px 16px 10px" }}>
+          {dockTab === "series" ? (
+            <SeriesChart
+              channels={channels}
+              selected={selectedSeries}
+              onToggle={handleToggleSeries}
+              loop={loop}
+              maxLoop={recording.maxLoop}
+              onSeek={handleSeek}
+            />
+          ) : (
+            <EventLog
+              channels={channels.filter((c) => c.kind === "event").map((c) => c.ch)}
+              loop={loop}
+              onSeek={handleSeek}
+              revision={telemetryRevision}
+            />
+          )}
+        </div>
+      </div>
+
       <div style={{ borderTop: "1px solid #2b323d" }}>
         <Timeline
           loop={loop}
@@ -222,6 +307,7 @@ export function App(): JSX.Element {
           onSeek={handleSeek}
           onTogglePlay={() => setPlaying((p) => !p)}
           onSpeedChange={setSpeed}
+          events={timelineEvents}
         />
       </div>
     </div>
