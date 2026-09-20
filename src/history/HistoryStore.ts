@@ -1,11 +1,40 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { brotliCompressSync, brotliDecompressSync } from "node:zlib";
+import { brotliCompressSync, brotliDecompressSync, constants as zlibConstants } from "node:zlib";
 import Database from "better-sqlite3";
 import type { FrameEvent } from "../bus/EventBus";
+import type {
+  ChannelDeclaration,
+  ChannelMessage,
+  EventIpc,
+  EventFilterIpc,
+  EventLevel,
+  Point2,
+  SeriesDataIpc,
+  TelemetryKind,
+  TelemetryStyle,
+} from "../shared/telemetry-types";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const BATCH_SIZE = 50;
+/** §6.4 asks for "one transaction per second (or per 50 events)". */
+const FLUSH_INTERVAL_MS = 1000;
+
+/**
+ * Telemetry payloads are many small JSON documents rather than a handful of
+ * large protobufs, and brotli's default quality 11 is expensive per call. At
+ * quality 5 these compress nearly as well for a fraction of the time, which
+ * matters when a bot emits a grid every step.
+ */
+const JSON_BROTLI = { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 } };
+
+function compressJson(value: unknown): Buffer {
+  return brotliCompressSync(Buffer.from(JSON.stringify(value ?? null), "utf8"), JSON_BROTLI);
+}
+
+function decompressJson(blob: Buffer): unknown {
+  return JSON.parse(brotliDecompressSync(blob).toString("utf8"));
+}
 
 /**
  * Ordered, additive migrations. Index i takes a file from version i to i+1,
@@ -29,12 +58,141 @@ const MIGRATIONS: ((db: Database.Database) => void)[] = [
       CREATE INDEX IF NOT EXISTS idx_frames_kind_loop ON frames (kind, loop);
     `);
   },
+  // v2: telemetry (plan §6.3). `series` and `events` are denormalized out of
+  // the messages already in `telemetry` so charting and log filtering are
+  // indexed queries rather than a decompress-and-scan of every row.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS streams (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        source_path TEXT NOT NULL,
+        emitter TEXT,
+        meta TEXT,
+        channels TEXT,
+        first_loop INTEGER,
+        last_loop INTEGER,
+        attached_at TEXT NOT NULL,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        rejected_count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS telemetry (
+        stream_id INTEGER NOT NULL,
+        seq INTEGER NOT NULL,
+        loop INTEGER NOT NULL,
+        ch TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        style TEXT,
+        ttl INTEGER,
+        data BLOB NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_telemetry_ch_loop ON telemetry (ch, loop);
+      CREATE INDEX IF NOT EXISTS idx_telemetry_loop ON telemetry (loop, seq);
+      CREATE TABLE IF NOT EXISTS series (
+        stream_id INTEGER NOT NULL,
+        ch TEXT NOT NULL,
+        name TEXT NOT NULL,
+        loop INTEGER NOT NULL,
+        value REAL NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_series_ch_name_loop ON series (ch, name, loop);
+      CREATE TABLE IF NOT EXISTS events (
+        stream_id INTEGER NOT NULL,
+        seq INTEGER NOT NULL,
+        loop INTEGER NOT NULL,
+        ch TEXT NOT NULL,
+        level TEXT NOT NULL,
+        msg TEXT NOT NULL,
+        pos_x REAL,
+        pos_y REAL,
+        data TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_events_loop ON events (loop, seq);
+      CREATE TABLE IF NOT EXISTS checkpoints (
+        loop INTEGER PRIMARY KEY,
+        state BLOB NOT NULL
+      );
+    `);
+  },
 ];
+
+export interface StreamInfo {
+  name: string;
+  sourcePath: string;
+  emitter: string | null;
+  meta: Record<string, unknown> | null;
+  channels: ChannelDeclaration[] | null;
+}
+
+export interface StreamRow extends StreamInfo {
+  id: number;
+  firstLoop: number | null;
+  lastLoop: number | null;
+  attachedAt: string;
+  messageCount: number;
+  rejectedCount: number;
+}
+
+/** One `telemetry` row, decompressed. */
+export interface StoredTelemetry {
+  streamId: number;
+  seq: number;
+  loop: number;
+  ch: string;
+  kind: TelemetryKind;
+  style: TelemetryStyle | null;
+  ttl: number | null;
+  data: unknown;
+}
+
+interface TelemetryRow {
+  streamId: number;
+  seq: number;
+  loop: number;
+  ch: string;
+  kind: string;
+  style: string | null;
+  ttl: number | null;
+  data: Buffer;
+}
+interface SeriesRow {
+  streamId: number;
+  ch: string;
+  name: string;
+  loop: number;
+  value: number;
+}
+interface EventRow {
+  streamId: number;
+  seq: number;
+  loop: number;
+  ch: string;
+  level: string;
+  msg: string;
+  posX: number | null;
+  posY: number | null;
+  data: string | null;
+}
+
+/**
+ * A `series` message may carry a bare number instead of named pairs, in which
+ * case "`ch` names the series itself" (§3.3). The chart still needs a label,
+ * so the channel's last path segment becomes the name: `econ/supply` charts as
+ * "supply".
+ */
+function seriesNameForChannel(ch: string): string {
+  const segments = ch.split("/");
+  return segments[segments.length - 1] || ch;
+}
 
 export class HistoryStore {
   private readonly db: Database.Database;
   private readonly statements = new Map<string, Database.Statement>();
-  private pending: FrameEvent[] = [];
+  private pendingFrames: FrameEvent[] = [];
+  private pendingTelemetry: TelemetryRow[] = [];
+  private pendingSeries: SeriesRow[] = [];
+  private pendingEvents: EventRow[] = [];
+  private lastFlushAt = Date.now();
   private closed = false;
 
   constructor(filePath: string) {
@@ -101,22 +259,139 @@ export class HistoryStore {
   }
 
   recordFrame(event: FrameEvent): void {
-    this.pending.push(event);
-    if (this.pending.length >= BATCH_SIZE) {
+    this.pendingFrames.push(event);
+    this.maybeFlush();
+  }
+
+  // -- telemetry writes ------------------------------------------------------
+
+  createStream(info: StreamInfo): number {
+    const result = this
+      .stmt(
+        "INSERT INTO streams (name, source_path, emitter, meta, channels, attached_at) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+      .run(
+        info.name,
+        info.sourcePath,
+        info.emitter,
+        info.meta ? JSON.stringify(info.meta) : null,
+        info.channels ? JSON.stringify(info.channels) : null,
+        new Date().toISOString()
+      );
+    return Number(result.lastInsertRowid);
+  }
+
+  updateStream(id: number, counts: { firstLoop: number | null; lastLoop: number | null; messageCount: number; rejectedCount: number }): void {
+    this.stmt(
+      "UPDATE streams SET first_loop = ?, last_loop = ?, message_count = ?, rejected_count = ? WHERE id = ?"
+    ).run(counts.firstLoop, counts.lastLoop, counts.messageCount, counts.rejectedCount, id);
+  }
+
+  /**
+   * Buffers one message. Every message lands in `telemetry` as received (§6.3);
+   * `series` and `event` additionally fan out into their denormalized tables,
+   * which is what makes charting and log filtering indexed rather than a scan
+   * over compressed blobs.
+   *
+   * `seq` is optional in the contract (§3.2), so callers pass a fallback -- the
+   * line number, for a file -- to keep ordering within a loop stable.
+   */
+  recordTelemetry(streamId: number, message: ChannelMessage, fallbackSeq: number): void {
+    const seq = message.seq ?? fallbackSeq;
+    this.pendingTelemetry.push({
+      streamId,
+      seq,
+      loop: message.loop,
+      ch: message.ch,
+      kind: message.kind,
+      style: message.style ? JSON.stringify(message.style) : null,
+      ttl: message.ttl ?? null,
+      data: compressJson(message.data),
+    });
+
+    if (message.kind === "series") {
+      const pairs =
+        typeof message.data === "number"
+          ? [{ name: seriesNameForChannel(message.ch), value: message.data }]
+          : message.data;
+      for (const pair of pairs) {
+        this.pendingSeries.push({ streamId, ch: message.ch, name: pair.name, loop: message.loop, value: pair.value });
+      }
+    } else if (message.kind === "event") {
+      const pos = message.data.pos ?? null;
+      this.pendingEvents.push({
+        streamId,
+        seq,
+        loop: message.loop,
+        ch: message.ch,
+        level: message.data.level ?? "info",
+        msg: message.data.msg,
+        posX: pos ? pos[0] : null,
+        posY: pos ? pos[1] : null,
+        data: message.data.data ? JSON.stringify(message.data.data) : null,
+      });
+    }
+
+    this.maybeFlush();
+  }
+
+  recordCheckpoint(loop: number, state: unknown): void {
+    this.stmt("INSERT INTO checkpoints (loop, state) VALUES (?, ?) ON CONFLICT(loop) DO UPDATE SET state = excluded.state").run(
+      loop,
+      compressJson(state)
+    );
+  }
+
+  private get pendingCount(): number {
+    return this.pendingFrames.length + this.pendingTelemetry.length + this.pendingSeries.length + this.pendingEvents.length;
+  }
+
+  private maybeFlush(): void {
+    if (this.pendingCount >= BATCH_SIZE || Date.now() - this.lastFlushAt >= FLUSH_INTERVAL_MS) {
       this.flush();
     }
   }
 
+  /** One transaction across every buffer, so a crash leaves a file that is
+   * consistent rather than one where a series row outlived its message. */
   flush(): void {
-    if (this.pending.length === 0) return;
-    const insert = this.stmt("INSERT INTO frames (loop, kind, direction, bytes) VALUES (?, ?, ?, ?)");
-    const events = this.pending;
-    this.pending = [];
+    if (this.pendingCount === 0) {
+      this.lastFlushAt = Date.now();
+      return;
+    }
+    const frames = this.pendingFrames;
+    const telemetry = this.pendingTelemetry;
+    const series = this.pendingSeries;
+    const events = this.pendingEvents;
+    this.pendingFrames = [];
+    this.pendingTelemetry = [];
+    this.pendingSeries = [];
+    this.pendingEvents = [];
+
+    const insertFrame = this.stmt("INSERT INTO frames (loop, kind, direction, bytes) VALUES (?, ?, ?, ?)");
+    const insertTelemetry = this.stmt(
+      "INSERT INTO telemetry (stream_id, seq, loop, ch, kind, style, ttl, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+    const insertSeries = this.stmt("INSERT INTO series (stream_id, ch, name, loop, value) VALUES (?, ?, ?, ?, ?)");
+    const insertEvent = this.stmt(
+      "INSERT INTO events (stream_id, seq, loop, ch, level, msg, pos_x, pos_y, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+
     this.db.transaction(() => {
-      for (const event of events) {
-        insert.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes));
+      for (const event of frames) {
+        insertFrame.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes));
+      }
+      for (const row of telemetry) {
+        insertTelemetry.run(row.streamId, row.seq, row.loop, row.ch, row.kind, row.style, row.ttl, row.data);
+      }
+      for (const row of series) {
+        insertSeries.run(row.streamId, row.ch, row.name, row.loop, row.value);
+      }
+      for (const row of events) {
+        insertEvent.run(row.streamId, row.seq, row.loop, row.ch, row.level, row.msg, row.posX, row.posY, row.data);
       }
     })();
+    this.lastFlushAt = Date.now();
   }
 
   /** Reads the nearest response frame of `kind` at or before `loop`. */
@@ -132,6 +407,117 @@ export class HistoryStore {
       | { maxLoop: number | null }
       | undefined;
     return row?.maxLoop ?? 0;
+  }
+
+  // -- telemetry reads -------------------------------------------------------
+
+  getStreams(): StreamRow[] {
+    const rows = this.stmt("SELECT * FROM streams ORDER BY id").all() as Record<string, any>[];
+    return rows.map((row) => ({
+      id: row["id"],
+      name: row["name"],
+      sourcePath: row["source_path"],
+      emitter: row["emitter"],
+      meta: row["meta"] ? JSON.parse(row["meta"]) : null,
+      channels: row["channels"] ? JSON.parse(row["channels"]) : null,
+      firstLoop: row["first_loop"],
+      lastLoop: row["last_loop"],
+      attachedAt: row["attached_at"],
+      messageCount: row["message_count"],
+      rejectedCount: row["rejected_count"],
+    }));
+  }
+
+  /** Messages in `(afterLoop, throughLoop]`, in the order they must be
+   * replayed to resolve retention. `afterLoop` is exclusive so a checkpoint's
+   * own loop is not applied twice. */
+  readTelemetryRange(afterLoop: number, throughLoop: number): StoredTelemetry[] {
+    const rows = this.stmt(
+      "SELECT stream_id, seq, loop, ch, kind, style, ttl, data FROM telemetry WHERE loop > ? AND loop <= ? ORDER BY loop, seq"
+    ).all(afterLoop, throughLoop) as Record<string, any>[];
+    return rows.map((row) => ({
+      streamId: row["stream_id"],
+      seq: row["seq"],
+      loop: row["loop"],
+      ch: row["ch"],
+      kind: row["kind"],
+      style: row["style"] ? JSON.parse(row["style"]) : null,
+      ttl: row["ttl"],
+      data: decompressJson(row["data"]),
+    }));
+  }
+
+  readCheckpointAtOrBefore(loop: number): { loop: number; state: unknown } | undefined {
+    const row = this.stmt("SELECT loop, state FROM checkpoints WHERE loop <= ? ORDER BY loop DESC LIMIT 1").get(loop) as
+      | { loop: number; state: Buffer }
+      | undefined;
+    return row ? { loop: row.loop, state: decompressJson(row.state) } : undefined;
+  }
+
+  /** Every distinct channel that has actually been written to, with the kind
+   * it was written as. The channel tree is built from this plus whatever
+   * `hello` pre-declared, so an undeclared channel still appears (§3.2). */
+  getTelemetryChannels(): { ch: string; kind: TelemetryKind }[] {
+    return this.stmt("SELECT DISTINCT ch, kind FROM telemetry ORDER BY ch, kind").all() as {
+      ch: string;
+      kind: TelemetryKind;
+    }[];
+  }
+
+  getSeriesNames(): { ch: string; name: string }[] {
+    return this.stmt("SELECT DISTINCT ch, name FROM series ORDER BY ch, name").all() as { ch: string; name: string }[];
+  }
+
+  /** Parallel arrays, which is uPlot's native input format. */
+  readSeries(ch: string, name: string): SeriesDataIpc {
+    const rows = this.stmt("SELECT loop, value FROM series WHERE ch = ? AND name = ? ORDER BY loop").all(ch, name) as {
+      loop: number;
+      value: number;
+    }[];
+    const loops = new Array<number>(rows.length);
+    const values = new Array<number>(rows.length);
+    for (let i = 0; i < rows.length; i++) {
+      loops[i] = rows[i]!.loop;
+      values[i] = rows[i]!.value;
+    }
+    return { ch, name, loops, values };
+  }
+
+  /**
+   * §6.3 calls for full-text search on `msg`. FTS5 availability in this
+   * better-sqlite3 build is unverified and a game produces hundreds of events,
+   * not millions, so a LIKE scan is the honest choice until volume argues
+   * otherwise.
+   */
+  readEvents(filter: EventFilterIpc = {}): EventIpc[] {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (filter.ch) {
+      where.push("ch = ?");
+      params.push(filter.ch);
+    }
+    if (filter.levels && filter.levels.length > 0) {
+      where.push(`level IN (${filter.levels.map(() => "?").join(", ")})`);
+      params.push(...filter.levels);
+    }
+    if (filter.text) {
+      where.push("msg LIKE ? ESCAPE '\\'");
+      params.push(`%${filter.text.replace(/[\\%_]/g, "\\$&")}%`);
+    }
+    const clause = where.length > 0 ? ` WHERE ${where.join(" AND ")}` : "";
+    const limit = filter.limit ?? 5000;
+    const rows = this.stmt(
+      `SELECT seq, loop, ch, level, msg, pos_x, pos_y, data FROM events${clause} ORDER BY loop, seq LIMIT ?`
+    ).all(...params, limit) as Record<string, any>[];
+    return rows.map((row) => ({
+      seq: row["seq"],
+      loop: row["loop"],
+      ch: row["ch"],
+      level: row["level"] as EventLevel,
+      msg: row["msg"],
+      pos: row["pos_x"] === null ? null : ([row["pos_x"], row["pos_y"]] as Point2),
+      data: row["data"] ? JSON.parse(row["data"]) : null,
+    }));
   }
 
   /** Safe to call twice: ipc.ts closes the previous store before opening a

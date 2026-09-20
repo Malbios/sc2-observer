@@ -8,6 +8,9 @@
  *
  * Run with: node dist/cli/verify-extraction.js
  */
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { HistoryStore } from "../history/HistoryStore";
 import { decodeResponse } from "../protocol/schema";
 import { extractTerrain } from "../state/terrain";
@@ -25,7 +28,34 @@ function check(label: string, actual: unknown, expected: unknown): void {
 }
 
 function main(): void {
-  const store = new HistoryStore(FIXTURE);
+  // Opening a recording migrates it to the current schema, which is the right
+  // behaviour for a real file but would rewrite a 20 MB committed fixture on
+  // every run and leave the repo dirty. Verify against a throwaway copy, which
+  // also means this exercises the migration path on a genuinely old file every
+  // time rather than only once.
+  const scratch = mkdtempSync(path.join(tmpdir(), "spectator-verify-"));
+  const fixture = path.join(scratch, path.basename(FIXTURE));
+  copyFileSync(FIXTURE, fixture);
+
+  try {
+    runChecks(fixture);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+
+  if (failures > 0) {
+    console.error(`\n${failures} check(s) failed`);
+    process.exit(1);
+  }
+  console.log("\nall checks passed");
+}
+
+function runChecks(fixturePath: string): void {
+  const store = new HistoryStore(fixturePath);
+
+  check("fixture migrated to the current schema", store.getMeta("schema_version"), "2");
+  check("migration left the frames intact", store.getMaxLoop() > 0, true);
+  check("a migrated v1 file has no telemetry", store.getStreams().length, 0);
 
   const dataBytes = store.readFrameAtOrBefore("data", 0);
   if (!dataBytes) throw new Error("no data frame in fixture");
@@ -61,12 +91,6 @@ function main(): void {
   }
 
   store.close();
-
-  if (failures > 0) {
-    console.error(`\n${failures} check(s) failed`);
-    process.exit(1);
-  }
-  console.log("\nall checks passed");
 }
 
 main();
