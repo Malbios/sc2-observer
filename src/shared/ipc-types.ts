@@ -1,3 +1,12 @@
+import type {
+  ChannelIpc,
+  EventFilterIpc,
+  EventIpc,
+  SeriesDataIpc,
+  TelemetryStateIpc,
+  TelemetryStreamIpc,
+} from "./telemetry-types";
+
 export interface RecordingInfo {
   filePath: string;
   map: string;
@@ -38,11 +47,33 @@ export interface UnitTypeInfoIpc {
   category: UnitCategoryIpc;
 }
 
+/** What `attachTelemetry` reports back about the file it just ingested, so the
+ * UI can say "540 lines, 3 rejected" rather than silently dropping them. */
+export interface AttachTelemetryResultIpc {
+  streams: TelemetryStreamIpc[];
+  ingested: {
+    name: string;
+    messageCount: number;
+    rejectedCount: number;
+    firstLoop: number | null;
+    lastLoop: number | null;
+    rejections: { line: number; reason: string }[];
+  } | null;
+}
+
 export interface SpectatorApi {
   pickAndOpenRecording(): Promise<RecordingInfo | null>;
   getTerrain(): Promise<TerrainDataIpc | null>;
   getUnitTypeInfo(): Promise<Record<number, UnitTypeInfoIpc>>;
   getFrameAtLoop(loop: number): Promise<FrameAtLoopIpc | null>;
+
+  /** Opens a picker, ingests the chosen .ndjson into the open recording. */
+  attachTelemetry(): Promise<AttachTelemetryResultIpc | null>;
+  getTelemetryStreams(): Promise<TelemetryStreamIpc[]>;
+  getChannels(): Promise<ChannelIpc[]>;
+  getTelemetryAtLoop(loop: number): Promise<TelemetryStateIpc>;
+  getSeries(ch: string, name: string): Promise<SeriesDataIpc>;
+  getEvents(filter?: EventFilterIpc): Promise<EventIpc[]>;
 }
 
 declare global {
