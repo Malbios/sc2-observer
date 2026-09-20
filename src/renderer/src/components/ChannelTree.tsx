@@ -26,6 +26,9 @@ interface Props {
   onToggle(paths: string[], visible: boolean): void;
   onAttach(): void;
   streamCount: number;
+  /** Result of the last attach, so a rejected line or a duplicate file is
+   * visible in the UI rather than only in the console. */
+  notice: string | null;
 }
 
 const KIND_ABBREVIATION: Record<string, string> = {
@@ -142,7 +145,7 @@ function TreeRow({
   );
 }
 
-export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount }: Props): JSX.Element {
+export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount, notice }: Props): JSX.Element {
   const tree = useMemo(() => buildTree(channels), [channels]);
   const allPaths = useMemo(() => channels.map((channel) => channel.ch), [channels]);
   const allShown = allPaths.length > 0 && allPaths.every((path) => visible.has(path));
@@ -178,6 +181,7 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount
       <button onClick={onAttach} style={{ marginTop: 12, fontSize: 12 }}>
         Attach Telemetry...
       </button>
+      {notice && <div style={{ marginTop: 6, fontSize: 11, color: "#8b93a1", lineHeight: 1.4 }}>{notice}</div>}
     </div>
   );
 }

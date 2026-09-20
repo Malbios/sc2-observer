@@ -25,6 +25,7 @@ export function App(): JSX.Element {
   const [streamCount, setStreamCount] = useState(0);
   const [visibleChannels, setVisibleChannels] = useState<ReadonlySet<string>>(new Set());
   const [telemetry, setTelemetry] = useState<TelemetryStateIpc | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const mapHandleRef = useRef<MapViewHandle | null>(null);
   const loopRef = useRef(0);
@@ -62,14 +63,24 @@ export function App(): JSX.Element {
   const attachTelemetry = useCallback(async () => {
     const result = await window.spectator.attachTelemetry();
     if (!result) return;
-    if (result.ingested && result.ingested.rejectedCount > 0) {
-      // Rejections are never fatal (§4), but silently dropping lines would
-      // leave a bot author debugging a gap that the app already knows about.
-      console.warn(
-        `[telemetry] ${result.ingested.rejectedCount} line(s) rejected:`,
-        result.ingested.rejections.map((r) => `line ${r.line}: ${r.reason}`)
-      );
+
+    if (result.status === "already-attached") {
+      setNotice("Already attached to this recording.");
+      return;
     }
+    const ingested = result.ingested;
+    if (ingested && ingested.rejectedCount > 0) {
+      // Rejections are never fatal (§4), but silently dropping lines would
+      // leave a bot author debugging a gap the app already knows about.
+      setNotice(`${ingested.messageCount} messages, ${ingested.rejectedCount} line(s) rejected (see console).`);
+      console.warn(
+        `[telemetry] ${ingested.rejectedCount} line(s) rejected:`,
+        ingested.rejections.map((r) => `line ${r.line}: ${r.reason}`)
+      );
+    } else if (ingested) {
+      setNotice(`${ingested.messageCount} messages, loops ${ingested.firstLoop} to ${ingested.lastLoop}.`);
+    }
+
     await loadChannels();
     // The loop has not changed, so the fetch effect will not re-run; pull the
     // newly-ingested state for where the cursor already is.
@@ -179,6 +190,7 @@ export function App(): JSX.Element {
             onToggle={handleToggleChannels}
             onAttach={attachTelemetry}
             streamCount={streamCount}
+            notice={notice}
           />
         </div>
 

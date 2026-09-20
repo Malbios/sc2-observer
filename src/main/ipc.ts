@@ -198,7 +198,16 @@ export function registerIpcHandlers(): void {
     });
     if (result.canceled || result.filePaths.length === 0) return null;
 
-    const filePath = result.filePaths[0]!;
+    const filePath = path.resolve(result.filePaths[0]!);
+    // Importing the same file twice would duplicate every row: two streams,
+    // two overlays drawn on top of each other, every series counted twice.
+    // Windows paths are case-insensitive, so compare them that way.
+    const samePath = (a: string, b: string): boolean =>
+      process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
+    if (store.getStreams().some((stream) => samePath(path.resolve(stream.sourcePath), filePath))) {
+      return { status: "already-attached", streams: toIpcStreams(), ingested: null };
+    }
+
     const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
     const ingest = new StreamIngest(store, filePath, fallbackName);
     const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
@@ -213,6 +222,7 @@ export function registerIpcHandlers(): void {
     telemetryResolver?.invalidate();
 
     return {
+      status: "ingested",
       streams: toIpcStreams(),
       ingested: {
         name: summary.name,

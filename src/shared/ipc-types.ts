@@ -50,6 +50,9 @@ export interface UnitTypeInfoIpc {
 /** What `attachTelemetry` reports back about the file it just ingested, so the
  * UI can say "540 lines, 3 rejected" rather than silently dropping them. */
 export interface AttachTelemetryResultIpc {
+  /** `already-attached` means nothing was imported: this file is in this
+   * recording, and importing it again would duplicate every row. */
+  status: "ingested" | "already-attached";
   streams: TelemetryStreamIpc[];
   ingested: {
     name: string;
