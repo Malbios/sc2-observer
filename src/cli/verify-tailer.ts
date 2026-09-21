@@ -8,7 +8,7 @@
  *
  * Run with: node dist/cli/verify-tailer.js
  */
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { EventBus } from "../bus/EventBus";
@@ -147,16 +147,22 @@ function runChecks(scratch: string): void {
 
   store.close();
 
-  checkAutoAttachCutoff(scratch);
+  checkAutoAttachIgnoreList(scratch);
 }
 
 /**
  * §3.5's auto-attach. A live game watches the folder every previous run also
- * wrote into, so the cutoff is the whole mechanism: without it, game two
- * opens with game one's telemetry already in it, which looks exactly like a
- * bot reporting nonsense.
+ * wrote into, so the ignore list is the whole mechanism: without it, game two
+ * opens with game one's telemetry already in it, on game one's loop axis,
+ * which looks exactly like a bot reporting nonsense.
+ *
+ * The list is names, not times. An earlier version asked "has this file been
+ * written to since the game started", which compares a millisecond timestamp
+ * against an mtime Windows keeps to about 16ms: this same check passed and
+ * failed on alternate runs, and in a real game it would have dropped a bot's
+ * telemetry for good, silently, about as often as a coin lands heads.
  */
-function checkAutoAttachCutoff(scratch: string): void {
+function checkAutoAttachIgnoreList(scratch: string): void {
   const watched = path.join(scratch, "auto");
   mkdirSync(watched, { recursive: true });
   const store = new HistoryStore(path.join(scratch, "auto.sqlite"));
@@ -164,31 +170,46 @@ function checkAutoAttachCutoff(scratch: string): void {
 
   const old = path.join(watched, "previous-run.ndjson");
   writeFileSync(old, eventLine(10, "from the last game"));
-  // Backdate it the way a file from a game ten minutes ago is dated.
-  const stale = new Date(Date.now() - 600_000);
-  utimesSync(old, stale, stale);
 
-  const cutoff = Date.now();
+  // What the session does when it starts waiting for a bot: the folder as it
+  // stands now is everything that cannot belong to the game about to start.
+  const census = readdirSync(watched).map((name) => path.join(watched, name));
+
   const fresh = path.join(watched, "this-run.ndjson");
   writeFileSync(fresh, eventLine(20, "from this game"));
 
-  const tailer = new TelemetryTailer(store, bus, watched, cutoff);
+  const tailer = new TelemetryTailer(store, bus, watched, census);
   tailer.poll();
   check("a file from an earlier run is skipped", tailer.status().skippedCount, 1);
-  check("the file being written now is taken", tailer.status().files.length, 1);
+  check("the file this game's bot wrote is taken", tailer.status().files.length, 1);
   check("only this game's telemetry is stored", store.readEvents({}).length, 1);
   check("and it is the right line", store.readEvents({})[0]!.msg, "from this game");
 
-  // The same folder with no cutoff is the manual watch, which takes both.
+  // The old file growing again changes nothing: it is another game's stream,
+  // whatever it does now.
+  appendFileSync(old, eventLine(11, "a late line from the last game"));
+  tailer.poll();
+  check("an ignored file is still ignored when it grows", store.readEvents({}).length, 1);
+
+  // Case folding matters here: on Windows the census and the directory
+  // listing can disagree about case for the same file.
   tailer.stop();
-  const store2 = new HistoryStore(path.join(scratch, "auto-manual.sqlite"));
-  const manual = new TelemetryTailer(store2, bus, watched);
+  const store2 = new HistoryStore(path.join(scratch, "auto-case.sqlite"));
+  const shouted = new TelemetryTailer(store2, bus, watched, census.map((p) => p.toUpperCase()));
+  shouted.poll();
+  check("the ignore list is not case-sensitive on Windows", shouted.status().skippedCount, process.platform === "win32" ? 1 : 0);
+  shouted.stop();
+
+  // The same folder with no list is the manual watch, which takes both.
+  const store3 = new HistoryStore(path.join(scratch, "auto-manual.sqlite"));
+  const manual = new TelemetryTailer(store3, bus, watched);
   manual.poll();
   check("watching by hand takes every file", manual.status().files.length, 2);
   manual.stop();
 
   store.close();
   store2.close();
+  store3.close();
 }
 
 main();

@@ -70,20 +70,29 @@ export class TelemetryTailer {
   /** fs.watch can fire while a poll is mid-read; one poll at a time. */
   private polling = false;
 
+  /**
+   * @param ignorePaths files to leave alone however they change (§3.5). A
+   * live game attaches by arrival: the folder still holds every earlier run's
+   * file, and reading those would fill this game with another game's
+   * telemetry on another game's loop axis. Naming them outright is the whole
+   * mechanism, and it deliberately involves no clock. The obvious
+   * alternative, "ignore anything not written since now", compares a
+   * millisecond timestamp against a file mtime the filesystem keeps to about
+   * 16ms on Windows, so a file the bot creates in the same instant is
+   * sometimes seen as old and dropped for the rest of the game. That was
+   * caught as a test that passed and failed on alternate runs.
+   *
+   * Empty, the default, takes everything, which is what pointing at a folder
+   * by hand means.
+   */
   constructor(
     private readonly store: HistoryStore,
     private readonly bus: EventBus,
     readonly dir: string,
-    /**
-     * Ignore files that have not been written to since this moment (§3.5).
-     * A live game attaches by timing: the folder still holds every earlier
-     * run's file, and ingesting those would fill this game with another
-     * game's telemetry. A file a bot is actively writing has a fresh mtime;
-     * a finished one does not. Null, the default, takes everything, which is
-     * what a user pointing at a folder by hand means.
-     */
-    private readonly writtenSinceMs: number | null = null
-  ) {}
+    ignorePaths: readonly string[] = []
+  ) {
+    for (const filePath of ignorePaths) this.skipped.add(this.key(filePath));
+  }
 
   start(): void {
     if (this.timer) return;
@@ -202,10 +211,6 @@ export class TelemetryTailer {
         this.skipped.add(key);
         return false;
       }
-      if (this.writtenSinceMs !== null && !this.writtenSince(filePath, this.writtenSinceMs)) {
-        this.skipped.add(key);
-        return false;
-      }
       file = {
         filePath,
         offset: 0,
@@ -263,17 +268,6 @@ export class TelemetryTailer {
       file.ingest.line(line.endsWith("\r") ? line.slice(0, -1) : line, ++file.lineNo);
     }
     return lines.length > 0;
-  }
-
-  /** Whether a file has been appended to since a moment, decided once when it
-   * is first seen. A file left over from an earlier run never becomes fresh,
-   * so the answer does not change. */
-  private writtenSince(filePath: string, sinceMs: number): boolean {
-    try {
-      return fs.statSync(filePath).mtimeMs >= sinceMs;
-    } catch {
-      return false;
-    }
   }
 
   private alreadyAttached(filePath: string): boolean {

@@ -516,7 +516,11 @@ export function App(): JSX.Element {
               {watch.skippedCount > 0 && `, ${watch.skippedCount} skipped`}
             </span>
           )}
-          <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>
+          {/* Not offered during a session: the session already watches the
+              telemetry folder for the game being played, and pointing this at
+              a folder mid-game imports every earlier run sitting in it, each
+              on its own loop axis, into the live recording. */}
+          {!live && <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>}
           <button onClick={openRecording}>Open Recording...</button>
           {sessionPanel(true)}
         </span>

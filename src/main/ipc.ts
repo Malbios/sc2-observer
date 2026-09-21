@@ -85,9 +85,17 @@ let liveFrameTimer: NodeJS.Timeout | null = null;
  * exactly once. */
 let liveGameFile: string | null = null;
 let lastPhase: SessionPhase | null = null;
-/** When the session started waiting for this game's bot; the cutoff telemetry
- * auto-attach uses. */
-let waitingSince = Date.now();
+/**
+ * The telemetry files that were already in the folder when the session
+ * started waiting for this game's bot, and therefore belong to some earlier
+ * run. Taken before the bot is even started, which is what makes it safe: a
+ * file that shows up after this list was made is this game's, and no clock is
+ * involved in deciding that.
+ */
+let preExistingTelemetry: string[] = [];
+/** A folder the user picked by hand, which then outranks the default for the
+ * rest of the run. Null until they pick one. */
+let telemetryDir: string | null = null;
 
 function dockerDir(): string {
   return path.join(app.getAppPath(), "docker");
@@ -241,9 +249,26 @@ function attachLiveTelemetry(): void {
   const gameStore = session?.activeStore;
   if (!gameStore) return;
   stopTailing();
-  tailer = new TelemetryTailer(gameStore, bus, defaultTelemetryDir(), waitingSince);
+  // A folder the user picked by hand outlives the game it was picked during:
+  // it is where their bot writes, and reverting to the default for the next
+  // game would silently stop following it.
+  const dir = telemetryDir ?? defaultTelemetryDir();
+  tailer = new TelemetryTailer(gameStore, bus, dir, preExistingTelemetry);
   tailer.start();
-  bus.emit("dockerLog", { source: "session", line: `watching ${defaultTelemetryDir()} for telemetry` });
+  bus.emit("dockerLog", { source: "session", line: `watching ${dir} for telemetry` });
+}
+
+/** Everything already in the telemetry folder, for the ignore list above. */
+function telemetryCensus(): string[] {
+  const dir = telemetryDir ?? defaultTelemetryDir();
+  try {
+    return readdirSync(dir)
+      .filter((name) => name.toLowerCase().endsWith(".ndjson"))
+      .map((name) => path.join(dir, name));
+  } catch {
+    // No folder yet is the normal case before a bot has ever run.
+    return [];
+  }
 }
 
 function listMaps(): string[] {
@@ -384,7 +409,9 @@ export function registerIpcHandlers(): void {
     // a game appearing is a tailer appearing with it (§3.5).
     if (state.phase !== lastPhase) {
       lastPhase = state.phase;
-      if (state.phase === "gameCreated" || state.phase === "clientReady") waitingSince = Date.now();
+      // The moment the session starts waiting for a bot is the last moment
+      // the folder holds only older runs' files.
+      if (state.phase === "gameCreated" || state.phase === "clientReady") preExistingTelemetry = telemetryCensus();
     }
     if (state.gameFile !== liveGameFile) {
       liveGameFile = state.gameFile;
@@ -551,7 +578,13 @@ export function registerIpcHandlers(): void {
     if (result.canceled || result.filePaths.length === 0) return null;
 
     stopTailing();
-    tailer = new TelemetryTailer(store, bus, path.resolve(result.filePaths[0]!));
+    telemetryDir = path.resolve(result.filePaths[0]!);
+    // Picking a folder means "import what is in it", which is why this takes
+    // everything. It is only offered while no session is running: pointing it
+    // at a folder mid-game imported three earlier runs into the live game,
+    // each on its own loop axis, which is what a live game gets auto-attach
+    // and its ignore list for.
+    tailer = new TelemetryTailer(store, bus, telemetryDir);
     tailer.start();
     // start() polls once, so anything already in the folder is in by now.
     return tailer.status();
