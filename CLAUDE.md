@@ -87,6 +87,7 @@ vendor/           s2clientprotocol .proto files, pinned
 - **protobufjs and proto2 enum defaults.** An unset optional enum field decodes as its first value, which for `ResponseJoinGame.error` is `MissingParticipation = 1`. Testing `if (response.join_game.error)` reports every successful join as a failure. Check presence with `Object.prototype.hasOwnProperty.call(...)`, never truthiness. The schema loader needs `keepCase: true`, or `oneof` request fields are silently never set.
 - **Any handler on a socket must be attached before yielding.** Attaching a `message` listener after an `await` loses frames that arrive during the gap: `ws` neither buffers them nor errors, and both sides hang forever with no diagnostic.
 - **`tsconfig.web.json` is not covered by `npm run build`.** Run `npm run typecheck`, or renderer type errors accumulate unnoticed.
+- **`npm run dev` hot-reloads the renderer only.** A change under `src/main`, `src/preload`, or anything they import (`src/state`, `src/session`, ...) needs the dev server restarted, or the window keeps running the previous build and the fix appears not to work. Restarting also kills any live session, which is a hard kill, so the container it owned is left behind: `docker rm -f sc2-observer`.
 - **PixiJS v8 does not free a sprite's texture on `destroy()`** unless asked: pass `{children: true, texture: true, textureSource: true}`.
 
 ## Persistence
