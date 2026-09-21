@@ -8,7 +8,7 @@
  *
  * Run with: node dist/cli/verify-tailer.js
  */
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { EventBus } from "../bus/EventBus";
@@ -146,6 +146,49 @@ function runChecks(scratch: string): void {
   again.stop();
 
   store.close();
+
+  checkAutoAttachCutoff(scratch);
+}
+
+/**
+ * §3.5's auto-attach. A live game watches the folder every previous run also
+ * wrote into, so the cutoff is the whole mechanism: without it, game two
+ * opens with game one's telemetry already in it, which looks exactly like a
+ * bot reporting nonsense.
+ */
+function checkAutoAttachCutoff(scratch: string): void {
+  const watched = path.join(scratch, "auto");
+  mkdirSync(watched, { recursive: true });
+  const store = new HistoryStore(path.join(scratch, "auto.sqlite"));
+  const bus = new EventBus();
+
+  const old = path.join(watched, "previous-run.ndjson");
+  writeFileSync(old, eventLine(10, "from the last game"));
+  // Backdate it the way a file from a game ten minutes ago is dated.
+  const stale = new Date(Date.now() - 600_000);
+  utimesSync(old, stale, stale);
+
+  const cutoff = Date.now();
+  const fresh = path.join(watched, "this-run.ndjson");
+  writeFileSync(fresh, eventLine(20, "from this game"));
+
+  const tailer = new TelemetryTailer(store, bus, watched, cutoff);
+  tailer.poll();
+  check("a file from an earlier run is skipped", tailer.status().skippedCount, 1);
+  check("the file being written now is taken", tailer.status().files.length, 1);
+  check("only this game's telemetry is stored", store.readEvents({}).length, 1);
+  check("and it is the right line", store.readEvents({})[0]!.msg, "from this game");
+
+  // The same folder with no cutoff is the manual watch, which takes both.
+  tailer.stop();
+  const store2 = new HistoryStore(path.join(scratch, "auto-manual.sqlite"));
+  const manual = new TelemetryTailer(store2, bus, watched);
+  manual.poll();
+  check("watching by hand takes every file", manual.status().files.length, 2);
+  manual.stop();
+
+  store.close();
+  store2.close();
 }
 
 main();

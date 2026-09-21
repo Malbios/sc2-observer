@@ -73,7 +73,16 @@ export class TelemetryTailer {
   constructor(
     private readonly store: HistoryStore,
     private readonly bus: EventBus,
-    readonly dir: string
+    readonly dir: string,
+    /**
+     * Ignore files that have not been written to since this moment (§3.5).
+     * A live game attaches by timing: the folder still holds every earlier
+     * run's file, and ingesting those would fill this game with another
+     * game's telemetry. A file a bot is actively writing has a fresh mtime;
+     * a finished one does not. Null, the default, takes everything, which is
+     * what a user pointing at a folder by hand means.
+     */
+    private readonly writtenSinceMs: number | null = null
   ) {}
 
   start(): void {
@@ -193,6 +202,10 @@ export class TelemetryTailer {
         this.skipped.add(key);
         return false;
       }
+      if (this.writtenSinceMs !== null && !this.writtenSince(filePath, this.writtenSinceMs)) {
+        this.skipped.add(key);
+        return false;
+      }
       file = {
         filePath,
         offset: 0,
@@ -250,6 +263,17 @@ export class TelemetryTailer {
       file.ingest.line(line.endsWith("\r") ? line.slice(0, -1) : line, ++file.lineNo);
     }
     return lines.length > 0;
+  }
+
+  /** Whether a file has been appended to since a moment, decided once when it
+   * is first seen. A file left over from an earlier run never becomes fresh,
+   * so the answer does not change. */
+  private writtenSince(filePath: string, sinceMs: number): boolean {
+    try {
+      return fs.statSync(filePath).mtimeMs >= sinceMs;
+    } catch {
+      return false;
+    }
   }
 
   private alreadyAttached(filePath: string): boolean {
