@@ -281,6 +281,15 @@ export class HistoryStore {
     return Number(result.lastInsertRowid);
   }
 
+  /**
+   * How many telemetry files are attached to this game. Kept as a query rather
+   * than a counter because streams can be added and removed by more than one
+   * caller, and a stale count decides whether checkpoints mean anything.
+   */
+  streamCount(): number {
+    return (this.stmt("SELECT COUNT(*) AS n FROM streams").get() as { n: number }).n;
+  }
+
   updateStream(id: number, counts: { firstLoop: number | null; lastLoop: number | null; messageCount: number; rejectedCount: number }): void {
     this.stmt(
       "UPDATE streams SET first_loop = ?, last_loop = ?, message_count = ?, rejected_count = ? WHERE id = ?"
@@ -445,6 +454,25 @@ export class HistoryStore {
       ttl: row["ttl"],
       data: decompressJson(row["data"]),
     }));
+  }
+
+  /** Highest loop any telemetry message carries, or null if there is none.
+   * The timeline's range is the later of this and the last frame: telemetry
+   * can outlive the frames, and a loop you cannot scrub to is a loop whose
+   * messages are stored and unreachable. */
+  getTelemetryMaxLoop(): number | null {
+    const row = this.stmt("SELECT MAX(loop) AS m FROM telemetry").get() as { m: number | null };
+    return row.m;
+  }
+
+  /**
+   * Throws away every checkpoint. They are a cache of the resolved state, so
+   * this only costs time: `TelemetryResolver` falls back to replaying from the
+   * first message. Called when a checkpoint's meaning changes underneath it,
+   * which is whenever the set of streams in the file does.
+   */
+  clearCheckpoints(): void {
+    this.stmt("DELETE FROM checkpoints").run();
   }
 
   readCheckpointAtOrBefore(loop: number): { loop: number; state: unknown } | undefined {

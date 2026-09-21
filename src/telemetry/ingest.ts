@@ -1,11 +1,8 @@
 import type { HistoryStore } from "../history/HistoryStore";
 import type { ChannelMessage, HelloData } from "../shared/telemetry-types";
+import { CHECKPOINT_EVERY, rebuildCheckpoints } from "./checkpoints";
 import { parseTelemetryLine } from "./parse";
 import { TelemetryModel } from "./TelemetryModel";
-
-/** §6.3's default: seeking to loop L then replays at most this many loops of
- * messages instead of the whole game. */
-const CHECKPOINT_EVERY = 500;
 /** Rejections are logged, never fatal (§4), but a broken emitter can produce
  * one per line, so only the first few are kept for reporting. */
 const MAX_REPORTED_REJECTIONS = 20;
@@ -101,7 +98,18 @@ export class StreamIngest {
       meta: hello?.meta ?? null,
       channels: hello?.channels ?? null,
     });
+    // A second file joining the game invalidates every checkpoint written so
+    // far: each one holds the state of one stream while claiming to hold the
+    // game's. They are dropped here and rebuilt from the merged order when a
+    // stream finishes (see ./checkpoints).
+    if (this.store.streamCount() > 1) this.store.clearCheckpoints();
     return this.streamId;
+  }
+
+  /** True once this game has more than one telemetry file, which is when no
+   * single stream can write a checkpoint that is true of the whole game. */
+  private get shared(): boolean {
+    return this.store.streamCount() > 1;
   }
 
   /**
@@ -113,7 +121,12 @@ export class StreamIngest {
    */
   private checkpointThrough(loop: number): void {
     while (loop > this.nextCheckpointLoop) {
-      this.store.recordCheckpoint(this.nextCheckpointLoop, this.model.capture());
+      // A stream that shares the game cannot speak for it. Its boundaries are
+      // still tracked, so that if the other stream is later detached this one
+      // carries on from the right place.
+      if (!this.shared) {
+        this.store.recordCheckpoint(this.nextCheckpointLoop, this.model.capture());
+      }
       this.nextCheckpointLoop += CHECKPOINT_EVERY;
     }
   }
@@ -140,11 +153,16 @@ export class StreamIngest {
   /** Flushes buffers and writes the closing checkpoint. Safe to call more than
    * once, so the tailer can settle after each poll cycle. */
   finish(): IngestSummary {
-    if (this.streamId !== null && this.lastLoop !== null) {
+    if (this.streamId !== null && this.lastLoop !== null && !this.shared) {
       this.store.recordCheckpoint(this.lastLoop, this.model.capture());
     }
     this.settle();
     this.store.flush();
+    // A game with several files gets its checkpoints back here, built from all
+    // of them at once. Closing is the right moment: during live tailing the
+    // viewer follows the head and never seeks backwards, so the only cost of
+    // having none until now is to a scrub that has not happened yet.
+    if (this.shared) rebuildCheckpoints(this.store);
     return this.summary();
   }
 
