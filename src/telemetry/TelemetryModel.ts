@@ -32,12 +32,26 @@ export interface SnapshotEntry {
   ch: string;
   loop: number;
   data: unknown;
+  /** Kept so the inspector can diff against the snapshot this replaced
+   * (§3.3). Only one step back: deeper history is a query, not state. */
+  previous: unknown;
+  previousLoop: number | null;
 }
 export interface EntityEntry {
   ch: string;
   loop: number;
-  /** Keyed by unit tag. Note that a JSON round-trip through a checkpoint turns
-   * these keys into strings; lookups coerce, so both forms behave the same. */
+  style: TelemetryStyle | null;
+  /**
+   * Keyed by unit tag. Note that a JSON round-trip through a checkpoint turns
+   * these keys into strings; lookups coerce, so both forms behave the same.
+   *
+   * Tags accumulate: §3.3 drops a tag when its unit leaves the observation,
+   * but this model deliberately never sees observations, so the drop happens
+   * where the join does, in the renderer. The cost is that a long game keeps
+   * every tag the bot ever annotated, which also grows each checkpoint. If
+   * that becomes a problem, the fix is to pass the live tag set in rather
+   * than to teach this file about game state.
+   */
   byTag: Record<number, EntityData>;
 }
 
@@ -77,9 +91,17 @@ export class TelemetryModel {
           shapes: (message.data ?? []) as OverlayShape[],
         };
         break;
-      case "snapshot":
-        this.state.snapshots[message.ch] = { ch: message.ch, loop: message.loop, data: message.data };
+      case "snapshot": {
+        const prior = this.state.snapshots[message.ch];
+        this.state.snapshots[message.ch] = {
+          ch: message.ch,
+          loop: message.loop,
+          data: message.data,
+          previous: prior?.data ?? null,
+          previousLoop: prior?.loop ?? null,
+        };
         break;
+      }
       case "entity": {
         // Replaces previous data for (ch, tag), not for the whole channel.
         const entity = message.data as EntityData;
@@ -87,8 +109,14 @@ export class TelemetryModel {
         if (existing) {
           existing.byTag[entity.tag] = entity;
           existing.loop = message.loop;
+          existing.style = message.style ?? existing.style;
         } else {
-          this.state.entities[message.ch] = { ch: message.ch, loop: message.loop, byTag: { [entity.tag]: entity } };
+          this.state.entities[message.ch] = {
+            ch: message.ch,
+            loop: message.loop,
+            style: message.style ?? null,
+            byTag: { [entity.tag]: entity },
+          };
         }
         break;
       }
@@ -132,11 +160,14 @@ export class TelemetryModel {
       ch: entry.ch,
       loop: entry.loop,
       data: entry.data,
+      previous: entry.previous ?? null,
+      previousLoop: entry.previousLoop ?? null,
     }));
     const entities: EntityStateIpc[] = Object.values(this.state.entities).map((entry) => ({
       ch: entry.ch,
       loop: entry.loop,
       byTag: entry.byTag,
+      style: entry.style ?? null,
     }));
     return { loop, overlays, snapshots, entities };
   }

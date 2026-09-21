@@ -234,6 +234,10 @@ export class TestTelemetryWriter {
           kind: "entity",
           loop,
           ch: "test/tasks",
+          // §3.6: the channel's style.label names which field the viewer
+          // renders beside the unit on the map. Without it an entity channel
+          // is inspector-only, so the fixture would not exercise labels.
+          style: { label: "task" },
           data: {
             tag: unit.tag,
             task: ENTITY_TASKS[(index + step) % ENTITY_TASKS.length],

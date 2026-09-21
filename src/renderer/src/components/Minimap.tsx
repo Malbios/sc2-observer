@@ -8,6 +8,9 @@ interface Props {
   onRecenter(worldX: number, worldY: number): void;
 }
 
+/** Backing-store size. The canvas is CSS-sized to whatever the right rail can
+ * spare, so this is resolution, not layout: the drawing code works in these
+ * pixels and the browser scales the result. */
 const SIZE = 200;
 
 export function Minimap({ terrain, frame, onRecenter }: Props): JSX.Element {
@@ -41,14 +44,20 @@ export function Minimap({ terrain, frame, onRecenter }: Props): JSX.Element {
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!terrain) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    // Two conversions, in order. The element is displayed at whatever square
+    // the rail can spare, which is not the backing-store size, so the click
+    // becomes a backing pixel first. clientWidth and offsetX are both measured
+    // inside the border, so the 1px frame does not skew the result.
+    const displayed = e.currentTarget.clientWidth;
+    if (displayed <= 0) return;
+    const canvasX = (e.nativeEvent.offsetX * SIZE) / displayed;
+    const canvasY = (e.nativeEvent.offsetY * SIZE) / displayed;
+
+    // Then a backing pixel becomes a world unit. MapView's world space already
+    // has y flipped (sprite.y = height - pos.y) and the minimap is drawn with
+    // the same flip, so this maps straight through without flipping again.
     const scale = Math.min(SIZE / terrain.width, SIZE / terrain.height);
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    // MapView's world space already has y flipped (sprite.y = height - pos.y);
-    // the minimap is drawn with the same flip, so canvas pixels map straight
-    // through without flipping again here.
-    onRecenter(clickX / scale, clickY / scale);
+    onRecenter(canvasX / scale, canvasY / scale);
   };
 
   return (
@@ -57,7 +66,26 @@ export function Minimap({ terrain, frame, onRecenter }: Props): JSX.Element {
       width={SIZE}
       height={SIZE}
       onClick={handleClick}
-      style={{ borderRadius: 6, cursor: "pointer", border: "1px solid #2b323d" }}
+      style={{
+        // The rail gives up height as the bottom dock grows, so the width and
+        // height attributes above are backing-store resolution and these are
+        // the layout. Height is the flex main size and shrinks; an auto width
+        // plus aspect-ratio keeps the box square while it does, which is why
+        // alignSelf is needed -- a stretched column item would fix the width
+        // at the rail's and letterbox the drawing instead. The 50% cap leaves
+        // the inspector below it room at any rail height.
+        height: SIZE,
+        maxHeight: "50%",
+        width: "auto",
+        maxWidth: "100%",
+        aspectRatio: "1",
+        alignSelf: "flex-start",
+        flexShrink: 1,
+        minHeight: 0,
+        borderRadius: 6,
+        cursor: "pointer",
+        border: "1px solid #2b323d",
+      }}
     />
   );
 }

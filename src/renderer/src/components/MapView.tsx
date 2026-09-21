@@ -34,7 +34,16 @@ interface UnitVisual {
   icon: PIXI.Sprite;
   underConstruction: PIXI.Graphics;
   selection: PIXI.Graphics;
+  /** Entity-channel label, created only for units a bot actually annotated,
+   * which is usually a small fraction of the frame. */
+  label: PIXI.Text | null;
 }
+
+/** Label text height in world units, and the font size it is rendered at
+ * before scaling -- same trick as overlay text, since a Pixi Text cannot be
+ * sized in world units directly. */
+const LABEL_WORLD_HEIGHT = 1.4;
+const LABEL_FONT_SIZE = 28;
 
 export interface MapViewHandle {
   recenterOn(worldX: number, worldY: number): void;
@@ -400,7 +409,7 @@ export function MapView({
         container.addChild(shape, icon, underConstruction, selection);
         container.eventMode = "static";
         container.cursor = "pointer";
-        visual = { container, shape, icon, underConstruction, selection };
+        visual = { container, shape, icon, underConstruction, selection, label: null };
         pool.set(unit.tag, visual);
         layer.addChild(container);
       }
@@ -583,6 +592,63 @@ export function MapView({
       }
     }
   }, [telemetry, visibleChannels, terrain, pixiReady]);
+
+  // Entity labels (§3.6): a channel whose style.label names a field gets that
+  // field rendered next to each annotated unit. Declared after the units
+  // effect so the pool it walks is already up to date for this frame; effects
+  // run in declaration order.
+  //
+  // This is also where §3.3's "dropped when the unit disappears from
+  // observation" is enforced: a tag with no pooled visual simply has nowhere
+  // to draw, so stale annotations cannot linger on the map. The telemetry
+  // model itself stays free of any knowledge of game state.
+  useEffect(() => {
+    const pool = unitVisualsRef.current;
+    if (!terrain) return;
+
+    // The label hangs just below the marker, so it needs the same radius the
+    // marker was drawn at.
+    const radiusByTag = new Map<number, number>();
+    for (const unit of frame?.units ?? []) {
+      radiusByTag.set(unit.tag, Math.max(unit.radius, MIN_VISUAL_RADIUS));
+    }
+
+    const labelByTag = new Map<number, { text: string; color: number }>();
+    for (const entity of telemetry?.entities ?? []) {
+      if (!visibleChannels.has(entity.ch)) continue;
+      const field = typeof entity.style?.label === "string" ? entity.style.label : null;
+      if (!field) continue;
+      const color = contextFor(entity.ch, entity.style, terrain.height).color;
+      for (const [tag, data] of Object.entries(entity.byTag)) {
+        const value = (data as Record<string, unknown>)[field];
+        if (value === undefined || value === null) continue;
+        labelByTag.set(Number(tag), { text: String(value), color });
+      }
+    }
+
+    for (const [tag, visual] of pool) {
+      const entry = labelByTag.get(tag);
+      if (!entry) {
+        if (visual.label) visual.label.visible = false;
+        continue;
+      }
+      if (!visual.label) {
+        const label = new PIXI.Text({
+          text: entry.text,
+          style: { fontFamily: "system-ui, sans-serif", fontSize: LABEL_FONT_SIZE, fill: entry.color },
+        });
+        label.anchor.set(0.5, 0);
+        label.scale.set(LABEL_WORLD_HEIGHT / LABEL_FONT_SIZE);
+        visual.container.addChild(label);
+        visual.label = label;
+      }
+      if (visual.label.text !== entry.text) visual.label.text = entry.text;
+      visual.label.style.fill = entry.color;
+      // Sits just below the marker, which is drawn centred on the unit.
+      visual.label.y = (radiusByTag.get(tag) ?? MIN_VISUAL_RADIUS) + 0.2;
+      visual.label.visible = true;
+    }
+  }, [telemetry, visibleChannels, frame, terrain, pixiReady]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>

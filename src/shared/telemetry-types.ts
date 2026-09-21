@@ -236,11 +236,18 @@ export interface SnapshotStateIpc {
   ch: string;
   loop: number;
   data: unknown;
+  /** The snapshot this one replaced, so the inspector can diff consecutive
+   * snapshots (§3.3) without a second query. */
+  previous: unknown;
+  previousLoop: number | null;
 }
 export interface EntityStateIpc {
   ch: string;
   loop: number;
   byTag: Record<number, EntityData>;
+  /** From the channel's most recent message. `style.label` names the field to
+   * render beside the unit on the map (§3.6). */
+  style: TelemetryStyle | null;
 }
 
 /** Retention-resolved telemetry state at one loop. Series and events are not

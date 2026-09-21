@@ -6,6 +6,7 @@ import { EventLog } from "./components/EventLog";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { SeriesChart } from "./components/SeriesChart";
+import { SnapshotInspector } from "./components/SnapshotInspector";
 import { Timeline } from "./components/Timeline";
 import { UnitInspector } from "./components/UnitInspector";
 
@@ -28,7 +29,7 @@ export function App(): JSX.Element {
   const [visibleChannels, setVisibleChannels] = useState<ReadonlySet<string>>(new Set());
   const [telemetry, setTelemetry] = useState<TelemetryStateIpc | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [dockTab, setDockTab] = useState<"series" | "events">("series");
+  const [dockTab, setDockTab] = useState<"series" | "events" | "snapshots">("series");
   const [dockHeight, setDockHeight] = useState(200);
   const [selectedSeries, setSelectedSeries] = useState<ReadonlySet<string>>(new Set());
   /** Bumped when telemetry is ingested, so panels that hold whole-game query
@@ -246,9 +247,24 @@ export function App(): JSX.Element {
           />
         </div>
 
-        <div style={{ width: 240, borderLeft: "1px solid #2b323d", padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div
+          style={{
+            width: 240,
+            borderLeft: "1px solid #2b323d",
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            // Flex items default to min-height:auto, so without this the rail
+            // refuses to shrink below its content and grows past the bottom of
+            // the window as the dock is dragged taller.
+            minHeight: 0,
+          }}
+        >
           <Minimap terrain={terrain} frame={frame} onRecenter={handleRecenter} />
-          <UnitInspector unit={selectedUnit} unitTypeInfo={unitTypeInfo} />
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+            <UnitInspector unit={selectedUnit} unitTypeInfo={unitTypeInfo} entities={telemetry?.entities ?? []} />
+          </div>
         </div>
       </div>
 
@@ -258,7 +274,7 @@ export function App(): JSX.Element {
       />
       <div style={{ height: dockHeight, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
         <div style={{ display: "flex", gap: 4, padding: "6px 16px 0" }}>
-          {(["series", "events"] as const).map((tab) => (
+          {(["series", "events", "snapshots"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setDockTab(tab)}
@@ -287,13 +303,15 @@ export function App(): JSX.Element {
               maxLoop={recording.maxLoop}
               onSeek={handleSeek}
             />
-          ) : (
+          ) : dockTab === "events" ? (
             <EventLog
               channels={channels.filter((c) => c.kind === "event").map((c) => c.ch)}
               loop={loop}
               onSeek={handleSeek}
               revision={telemetryRevision}
             />
+          ) : (
+            <SnapshotInspector snapshots={(telemetry?.snapshots ?? []).filter((s) => visibleChannels.has(s.ch))} />
           )}
         </div>
       </div>

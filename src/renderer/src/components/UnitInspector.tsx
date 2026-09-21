@@ -1,19 +1,37 @@
 import type { JSX } from "react";
 import type { UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
-import { colorForCategory, colorForOwner, cssColor } from "../colors";
+import type { EntityStateIpc } from "../../../shared/telemetry-types";
+import { colorForCategory, colorForChannel, colorForOwner, cssColor } from "../colors";
 
 interface Props {
   unit: UnitSummaryIpc | null;
   unitTypeInfo: Record<number, UnitTypeInfoIpc>;
+  /** Entity channels at the current loop; whatever the bot attached to this
+   * unit's tag shows up here (§3.6). */
+  entities: EntityStateIpc[];
 }
 
-export function UnitInspector({ unit, unitTypeInfo }: Props): JSX.Element {
+/** Everything a bot said about one tag, across every entity channel. */
+function entityRowsFor(entities: EntityStateIpc[], tag: number): { ch: string; fields: [string, unknown][] }[] {
+  const rows: { ch: string; fields: [string, unknown][] }[] = [];
+  for (const entity of entities) {
+    const data = entity.byTag[tag];
+    if (!data) continue;
+    // `tag` itself is the join key, not information about the unit.
+    const fields = Object.entries(data).filter(([key]) => key !== "tag");
+    if (fields.length > 0) rows.push({ ch: entity.ch, fields });
+  }
+  return rows;
+}
+
+export function UnitInspector({ unit, unitTypeInfo, entities }: Props): JSX.Element {
   if (!unit) {
     return <div style={{ color: "#8b93a1", fontSize: 13 }}>Click a unit to inspect it.</div>;
   }
 
   const info = unitTypeInfo[unit.unitType];
   const name = info?.name ?? `Unit type ${unit.unitType}`;
+  const entityRows = entityRowsFor(entities, unit.tag);
 
   return (
     <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -39,6 +57,22 @@ export function UnitInspector({ unit, unitTypeInfo }: Props): JSX.Element {
         <br />
         {unit.pos ? `pos ${unit.pos.x.toFixed(1)}, ${unit.pos.y.toFixed(1)}, ${unit.pos.z.toFixed(1)}` : "no position"}
       </div>
+
+      {entityRows.map((row) => (
+        <div key={row.ch} style={{ borderTop: "1px solid #2b323d", paddingTop: 6 }}>
+          <div style={{ fontSize: 11, color: cssColor(colorForChannel(row.ch)), marginBottom: 3 }}>{row.ch}</div>
+          <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "#e7e9ec" }}>
+            {row.fields.map(([key, value]) => (
+              <div key={key} style={{ display: "flex", gap: 6 }}>
+                <span style={{ color: "#8b93a1" }}>{key}</span>
+                <span style={{ marginLeft: "auto", textAlign: "right", wordBreak: "break-word" }}>
+                  {typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
