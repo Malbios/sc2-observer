@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type {
+  DockerLogIpc,
+  DockerStateIpc,
   FrameAtLoopIpc,
   RecordingInfo,
+  SessionStatusIpc,
+  StartSessionOptionsIpc,
   TelemetryWatchIpc,
   TerrainDataIpc,
   UnitSummaryIpc,
@@ -13,6 +17,7 @@ import { EventLog } from "./components/EventLog";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { SeriesChart } from "./components/SeriesChart";
+import { SessionPanel } from "./components/SessionPanel";
 import { SnapshotInspector } from "./components/SnapshotInspector";
 import { Timeline } from "./components/Timeline";
 import { UnitInspector } from "./components/UnitInspector";
@@ -22,8 +27,32 @@ import { UnitInspector } from "./components/UnitInspector";
  * conversion; "1x" playback here means real game speed. */
 const LOOPS_PER_SECOND = 22.4;
 
+/** Docker's build output can run to thousands of lines; the panel keeps the
+ * tail, which is the part that says what went wrong. */
+const MAX_LOG_LINES = 500;
+
+/** A session owns the client between these phases, which is when it is the
+ * thing the viewer should be showing. */
+function sessionRunning(status: SessionStatusIpc | null): boolean {
+  if (!status) return false;
+  return status.phase !== "idle" && status.phase !== "stopped" && status.phase !== "failed";
+}
+
 export function App(): JSX.Element {
   const [recording, setRecording] = useState<RecordingInfo | null>(null);
+  /**
+   * A running session and an opened recording can both exist; this is the one
+   * on screen. Main is told, so its queries answer from the same store (§6.4
+   * keeps frames off the store, but telemetry genuinely lives in it).
+   */
+  const [view, setView] = useState<"recording" | "live">("recording");
+  const [session, setSession] = useState<SessionStatusIpc | null>(null);
+  const [dockerState, setDockerState] = useState<DockerStateIpc | null>(null);
+  const [maps, setMaps] = useState<string[]>([]);
+  const [logs, setLogs] = useState<DockerLogIpc[]>([]);
+  const [liveMaxLoop, setLiveMaxLoop] = useState(0);
+  /** Ticks while live, so the idle counters advance on their own (§4.2). */
+  const [clock, setClock] = useState(Date.now());
   const [terrain, setTerrain] = useState<TerrainDataIpc | null>(null);
   const [unitTypeInfo, setUnitTypeInfo] = useState<Record<number, UnitTypeInfoIpc>>({});
   const [loop, setLoop] = useState(0);
@@ -52,6 +81,20 @@ export function App(): JSX.Element {
    * channel at any loop, and it should arrive at its declared default without
    * resetting boxes the user has ticked since. */
   const seenChannelsRef = useRef<Set<string>>(new Set());
+  /** Read inside push handlers, which must not disturb a recording the user
+   * switched to while a session keeps running behind it. */
+  const viewRef = useRef(view);
+  const lastFrameAtRef = useRef(0);
+  const lastTelemetryAtRef = useRef<number | null>(null);
+
+  const live = view === "live" && sessionRunning(session);
+  const map = live ? session!.map : recording?.map ?? "";
+  const mode = live ? session!.mode : recording?.mode ?? "";
+  const maxLoop = live ? liveMaxLoop : recording?.maxLoop ?? 0;
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   /**
    * Channels default to whatever the bot's `hello` declared, falling back to
@@ -86,6 +129,8 @@ export function App(): JSX.Element {
     const info = await window.spectator.pickAndOpenRecording();
     if (!info) return;
     setRecording(info);
+    // Main has already pointed its queries at this file; the view follows.
+    setView("recording");
     setSelectedUnit(null);
     setPlaying(false);
     loopRef.current = 0;
@@ -148,6 +193,126 @@ export function App(): JSX.Element {
     }
   }, [watch, loadChannels]);
 
+  // -- the live session ----------------------------------------------------
+
+  const refreshDocker = useCallback(() => {
+    void window.spectator.getDockerState().then(setDockerState);
+  }, []);
+
+  useEffect(() => {
+    void window.spectator.listMaps().then(setMaps);
+    void window.spectator.getSessionState().then(setSession);
+    refreshDocker();
+  }, [refreshDocker]);
+
+  /**
+   * The live feed. Frames and terrain arrive as pushes rather than queries,
+   * because §6.4 keeps the live viewer off the store; the guard is there
+   * because a session keeps running while the user looks at a recording, and
+   * its frames must not redraw that recording's map.
+   */
+  useEffect(() => {
+    const offState = window.spectator.onSessionState(setSession);
+    const offLog = window.spectator.onDockerLog((line) => {
+      setLogs((current) => [...current.slice(-(MAX_LOG_LINES - 1)), line]);
+    });
+    const offTerrain = window.spectator.onLiveTerrain((payload) => {
+      if (viewRef.current !== "live") return;
+      setTerrain(payload.terrain);
+      setUnitTypeInfo(payload.unitTypes);
+    });
+    const offFrame = window.spectator.onLiveFrame((liveFrame) => {
+      lastFrameAtRef.current = Date.now();
+      if (viewRef.current !== "live") return;
+      setFrame(liveFrame);
+      setLiveMaxLoop((current) => Math.max(current, liveFrame.loop));
+      loopRef.current = liveFrame.loop;
+      setLoop(liveFrame.loop);
+    });
+    return () => {
+      offState();
+      offLog();
+      offTerrain();
+      offFrame();
+    };
+  }, []);
+
+  // A new game is a new map and a new loop axis, so nothing from the last one
+  // may survive into it.
+  const phase = session?.phase;
+  useEffect(() => {
+    if (viewRef.current !== "live") return;
+    if (phase !== "gameCreated" && phase !== "clientReady") return;
+    setFrame(null);
+    setSelectedUnit(null);
+    setTelemetry(null);
+    setLiveMaxLoop(0);
+    loopRef.current = 0;
+    setLoop(0);
+    lastFetchedLoopRef.current = -1;
+    lastFrameAtRef.current = 0;
+  }, [phase]);
+
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(() => setClock(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, [live]);
+
+  const startSession = useCallback(async (options: StartSessionOptionsIpc) => {
+    setLogs([]);
+    setView("live");
+    viewRef.current = "live";
+    setTerrain(null);
+    setUnitTypeInfo({});
+    setFrame(null);
+    setSelectedUnit(null);
+    setTelemetry(null);
+    setNotice(null);
+    setWatch(null);
+    setChannels([]);
+    setTimelineEvents([]);
+    setVisibleChannels(new Set());
+    seenChannelsRef.current = new Set();
+    setLiveMaxLoop(0);
+    loopRef.current = 0;
+    setLoop(0);
+    lastFetchedLoopRef.current = -1;
+    lastFrameAtRef.current = 0;
+    lastTelemetryAtRef.current = null;
+    // Resolves only once the container is up and the first game is created,
+    // which on a cold cache means a build; the pushes keep the UI current in
+    // the meantime.
+    setSession(await window.spectator.startSession(options));
+    refreshDocker();
+  }, [refreshDocker]);
+
+  const stopSession = useCallback(async () => {
+    setSession(await window.spectator.stopSession());
+    refreshDocker();
+  }, [refreshDocker]);
+
+  /** Switching what the window shows also switches what main answers from. */
+  const switchView = useCallback(
+    async (kind: "recording" | "live") => {
+      setView(kind);
+      viewRef.current = kind;
+      lastFetchedLoopRef.current = -1;
+      await window.spectator.setActiveSource(kind);
+      if (kind === "recording") {
+        const [terrainData, typeInfo] = await Promise.all([
+          window.spectator.getTerrain(),
+          window.spectator.getUnitTypeInfo(),
+        ]);
+        setTerrain(terrainData);
+        setUnitTypeInfo(typeInfo);
+      }
+      // Live terrain and the current frame are re-pushed by main.
+      await loadChannels(true);
+    },
+    [loadChannels]
+  );
+
   /**
    * Main's push says only "there is more", so the answer is to re-ask for the
    * loop already on screen. The tailer can announce every poll (~150ms) while
@@ -157,6 +322,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = window.spectator.onTelemetryAppended(() => {
+      lastTelemetryAtRef.current = Date.now();
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;
@@ -177,26 +343,28 @@ export function App(): JSX.Element {
   // changes (seek, or a playback tick that crossed to a new integer loop).
   // Both in one round so the map never shows a unit frame and an overlay from
   // different loops.
+  // In live mode the frame is pushed, so only the telemetry for that loop is
+  // fetched; asking the store for a frame it may not have flushed yet is what
+  // §6.4 forbids.
   useEffect(() => {
-    if (!recording) return;
+    if (!recording && !live) return;
     if (loop === lastFetchedLoopRef.current) return;
     lastFetchedLoopRef.current = loop;
     let cancelled = false;
-    Promise.all([window.spectator.getFrameAtLoop(loop), window.spectator.getTelemetryAtLoop(loop)]).then(
-      ([frameResult, telemetryResult]) => {
-        if (cancelled) return;
-        setFrame(frameResult);
-        setTelemetry(telemetryResult);
-      }
-    );
+    const framePromise = live ? Promise.resolve(null) : window.spectator.getFrameAtLoop(loop);
+    Promise.all([framePromise, window.spectator.getTelemetryAtLoop(loop)]).then(([frameResult, telemetryResult]) => {
+      if (cancelled) return;
+      if (!live) setFrame(frameResult);
+      setTelemetry(telemetryResult);
+    });
     return () => {
       cancelled = true;
     };
-  }, [recording, loop]);
+  }, [recording, live, loop]);
 
-  // Playback loop.
+  // Playback loop. Live has no playback: it follows the head.
   useEffect(() => {
-    if (!playing || !recording) return;
+    if (!playing || !recording || live) return;
     let raf = 0;
     let lastTime = performance.now();
 
@@ -217,7 +385,7 @@ export function App(): JSX.Element {
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, recording]);
+  }, [playing, speed, recording, live]);
 
   const handleSeek = useCallback((value: number) => {
     loopRef.current = value;
@@ -264,21 +432,73 @@ export function App(): JSX.Element {
     });
   }, []);
 
-  if (!recording) {
+  const sessionPanel = (compact: boolean): JSX.Element => (
+    <SessionPanel
+      status={session}
+      docker={dockerState}
+      maps={maps}
+      logs={logs}
+      onStart={(options) => void startSession(options)}
+      onStop={() => void stopSession()}
+      compact={compact}
+    />
+  );
+
+  if (!recording && !live) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 20,
+          height: "100%",
+        }}
+      >
         <button onClick={openRecording} style={{ padding: "10px 20px", fontSize: 14 }}>
           Open Recording...
         </button>
+        <div style={{ borderTop: "1px solid #2b323d", paddingTop: 20, minWidth: 420 }}>{sessionPanel(false)}</div>
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "8px 16px", borderBottom: "1px solid #2b323d", fontSize: 13, display: "flex", gap: 16 }}>
-        <span>{recording.map}</span>
-        <span style={{ color: "#8b93a1" }}>mode {recording.mode}</span>
+      <div
+        style={{
+          padding: "8px 16px",
+          borderBottom: "1px solid #2b323d",
+          fontSize: 13,
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+        }}
+      >
+        <span>{map}</span>
+        <span style={{ color: "#8b93a1" }}>mode {mode}</span>
+        {recording && sessionRunning(session) && (
+          <span style={{ display: "flex", gap: 4 }}>
+            {(["live", "recording"] as const).map((kind) => (
+              <button
+                key={kind}
+                onClick={() => void switchView(kind)}
+                style={{
+                  fontSize: 12,
+                  background: view === kind ? "#242a33" : "transparent",
+                  color: view === kind ? "#e7e9ec" : "#8b93a1",
+                  border: "1px solid #2b323d",
+                  borderRadius: 4,
+                  padding: "2px 8px",
+                  cursor: "pointer",
+                }}
+              >
+                {kind}
+              </button>
+            ))}
+          </span>
+        )}
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           {watch && (
             <span
@@ -291,6 +511,7 @@ export function App(): JSX.Element {
           )}
           <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>
           <button onClick={openRecording}>Open Recording...</button>
+          {sessionPanel(true)}
         </span>
       </div>
 
@@ -381,7 +602,7 @@ export function App(): JSX.Element {
               selected={selectedSeries}
               onToggle={handleToggleSeries}
               loop={loop}
-              maxLoop={recording.maxLoop}
+              maxLoop={maxLoop}
               onSeek={handleSeek}
             />
           ) : dockTab === "events" ? (
@@ -400,13 +621,21 @@ export function App(): JSX.Element {
       <div style={{ borderTop: "1px solid #2b323d" }}>
         <Timeline
           loop={loop}
-          maxLoop={recording.maxLoop}
+          maxLoop={maxLoop}
           playing={playing}
           speed={speed}
           onSeek={handleSeek}
           onTogglePlay={() => setPlaying((p) => !p)}
           onSpeedChange={setSpeed}
           events={timelineEvents}
+          live={
+            live
+              ? {
+                  frameIdleMs: lastFrameAtRef.current === 0 ? 0 : clock - lastFrameAtRef.current,
+                  telemetryIdleMs: lastTelemetryAtRef.current === null ? null : clock - lastTelemetryAtRef.current,
+                }
+              : null
+          }
         />
       </div>
     </div>

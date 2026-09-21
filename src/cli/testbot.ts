@@ -33,8 +33,9 @@ const USAGE = `Usage: testbot [options]
   --chat <n>            send a chat action every n steps, 0 = off (default 0)
   --telemetry <dir>     write a §3 NDJSON telemetry file into this directory
   --create-game <map>   create the game first, e.g. TorchesAIE.SC2Map
-                        (only valid straight against the container: the proxy is
-                         Mode A and sends its own createGame)
+                        (this is Mode B: use it straight against the container,
+                         or through a proxy started in Mode B, which forwards it
+                         instead of sending one of its own)
   --connect-timeout <ms>  how long to retry the initial connect (default 60000)
 `;
 

@@ -2,6 +2,17 @@ import type { JSX } from "react";
 import type { EventIpc } from "../../../shared/telemetry-types";
 import { colorForLevel, cssColor } from "../colors";
 
+/**
+ * How long each stream has been silent (§4.2). Purely display: a frozen
+ * stream is a bot on a breakpoint, and the app shows that the picture is old
+ * rather than deciding the game is over.
+ */
+export interface LiveState {
+  frameIdleMs: number;
+  /** Null when nothing is watching a telemetry folder. */
+  telemetryIdleMs: number | null;
+}
+
 interface Props {
   loop: number;
   maxLoop: number;
@@ -12,6 +23,9 @@ interface Props {
   onSpeedChange(speed: number): void;
   /** Event ticks to mark on the track (§3.6). */
   events: EventIpc[];
+  /** Set while a session is running, which replaces the playback controls:
+   * the live view follows the head and does not scrub (§6.4). */
+  live?: LiveState | null;
 }
 
 const SPEEDS = [1, 2, 4, 8];
@@ -82,13 +96,46 @@ export function Timeline({
   onTogglePlay,
   onSpeedChange,
   events,
+  live = null,
 }: Props): JSX.Element {
+  // Two seconds of nothing is a stream that has stopped rather than one
+  // between frames: a bot stepping normally produces one every few
+  // milliseconds, and even a slow one does not go quiet for that long.
+  const frozen = live !== null && live.frameIdleMs > 2000;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px" }}>
       <style>{RANGE_CSS}</style>
-      <button onClick={onTogglePlay} style={{ width: 64 }}>
-        {playing ? "Pause" : "Play"}
-      </button>
+      {live ? (
+        <span
+          title={
+            `last frame ${(live.frameIdleMs / 1000).toFixed(1)}s ago` +
+            (live.telemetryIdleMs === null ? "" : `, last telemetry ${(live.telemetryIdleMs / 1000).toFixed(1)}s ago`)
+          }
+          style={{
+            width: 64,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 12,
+            color: frozen ? "#8b93a1" : "#98c379",
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              background: frozen ? "#4a515c" : "#98c379",
+              display: "inline-block",
+            }}
+          />
+          {frozen ? `${Math.floor(live.frameIdleMs / 1000)}s` : "live"}
+        </span>
+      ) : (
+        <button onClick={onTogglePlay} style={{ width: 64 }}>
+          {playing ? "Pause" : "Play"}
+        </button>
+      )}
 
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Same inset as the thumb's travel, so a tick at loop L sits exactly
@@ -119,20 +166,23 @@ export function Timeline({
           min={0}
           max={maxLoop}
           value={loop}
+          disabled={live !== null}
           onChange={(e) => onSeek(Number(e.target.value))}
         />
       </div>
 
       <span style={{ fontFamily: "monospace", fontSize: 12, width: 90, textAlign: "right" }}>
-        {loop} / {maxLoop}
+        {live ? `loop ${loop}` : `${loop} / ${maxLoop}`}
       </span>
-      <select value={speed} onChange={(e) => onSpeedChange(Number(e.target.value))}>
-        {SPEEDS.map((s) => (
-          <option key={s} value={s}>
-            {s}×
-          </option>
-        ))}
-      </select>
+      {!live && (
+        <select value={speed} onChange={(e) => onSpeedChange(Number(e.target.value))}>
+          {SPEEDS.map((s) => (
+            <option key={s} value={s}>
+              {s}×
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

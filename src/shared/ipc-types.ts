@@ -185,6 +185,9 @@ export interface SpectatorApi {
   stopSession(): Promise<SessionStatusIpc | null>;
   /** Null when no session has been started in this run of the app. */
   getSessionState(): Promise<SessionStatusIpc | null>;
+  /** Which of a running session and an opened recording the viewer is
+   * showing, so main answers queries from that one. */
+  setActiveSource(kind: "recording" | "live"): Promise<null>;
 
   /**
    * The live pushes. Unlike telemetry these carry their payload: §6.4 keeps

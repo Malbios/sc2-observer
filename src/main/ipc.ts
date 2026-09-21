@@ -19,6 +19,7 @@ import type {
   DockerStateIpc,
   FrameAtLoopIpc,
   RecordingInfo,
+  SessionPhase,
   SessionStatusIpc,
   StartSessionOptionsIpc,
   TelemetryWatchIpc,
@@ -76,7 +77,17 @@ let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
 let liveFootprintsPending = false;
 let firstObservation: Uint8Array | null = null;
 let latestObservation: Uint8Array | null = null;
+/** The last frame actually pushed, kept so a renderer coming back to the live
+ * view sees the game immediately instead of an empty map until the next one. */
+let lastLiveFrame: FrameAtLoopIpc | null = null;
 let liveFrameTimer: NodeJS.Timeout | null = null;
+/** The game file the renderer was last told about, so a new game is noticed
+ * exactly once. */
+let liveGameFile: string | null = null;
+let lastPhase: SessionPhase | null = null;
+/** When the session started waiting for this game's bot; the cutoff telemetry
+ * auto-attach uses. */
+let waitingSince = Date.now();
 
 function dockerDir(): string {
   return path.join(app.getAppPath(), "docker");
@@ -142,6 +153,7 @@ function resetLiveGame(): void {
   liveFootprintsPending = false;
   firstObservation = null;
   latestObservation = null;
+  lastLiveFrame = null;
   if (liveFrameTimer) clearTimeout(liveFrameTimer);
   liveFrameTimer = null;
 }
@@ -174,6 +186,7 @@ function pushLiveFrame(): void {
     loop: response.observation?.observation?.game_loop ?? 0,
     units: extractUnits(response),
   };
+  lastLiveFrame = frame;
   send("spectator:liveFrame", frame);
 }
 
@@ -212,6 +225,25 @@ function onLiveFrame(event: FrameEvent): void {
     liveUnitTypes = extractUnitTypeInfo(decodeResponse(event.bytes));
     pushLiveTerrain();
   }
+}
+
+/**
+ * §3.5's auto-attach: a telemetry file being written while a game is live
+ * belongs to that game, and the user should not have to point at a folder to
+ * see their own bot's overlays.
+ *
+ * The cutoff is when the session started waiting for this game's bot, so a
+ * file the bot is writing now is taken and every earlier run's file in the
+ * same folder is not. Which folder that is becomes a setting in Phase 6; for
+ * now it is the contract's default.
+ */
+function attachLiveTelemetry(): void {
+  const gameStore = session?.activeStore;
+  if (!gameStore) return;
+  stopTailing();
+  tailer = new TelemetryTailer(gameStore, bus, defaultTelemetryDir(), waitingSince);
+  tailer.start();
+  bus.emit("dockerLog", { source: "session", line: `watching ${defaultTelemetryDir()} for telemetry` });
 }
 
 function listMaps(): string[] {
@@ -344,11 +376,31 @@ export function registerIpcHandlers(): void {
   });
 
   bus.on("frame", onLiveFrame);
-  bus.on("sessionState", (state) => send("spectator:sessionState", state));
   bus.on("dockerLog", (event) => send("spectator:dockerLog", event));
-  // The next game is a different map's worth of terrain and a different unit
-  // list, so nothing from this one may survive into it.
-  bus.on("gameEnded", () => resetLiveGame());
+
+  bus.on("sessionState", (state) => {
+    send("spectator:sessionState", state);
+    // Each game gets its own store, and the tailer writes into one store, so
+    // a game appearing is a tailer appearing with it (§3.5).
+    if (state.phase !== lastPhase) {
+      lastPhase = state.phase;
+      if (state.phase === "gameCreated" || state.phase === "clientReady") waitingSince = Date.now();
+    }
+    if (state.gameFile !== liveGameFile) {
+      liveGameFile = state.gameFile;
+      if (state.gameFile) attachLiveTelemetry();
+    }
+  });
+
+  bus.on("gameEnded", () => {
+    // Before the controller closes the game's store, not after: stopping the
+    // tailer writes each stream's closing checkpoint, and a closed store
+    // cannot take it.
+    stopTailing();
+    // The next game is a different map's worth of terrain and a different
+    // unit list, so nothing from this one may survive into it.
+    resetLiveGame();
+  });
 
   ipcMain.handle("spectator:pickAndOpenRecording", async (): Promise<RecordingInfo | null> => {
     const result = await dialog.showOpenDialog({
@@ -568,6 +620,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("spectator:stopSession", async (): Promise<SessionStatusIpc | null> => {
     if (!session) return null;
+    // Before the session closes its store, which the tailer writes into.
+    stopTailing();
     await session.stop();
     resetLiveGame();
     // Back to whatever recording was open, which may be nothing.
@@ -576,4 +630,20 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:getSessionState", (): SessionStatusIpc | null => session?.status ?? null);
+
+  /**
+   * Which of the two the viewer is showing. A running session and an opened
+   * recording are different games, and the queries have to answer from the one
+   * on screen. Coming back to the live view re-sends what it needs, because
+   * the map and the current frame were pushed once and are not in any store
+   * the renderer can ask.
+   */
+  ipcMain.handle("spectator:setActiveSource", (_event, kind: string): null => {
+    activeSource = kind === "live" ? "live" : "recording";
+    if (activeSource === "live") {
+      pushLiveTerrain();
+      if (lastLiveFrame) send("spectator:liveFrame", lastLiveFrame);
+    }
+    return null;
+  });
 }
