@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { SessionStatusIpc } from "../shared/ipc-types";
 
 export type FrameKind = "gameInfo" | "data" | "observation" | "action";
 export type FrameDirection = "request" | "response";
@@ -56,15 +57,17 @@ export interface TelemetryAppendedEvent {
   lastLoop: number | null;
 }
 
-/** A line of Docker output, for the diagnostics panel (§4). `manager` lines
- * are the app's own narration; the other two are Docker's. */
+/** A line for the diagnostics panel (§4). `manager` and `session` lines are
+ * the app's own narration of what it is doing and why it is waiting; the other
+ * two are Docker's own output. */
 export interface DockerLogEvent {
-  source: "manager" | "build" | "container";
+  source: "manager" | "session" | "build" | "container";
   line: string;
 }
 
 interface EventBusEvents {
   frame: [FrameEvent];
+  sessionState: [SessionStatusIpc];
   gameEnded: [GameEndedEvent];
   clientStatus: [ClientStatusEvent];
   botConnection: [BotConnectionEvent];

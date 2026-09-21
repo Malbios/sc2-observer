@@ -324,8 +324,16 @@ export class DockerManager {
    * The whole cold-start path in one call: Docker present, image built,
    * container up, client answering. Returns the first thing that was wrong so
    * the UI can say which, rather than a bare false.
+   *
+   * `replaceRunning` throws away a container that is already up instead of
+   * reusing it. A session asks for that, and the reason is worth stating: a
+   * clean stop removes the container, so finding one running means some
+   * earlier session did not finish, and its client may be sitting in a game
+   * or halfway through creating one. `create_game` then fails with "Already
+   * in the process of starting a game", observed live. Eight seconds of SC2
+   * boot is a cheap price for a client in a known state.
    */
-  async ensureClientReady(): Promise<{ ok: boolean; reason: string | null }> {
+  async ensureClientReady(options: { replaceRunning?: boolean } = {}): Promise<{ ok: boolean; reason: string | null }> {
     const availability = await this.detect();
     if (!availability.available) return { ok: false, reason: availability.reason };
     this.log("manager", `docker ${availability.version}`);
@@ -335,13 +343,15 @@ export class DockerManager {
     }
 
     const status = await this.containerStatus();
-    if (status === "exited") {
+    const replace = status === "exited" || (status === "running" && options.replaceRunning === true);
+    if (replace) {
       // A stopped container cannot be restarted into a usable state reliably:
-      // SC2 has already exited inside it. Replace it.
-      this.log("manager", "removing a stopped container");
+      // SC2 has already exited inside it. A running one left over from an
+      // unclean exit is in an unknown game state. Both get replaced.
+      this.log("manager", status === "running" ? "replacing a container left over from an earlier session" : "removing a stopped container");
       await this.removeContainer();
     }
-    if (status !== "running") {
+    if (status !== "running" || replace) {
       if (!(await this.startContainer())) return { ok: false, reason: "The container could not be started; see the log." };
     } else {
       this.log("manager", "reusing the running container");

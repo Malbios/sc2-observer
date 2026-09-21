@@ -16,6 +16,40 @@ export interface RecordingInfo {
   maxLoop: number;
 }
 
+/**
+ * The session state machine (§4), plus the three states that are not part of
+ * the game cycle: before it starts, after the user stops it, and when
+ * something it depends on is not there.
+ */
+export type SessionPhase =
+  | "idle"
+  | "containerDown"
+  | "clientReady"
+  | "gameCreated"
+  | "inGame"
+  | "ended"
+  | "stopped"
+  | "failed";
+
+/** Everything the header needs to describe a running session. Pushed whenever
+ * any of it changes, and fetchable on demand so a reloaded window is not left
+ * waiting for the next change. */
+export interface SessionStatusIpc {
+  phase: SessionPhase;
+  mode: string;
+  map: string;
+  /** The game file currently being written, null between games. */
+  gameFile: string | null;
+  /** Games finished and closed in this session. */
+  gamesPlayed: number;
+  loop: number;
+  botConnected: boolean;
+  /** The last `Response.status`, by name, or "none" before the first one. */
+  clientStatus: string;
+  /** Set only when the phase is "failed". */
+  error: string | null;
+}
+
 export interface TerrainDataIpc {
   width: number;
   height: number;

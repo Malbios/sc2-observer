@@ -12,3 +12,4 @@ out/
 !fixtures/*.sqlite
 __pycache__/
 *.pyc
+/games/
