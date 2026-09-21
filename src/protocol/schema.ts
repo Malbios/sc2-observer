@@ -37,3 +37,10 @@ export function decodeRequest(bytes: Uint8Array): Request {
 export function decodeResponse(bytes: Uint8Array): Response {
   return ResponseType.decode(bytes) as unknown as Response;
 }
+
+/** The app never sends a Response to anything; this exists so tests can build
+ * the frames a client would have sent, and drive the proxy from bytes rather
+ * than from a live game. */
+export function encodeResponse(fields: Record<string, unknown>): Uint8Array {
+  return ResponseType.encode(ResponseType.create(fields)).finish();
+}

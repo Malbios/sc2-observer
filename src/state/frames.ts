@@ -21,6 +21,13 @@ export class LoopTracker {
   get loop(): number {
     return this.currentLoop;
   }
+
+  /** Back to zero for a new game on the same proxy. Without this the next
+   * game's pre-observation frames would be tagged with the previous game's
+   * final loop, which reads as a recording that starts near its own end. */
+  reset(): void {
+    this.currentLoop = 0;
+  }
 }
 
 export function classifyResponse(response: Response): FrameKind | null {

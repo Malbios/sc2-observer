@@ -1,12 +1,24 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { EventBus } from "../bus/EventBus";
 import { decodeRequest, decodeResponse, encodeRequest } from "../protocol/schema";
+import { isTerminalStatus, SC2_STATUS } from "../protocol/status";
 import { classifyRequest, classifyResponse, LoopTracker } from "../state/frames";
+
+/**
+ * §1: the user picks this before a session; it is never detected from traffic.
+ * A = the app creates the game and the bot only joins. B = the bot creates the
+ * game itself (python-sc2's default) and the app only forwards.
+ */
+export type GameMode = "A" | "B";
 
 export interface GameProxyOptions {
   sessionId: string;
   bus: EventBus;
   mapPath: string;
+  mode?: GameMode;
+  /** Built-in AI opponent, Mode A only. Race and difficulty from sc2api.proto. */
+  opponentRace?: number;
+  opponentDifficulty?: number;
   botHost?: string;
   botPort?: number;
   sc2Host?: string;
@@ -14,15 +26,27 @@ export interface GameProxyOptions {
 }
 
 /**
- * Mode A only (see the implementation plan §1/§4): this proxy itself sends
- * `createGame`, then listens for the bot and relays every frame between the
- * bot and SC2 unchanged, in order, publishing each one to the event bus. It
- * never alters, delays, or reorders bot traffic once the bot is connected.
+ * The bot-facing proxy (plan §4). It relays every frame between the bot and
+ * SC2 unchanged, in order, publishing each one to the event bus. It never
+ * alters, delays, or reorders bot traffic, and never sends `step` or `action`
+ * on the bot's behalf.
+ *
+ * Its own requests (`createGame` between games, `saveReplay` at the end) go
+ * over a separate short-lived socket, never the relay. That is not merely
+ * tidier: **SC2 accepts one client connection at a time**, verified by probe,
+ * so those requests are only possible while no bot is attached. §4 expects
+ * exactly that, since the bot is relaunched between games.
+ *
+ * One proxy serves a whole session across many games; `resetForNewGame()`
+ * clears the per-game state between them.
  */
 export class GameProxy {
   private readonly sessionId: string;
   private readonly bus: EventBus;
   private readonly mapPath: string;
+  private readonly mode: GameMode;
+  private readonly opponentRace: number;
+  private readonly opponentDifficulty: number;
   private readonly botHost: string;
   private readonly botPort: number;
   private readonly sc2Host: string;
@@ -30,15 +54,34 @@ export class GameProxy {
   private readonly loopTracker = new LoopTracker();
   private server: WebSocketServer | null = null;
   private storedOnceKinds = new Set<string>();
+  /** Once per game: a surrender puts `player_result` in every subsequent
+   * observation, and the status stays `ended`, so both signals repeat. */
+  private gameEndedEmitted = false;
+  private lastStatus: number | null = null;
+  private botSocket: WebSocket | null = null;
+  private sc2Socket: WebSocket | null = null;
 
   constructor(options: GameProxyOptions) {
     this.sessionId = options.sessionId;
     this.bus = options.bus;
     this.mapPath = options.mapPath;
+    this.mode = options.mode ?? "A";
+    this.opponentRace = options.opponentRace ?? 2; // Zerg
+    this.opponentDifficulty = options.opponentDifficulty ?? 2; // Easy
     this.botHost = options.botHost ?? "127.0.0.1";
     this.botPort = options.botPort ?? 5000;
     this.sc2Host = options.sc2Host ?? "127.0.0.1";
     this.sc2Port = options.sc2Port ?? 5001;
+  }
+
+  /** True while a bot holds the relay open, which is exactly when the proxy
+   * may not open a socket of its own. */
+  get botConnected(): boolean {
+    return this.botSocket !== null;
+  }
+
+  get currentLoop(): number {
+    return this.loopTracker.loop;
   }
 
   private get sc2Url(): string {
@@ -69,37 +112,116 @@ export class GameProxy {
     }
   }
 
-  private async sendCreateGame(): Promise<void> {
+  /**
+   * One request on a socket of the proxy's own, opened and closed around it.
+   * Only safe while no bot is attached, because the client accepts a single
+   * connection at a time.
+   */
+  private async ownRequest(label: string, fields: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (this.botConnected) {
+      throw new Error(`refusing to send ${label} while a bot is connected: SC2 accepts one client at a time`);
+    }
     const ws = await this.connectSc2();
 
     const responsePromise = new Promise<Uint8Array>((resolve, reject) => {
       ws.once("message", (data: Buffer) => resolve(data));
       ws.once("error", reject);
+      ws.once("close", () => reject(new Error(`socket closed waiting for ${label}`)));
     });
 
-    ws.send(
-      encodeRequest({
-        create_game: {
-          local_map: { map_path: this.mapPath },
-          player_setup: [
-            { type: 1 /* Participant */ },
-            { type: 2 /* Computer */, race: 2 /* Zerg */, difficulty: 2 /* Easy */ },
-          ],
-          realtime: false,
-        },
-      })
-    );
-
+    ws.send(encodeRequest(fields));
     const responseBytes = await responsePromise;
     ws.close();
 
     const response = decodeResponse(responseBytes);
-    if (response.error && response.error.length > 0) {
-      throw new Error(`createGame failed: ${JSON.stringify(response.error)}`);
+    if (Array.isArray(response.error) && response.error.length > 0) {
+      throw new Error(`${label} failed: ${JSON.stringify(response.error)}`);
+    }
+    this.noteStatus(response.status);
+    return response;
+  }
+
+  /**
+   * Mode A's game setup, and the same call the session controller makes for
+   * each subsequent game. `create_game` is valid from `launched` and, for
+   * singleplayer, from `ended`, so no container restart is needed between
+   * games (verified in Phase 0 and again by the end-game probe).
+   */
+  async createGame(): Promise<void> {
+    await this.ownRequest("createGame", {
+      create_game: {
+        local_map: { map_path: this.mapPath },
+        player_setup: [
+          { type: 1 /* Participant */ },
+          { type: 2 /* Computer */, race: this.opponentRace, difficulty: this.opponentDifficulty },
+        ],
+        realtime: false,
+      },
+    });
+  }
+
+  /**
+   * Asks the client for the finished game's replay. Returns the bytes, which
+   * the caller writes: `ResponseSaveReplay.data` carries the whole file over
+   * the wire, so nothing has to be mounted into the container.
+   *
+   * Valid from `ended` as well as `in_game`, measured rather than assumed.
+   * Returns null instead of throwing, because failing to keep a replay is not
+   * a reason to lose the game recording that is already on disk.
+   */
+  async saveReplay(): Promise<Uint8Array | null> {
+    try {
+      const response = await this.ownRequest("saveReplay", { save_replay: {} });
+      const data = (response.save_replay as { data?: Uint8Array } | undefined)?.data;
+      return data && data.length > 0 ? data : null;
+    } catch {
+      return null;
     }
   }
 
-  private publishResponse(bytes: Uint8Array): void {
+  /**
+   * Clears everything that is true of one game rather than of the session, so
+   * the next game on this proxy records its own `gameInfo`/`data` and starts
+   * its loop axis at zero.
+   */
+  resetForNewGame(): void {
+    this.storedOnceKinds.clear();
+    this.loopTracker.reset();
+    this.gameEndedEmitted = false;
+    this.lastStatus = null;
+  }
+
+  /**
+   * Publishes a transition, and decides whether it ended the game.
+   *
+   * The test is *leaving* `in_game`, not arriving at any particular value.
+   * A surrender lands on `ended`, but a clean `leave_game` goes straight back
+   * to `launched` (§7.1), and treating only `ended` as terminal would miss it
+   * and leave the session waiting for a game that is already over.
+   */
+  private noteStatus(status: unknown): void {
+    if (typeof status !== "number" || status === this.lastStatus) return;
+    const previous = this.lastStatus;
+    this.lastStatus = status;
+    this.bus.emit("clientStatus", { sessionId: this.sessionId, status, previous });
+
+    const leftGame = previous === SC2_STATUS.inGame && status !== SC2_STATUS.inGame;
+    if (leftGame || isTerminalStatus(status)) this.endGame("status");
+  }
+
+  private endGame(reason: "result" | "status" | "botClosed"): void {
+    if (this.gameEndedEmitted) return;
+    this.gameEndedEmitted = true;
+    this.bus.emit("gameEnded", { sessionId: this.sessionId, loop: this.loopTracker.loop, reason });
+  }
+
+  /**
+   * The relay's response side: decode, publish to the bus, notice the game
+   * ending. Public so tests can drive it from synthetic or recorded bytes
+   * instead of a live game, which is what §7 asks for everything below the
+   * viewer.
+   */
+  publishResponse(bytes: Uint8Array): void {
     const decoded = decodeResponse(bytes);
     const loop = this.loopTracker.observe(decoded);
     const kind = classifyResponse(decoded);
@@ -115,8 +237,11 @@ export class GameProxy {
 
     const playerResult = decoded.observation?.player_result;
     if (Array.isArray(playerResult) && playerResult.length > 0) {
-      this.bus.emit("gameEnded", { sessionId: this.sessionId, loop });
+      this.endGame("result");
     }
+    // After the result, so a frame carrying both is attributed to the result,
+    // which is the more informative of the two.
+    this.noteStatus(decoded.status);
   }
 
   private publishRequest(bytes: Uint8Array): void {
@@ -129,7 +254,10 @@ export class GameProxy {
 
   async start(): Promise<void> {
     await this.waitForSc2Ready();
-    await this.sendCreateGame();
+    // Mode B's bot sends its own createGame, which is forwarded like any other
+    // frame; sending one here first would take the client out of `launched`
+    // and make the bot's request fail.
+    if (this.mode === "A") await this.createGame();
 
     this.server = new WebSocketServer({ host: this.botHost, port: this.botPort });
 
@@ -141,6 +269,8 @@ export class GameProxy {
       // hanging both sides -- found and fixed in the Phase 0 spike.
       const pending: Buffer[] = [];
       let sc2Ws: WebSocket | null = null;
+      this.botSocket = botWs;
+      this.bus.emit("botConnection", { sessionId: this.sessionId, connected: true, loop: this.loopTracker.loop });
 
       botWs.on("message", (data: Buffer) => {
         this.publishRequest(data);
@@ -153,6 +283,7 @@ export class GameProxy {
 
       try {
         sc2Ws = await this.connectSc2();
+        this.sc2Socket = sc2Ws;
       } catch (err) {
         botWs.close();
         return;
@@ -167,17 +298,33 @@ export class GameProxy {
         botWs.send(data);
       });
 
-      const closeBoth = () => {
+      const closeBoth = (): void => {
+        const wasConnected = this.botSocket === botWs;
         botWs.close();
         sc2Ws?.close();
+        if (!wasConnected) return;
+        this.botSocket = null;
+        this.sc2Socket = null;
+        // A bot that vanishes mid-game is the only signal that game is over:
+        // SC2 stays `in_game` forever with no status change and no
+        // `player_result` (§7.1). If the game already ended this is just the
+        // bot leaving between games, and endGame's guard swallows it.
+        this.endGame("botClosed");
+        this.bus.emit("botConnection", { sessionId: this.sessionId, connected: false, loop: this.loopTracker.loop });
       };
       botWs.on("close", closeBoth);
       sc2Ws.on("close", closeBoth);
     });
   }
 
+  /** Stops listening and drops any live relay, so the client is free for the
+   * proxy's own socket again. */
   stop(): void {
     this.server?.close();
     this.server = null;
+    this.botSocket?.close();
+    this.sc2Socket?.close();
+    this.botSocket = null;
+    this.sc2Socket = null;
   }
 }

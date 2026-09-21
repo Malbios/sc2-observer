@@ -12,7 +12,7 @@
     "testbot": "node dist/cli/testbot.js",
     "import-telemetry": "node dist/cli/import-telemetry.js",
     "probe-endgame": "node dist/cli/probe-endgame.js",
-    "verify": "npm run build && node dist/cli/verify-extraction.js && node dist/cli/verify-tailer.js && node dist/cli/verify-docker.js",
+    "verify": "npm run build && node dist/cli/verify-extraction.js && node dist/cli/verify-tailer.js && node dist/cli/verify-docker.js && node dist/cli/verify-proxy.js",
     "spike": "node spike/proxy.js",
     "dev": "electron-vite dev",
     "build:app": "electron-vite build"

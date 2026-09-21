@@ -11,8 +11,36 @@ export interface FrameEvent {
   bytes: Uint8Array;
 }
 
+/**
+ * How the app found out a game was over. Three separate signals, because SC2
+ * does not give one reliable one: a surrender produces `player_result`, a
+ * `leave_game` only moves the status, and a bot that simply vanishes produces
+ * neither and leaves the client in `in_game` forever (§7.1).
+ */
+export type GameEndReason = "result" | "status" | "botClosed";
+
 export interface GameEndedEvent {
   sessionId: string;
+  loop: number;
+  reason: GameEndReason;
+}
+
+/** A `Response.status` transition. Only emitted when the value changes. */
+export interface ClientStatusEvent {
+  sessionId: string;
+  status: number;
+  previous: number | null;
+}
+
+/**
+ * The bot attaching to or leaving the proxy's port. Separate from
+ * `gameEnded` on purpose: a bot disconnecting after a finished game is
+ * routine (§4 expects it to be relaunched between games), while one
+ * disconnecting mid-game is how that game ends.
+ */
+export interface BotConnectionEvent {
+  sessionId: string;
+  connected: boolean;
   loop: number;
 }
 
@@ -38,6 +66,8 @@ export interface DockerLogEvent {
 interface EventBusEvents {
   frame: [FrameEvent];
   gameEnded: [GameEndedEvent];
+  clientStatus: [ClientStatusEvent];
+  botConnection: [BotConnectionEvent];
   telemetry: [TelemetryAppendedEvent];
   dockerLog: [DockerLogEvent];
 }
