@@ -28,10 +28,18 @@ export interface TelemetryAppendedEvent {
   lastLoop: number | null;
 }
 
+/** A line of Docker output, for the diagnostics panel (§4). `manager` lines
+ * are the app's own narration; the other two are Docker's. */
+export interface DockerLogEvent {
+  source: "manager" | "build" | "container";
+  line: string;
+}
+
 interface EventBusEvents {
   frame: [FrameEvent];
   gameEnded: [GameEndedEvent];
   telemetry: [TelemetryAppendedEvent];
+  dockerLog: [DockerLogEvent];
 }
 
 export class EventBus extends EventEmitter {
