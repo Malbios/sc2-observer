@@ -64,6 +64,22 @@ export interface AttachTelemetryResultIpc {
   } | null;
 }
 
+/** What the header shows about a watched folder: which files the tailer has
+ * picked up and how much it has taken from each. */
+export interface TelemetryWatchIpc {
+  dir: string;
+  files: {
+    path: string;
+    name: string;
+    messageCount: number;
+    rejectedCount: number;
+    lastLoop: number | null;
+  }[];
+  /** Files in the folder the tailer is deliberately not reading, because they
+   * are already streams in this recording or were truncated underneath it. */
+  skippedCount: number;
+}
+
 export interface SpectatorApi {
   pickAndOpenRecording(): Promise<RecordingInfo | null>;
   getTerrain(): Promise<TerrainDataIpc | null>;
@@ -77,6 +93,18 @@ export interface SpectatorApi {
   getTelemetryAtLoop(loop: number): Promise<TelemetryStateIpc>;
   getSeries(ch: string, name: string): Promise<SeriesDataIpc>;
   getEvents(filter?: EventFilterIpc): Promise<EventIpc[]>;
+
+  /** Opens a folder picker and tails every .ndjson in it into the open
+   * recording. Null if the picker was cancelled. */
+  watchTelemetryFolder(): Promise<TelemetryWatchIpc | null>;
+  stopWatchingTelemetry(): Promise<null>;
+  getTelemetryWatch(): Promise<TelemetryWatchIpc | null>;
+  /**
+   * Main's only push. It carries no payload on purpose: the renderer re-asks
+   * for the loop it is already showing, so live and history go down one path.
+   * Returns an unsubscribe.
+   */
+  onTelemetryAppended(listener: () => void): () => void;
 }
 
 declare global {

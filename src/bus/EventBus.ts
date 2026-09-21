@@ -16,9 +16,22 @@ export interface GameEndedEvent {
   loop: number;
 }
 
+/** Emitted when a tailed telemetry file has grown and the new rows are in the
+ * store. It says how much, not what: consumers re-query by loop, which is what
+ * keeps the live view and the history view on one code path (§4). */
+export interface TelemetryAppendedEvent {
+  /** The watched folder the growth was seen in. */
+  dir: string;
+  /** Messages ingested from that folder so far, across every file in it. */
+  messageCount: number;
+  /** Highest loop seen so far, or null if no message has carried one yet. */
+  lastLoop: number | null;
+}
+
 interface EventBusEvents {
   frame: [FrameEvent];
   gameEnded: [GameEndedEvent];
+  telemetry: [TelemetryAppendedEvent];
 }
 
 export class EventBus extends EventEmitter {

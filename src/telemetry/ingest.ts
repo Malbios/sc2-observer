@@ -118,18 +118,32 @@ export class StreamIngest {
     }
   }
 
+  /**
+   * Brings the stream row's running totals up to date without closing the
+   * stream, for a file that is still being written. This deliberately writes
+   * no checkpoint: the tailer calls it after every poll, and a checkpoint per
+   * poll would replace §6.3's one-per-500-loops with one every 150ms.
+   *
+   * The caller flushes, so a poll that touched several files pays for one
+   * transaction rather than one each.
+   */
+  settle(): void {
+    if (this.streamId === null || this.lastLoop === null) return;
+    this.store.updateStream(this.streamId, {
+      firstLoop: this.firstLoop,
+      lastLoop: this.lastLoop,
+      messageCount: this.messageCount,
+      rejectedCount: this.rejectedCount,
+    });
+  }
+
   /** Flushes buffers and writes the closing checkpoint. Safe to call more than
    * once, so the tailer can settle after each poll cycle. */
   finish(): IngestSummary {
     if (this.streamId !== null && this.lastLoop !== null) {
       this.store.recordCheckpoint(this.lastLoop, this.model.capture());
-      this.store.updateStream(this.streamId, {
-        firstLoop: this.firstLoop,
-        lastLoop: this.lastLoop,
-        messageCount: this.messageCount,
-        rejectedCount: this.rejectedCount,
-      });
     }
+    this.settle();
     this.store.flush();
     return this.summary();
   }

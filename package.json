@@ -11,7 +11,7 @@
     "dump": "node dist/cli/dump.js",
     "testbot": "node dist/cli/testbot.js",
     "import-telemetry": "node dist/cli/import-telemetry.js",
-    "verify": "npm run build && node dist/cli/verify-extraction.js",
+    "verify": "npm run build && node dist/cli/verify-extraction.js && node dist/cli/verify-tailer.js",
     "spike": "node spike/proxy.js",
     "dev": "electron-vite dev",
     "build:app": "electron-vite build"

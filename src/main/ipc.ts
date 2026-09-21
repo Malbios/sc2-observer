@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { app, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { EventBus } from "../bus/EventBus";
 import { HistoryStore } from "../history/HistoryStore";
 import { decodeResponse } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
@@ -9,7 +10,15 @@ import { extractUnits } from "../state/frames";
 import { extractUnitTypeInfo } from "../state/unitTypes";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
-import type { AttachTelemetryResultIpc, FrameAtLoopIpc, RecordingInfo, TerrainDataIpc, UnitTypeInfoIpc } from "../shared/ipc-types";
+import { TelemetryTailer } from "../telemetry/TelemetryTailer";
+import type {
+  AttachTelemetryResultIpc,
+  FrameAtLoopIpc,
+  RecordingInfo,
+  TelemetryWatchIpc,
+  TerrainDataIpc,
+  UnitTypeInfoIpc,
+} from "../shared/ipc-types";
 import type {
   ChannelDeclaration,
   ChannelIpc,
@@ -20,7 +29,15 @@ import type {
   TelemetryStreamIpc,
 } from "../shared/telemetry-types";
 
+/**
+ * §4's single in-process bus. Only the tailer speaks on it today; the proxy
+ * and session controller join it in Phase 4, and the renderer still sees one
+ * push either way.
+ */
+const bus = new EventBus();
+
 let store: HistoryStore | null = null;
+let tailer: TelemetryTailer | null = null;
 let terrainCache: TerrainData | null = null;
 let unitTypeInfoCache: Record<number, UnitTypeInfoIpc> | null = null;
 let channelsCache: ChannelIpc[] | null = null;
@@ -46,6 +63,25 @@ function resetCaches(): void {
   unitTypeInfoCache = null;
   channelsCache = null;
   telemetryResolver = null;
+}
+
+/** Everything derived from telemetry rows is stale once rows arrive: the
+ * channel tree may have gained a channel, and every resolved loop may have
+ * gained a message. */
+function invalidateTelemetry(): void {
+  channelsCache = null;
+  telemetryResolver?.invalidate();
+}
+
+function stopTailing(): void {
+  tailer?.stop();
+  tailer = null;
+}
+
+/** The folder the watch picker opens on: the repo's `telemetry/`, which is
+ * where `npm run testbot -- --telemetry telemetry` writes. */
+function defaultTelemetryDir(): string {
+  return path.join(app.getAppPath(), "telemetry");
 }
 
 function resolveTelemetry(loop: number): TelemetryStateIpc {
@@ -127,6 +163,16 @@ function toIpcStreams(): TelemetryStreamIpc[] {
 }
 
 export function registerIpcHandlers(): void {
+  // The tailer's rows land in the store; this is what tells the renderer they
+  // are there. No payload: it re-asks for the loop it is already showing, so
+  // the live path and the history path stay the same path (§3.6).
+  bus.on("telemetry", () => {
+    invalidateTelemetry();
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send("spectator:telemetryAppended");
+    }
+  });
+
   ipcMain.handle("spectator:pickAndOpenRecording", async (): Promise<RecordingInfo | null> => {
     const result = await dialog.showOpenDialog({
       title: "Open Recording",
@@ -138,6 +184,9 @@ export function registerIpcHandlers(): void {
 
     const filePath = result.filePaths[0];
     lastOpenedDir = path.dirname(filePath);
+    // The tailer writes into the store it was built with, so it has to be shut
+    // down before that store is closed, not after.
+    stopTailing();
     store?.close();
     store = new HistoryStore(filePath);
     resetCaches();
@@ -217,9 +266,7 @@ export function registerIpcHandlers(): void {
     }
     const summary = ingest.finish();
 
-    // New rows change both the channel tree and every resolved loop.
-    channelsCache = null;
-    telemetryResolver?.invalidate();
+    invalidateTelemetry();
 
     return {
       status: "ingested",
@@ -254,4 +301,30 @@ export function registerIpcHandlers(): void {
     if (!store) return [];
     return store.readEvents(filter ?? {});
   });
+
+  ipcMain.handle("spectator:watchTelemetryFolder", async (): Promise<TelemetryWatchIpc | null> => {
+    if (!store) return null;
+    const result = await dialog.showOpenDialog({
+      title: "Watch Telemetry Folder",
+      defaultPath: defaultTelemetryDir(),
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    stopTailing();
+    tailer = new TelemetryTailer(store, bus, path.resolve(result.filePaths[0]!));
+    tailer.start();
+    // start() polls once, so anything already in the folder is in by now.
+    return tailer.status();
+  });
+
+  ipcMain.handle("spectator:stopWatchingTelemetry", (): null => {
+    // stop() writes each stream's closing checkpoint, which changes what a
+    // resolved loop replays from.
+    stopTailing();
+    invalidateTelemetry();
+    return null;
+  });
+
+  ipcMain.handle("spectator:getTelemetryWatch", (): TelemetryWatchIpc | null => tailer?.status() ?? null);
 }
