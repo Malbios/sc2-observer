@@ -68,19 +68,39 @@ export function extractTerrain(gameInfoResponse: Response): TerrainData | null {
  * blockage was just a mineral patch, not a cliff". Clearing the footprint
  * of every unit seen in that same starting frame fixes exactly that: real
  * terrain features have no matching unit and are left untouched.
+ *
+ * Two things this must not do, both found by looking at a real map
+ * (TorchesAIE, measured cell by cell rather than by eye):
+ *
+ * - **It only ever clears cells a unit actually stands on.** The footprint
+ *   is the disc of the unit's own collision radius, tested against each
+ *   cell's centre. A bounding square of `ceil(radius)` erased 357 cells of
+ *   genuine cliff on that map against 99 real footprint cells, because a
+ *   6x6 destructible with radius 3.19 clears a 9x9 square: the excess ate
+ *   the cliff beside it and rendered it as open ground.
+ * - **It never touches placementGrid.** That grid describes the terrain, not
+ *   what is standing on it: under a townhall and under mineral patches it
+ *   already reads "buildable", so clearing it buys nothing. What it costs is
+ *   real: forcing it to 1 turns ramp and cliff cells under a destructible
+ *   into bright buildable ground, which is the map growing flat space that
+ *   does not exist.
  */
 export function clearInitialUnitFootprints(terrain: TerrainData, initialUnits: UnitSummary[]): void {
-  const { width, height, pathingGrid, placementGrid } = terrain;
+  const { width, height, pathingGrid } = terrain;
   for (const unit of initialUnits) {
-    if (!unit.pos) continue;
-    const r = Math.ceil(unit.radius);
-    const cx = Math.floor(unit.pos.x);
-    const cy = Math.floor(unit.pos.y);
-    for (let gy = Math.max(0, cy - r); gy <= Math.min(height - 1, cy + r); gy++) {
-      for (let gx = Math.max(0, cx - r); gx <= Math.min(width - 1, cx + r); gx++) {
-        const idx = gy * width + gx;
-        pathingGrid[idx] = 1;
-        placementGrid[idx] = 1;
+    if (!unit.pos || unit.radius <= 0) continue;
+    const { x, y } = unit.pos;
+    const r = unit.radius;
+    const minX = Math.max(0, Math.floor(x - r));
+    const maxX = Math.min(width - 1, Math.ceil(x + r));
+    const minY = Math.max(0, Math.floor(y - r));
+    const maxY = Math.min(height - 1, Math.ceil(y + r));
+    for (let gy = minY; gy <= maxY; gy++) {
+      for (let gx = minX; gx <= maxX; gx++) {
+        const dx = gx + 0.5 - x;
+        const dy = gy + 0.5 - y;
+        if (dx * dx + dy * dy > r * r) continue;
+        pathingGrid[gy * width + gx] = 1;
       }
     }
   }
