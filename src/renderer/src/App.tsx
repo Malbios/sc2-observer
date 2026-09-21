@@ -50,7 +50,6 @@ export function App(): JSX.Element {
   const [dockerState, setDockerState] = useState<DockerStateIpc | null>(null);
   const [maps, setMaps] = useState<string[]>([]);
   const [logs, setLogs] = useState<DockerLogIpc[]>([]);
-  const [liveMaxLoop, setLiveMaxLoop] = useState(0);
   /** Ticks while live, so the idle counters advance on their own (§4.2). */
   const [clock, setClock] = useState(Date.now());
   const [terrain, setTerrain] = useState<TerrainDataIpc | null>(null);
@@ -90,7 +89,9 @@ export function App(): JSX.Element {
   const live = view === "live" && sessionRunning(session);
   const map = live ? session!.map : recording?.map ?? "";
   const mode = live ? session!.mode : recording?.mode ?? "";
-  const maxLoop = live ? liveMaxLoop : recording?.maxLoop ?? 0;
+  // Live has nothing past the head to scrub to (§6.4), so the track's end is
+  // wherever the game is now and the thumb sits on it.
+  const maxLoop = live ? loop : recording?.maxLoop ?? 0;
 
   useEffect(() => {
     viewRef.current = view;
@@ -199,9 +200,22 @@ export function App(): JSX.Element {
     void window.spectator.getDockerState().then(setDockerState);
   }, []);
 
+  /** Set below, once switchView exists. The mount effect needs it without
+   * taking it as a dependency, which would re-run the adoption. */
+  const switchViewRef = useRef<(kind: "recording" | "live") => Promise<void>>(async () => undefined);
+
+  /**
+   * A reloaded window (or a hot reload during development) comes up knowing
+   * nothing, while the session in main is still playing. Adopting it is what
+   * makes the live view survive a reload instead of dropping to the splash
+   * with a game running behind it.
+   */
   useEffect(() => {
     void window.spectator.listMaps().then(setMaps);
-    void window.spectator.getSessionState().then(setSession);
+    void window.spectator.getSessionState().then((state) => {
+      setSession(state);
+      if (sessionRunning(state)) void switchViewRef.current("live");
+    });
     refreshDocker();
   }, [refreshDocker]);
 
@@ -220,12 +234,21 @@ export function App(): JSX.Element {
       if (viewRef.current !== "live") return;
       setTerrain(payload.terrain);
       setUnitTypeInfo(payload.unitTypes);
+      // A map arriving is a game starting, and none of the last game's
+      // selection or overlays belong to it. The frame is deliberately left
+      // alone: the next one replaces it within a frame time, and clearing it
+      // here is what blanks the map for as long as the next bot takes to
+      // connect, which can be minutes.
+      if (payload.terrain) {
+        setSelectedUnit(null);
+        setTelemetry(null);
+        lastFetchedLoopRef.current = -1;
+      }
     });
     const offFrame = window.spectator.onLiveFrame((liveFrame) => {
       lastFrameAtRef.current = Date.now();
       if (viewRef.current !== "live") return;
       setFrame(liveFrame);
-      setLiveMaxLoop((current) => Math.max(current, liveFrame.loop));
       loopRef.current = liveFrame.loop;
       setLoop(liveFrame.loop);
     });
@@ -236,22 +259,6 @@ export function App(): JSX.Element {
       offFrame();
     };
   }, []);
-
-  // A new game is a new map and a new loop axis, so nothing from the last one
-  // may survive into it.
-  const phase = session?.phase;
-  useEffect(() => {
-    if (viewRef.current !== "live") return;
-    if (phase !== "gameCreated" && phase !== "clientReady") return;
-    setFrame(null);
-    setSelectedUnit(null);
-    setTelemetry(null);
-    setLiveMaxLoop(0);
-    loopRef.current = 0;
-    setLoop(0);
-    lastFetchedLoopRef.current = -1;
-    lastFrameAtRef.current = 0;
-  }, [phase]);
 
   useEffect(() => {
     if (!live) return;
@@ -274,7 +281,6 @@ export function App(): JSX.Element {
     setTimelineEvents([]);
     setVisibleChannels(new Set());
     seenChannelsRef.current = new Set();
-    setLiveMaxLoop(0);
     loopRef.current = 0;
     setLoop(0);
     lastFetchedLoopRef.current = -1;
@@ -312,6 +318,7 @@ export function App(): JSX.Element {
     },
     [loadChannels]
   );
+  switchViewRef.current = switchView;
 
   /**
    * Main's push says only "there is more", so the answer is to re-ask for the
