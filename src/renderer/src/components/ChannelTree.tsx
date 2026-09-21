@@ -24,7 +24,10 @@ interface Props {
   channels: ChannelIpc[];
   visible: ReadonlySet<string>;
   onToggle(paths: string[], visible: boolean): void;
-  onAttach(): void;
+  /** Null while a session is running: the game being played takes the file
+   * its own bot is writing, and importing any other one writes another
+   * game's loops into this recording for good. */
+  onAttach: (() => void) | null;
   streamCount: number;
   /** Result of the last attach, so a rejected line or a duplicate file is
    * visible in the UI rather than only in the console. */
@@ -178,9 +181,11 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount
         </div>
       )}
 
-      <button onClick={onAttach} style={{ marginTop: 12, fontSize: 12 }}>
-        Attach Telemetry...
-      </button>
+      {onAttach && (
+        <button onClick={onAttach} style={{ marginTop: 12, fontSize: 12 }}>
+          Attach Telemetry...
+        </button>
+      )}
       {notice && <div style={{ marginTop: 6, fontSize: 11, color: "#8b93a1", lineHeight: 1.4 }}>{notice}</div>}
     </div>
   );

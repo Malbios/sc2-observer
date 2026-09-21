@@ -45,6 +45,9 @@ const bus = new EventBus();
 
 let store: HistoryStore | null = null;
 let tailer: TelemetryTailer | null = null;
+/** The store the tailer writes into, which is not always the one on screen: a
+ * session's tailer follows its game while the user looks at a recording. */
+let tailerStore: HistoryStore | null = null;
 let terrainCache: TerrainData | null = null;
 let unitTypeInfoCache: Record<number, UnitTypeInfoIpc> | null = null;
 let channelsCache: ChannelIpc[] | null = null;
@@ -254,6 +257,7 @@ function attachLiveTelemetry(): void {
   // game would silently stop following it.
   const dir = telemetryDir ?? defaultTelemetryDir();
   tailer = new TelemetryTailer(gameStore, bus, dir, preExistingTelemetry);
+  tailerStore = gameStore;
   tailer.start();
   bus.emit("dockerLog", { source: "session", line: `watching ${dir} for telemetry` });
 }
@@ -302,6 +306,7 @@ function invalidateTelemetry(): void {
 function stopTailing(): void {
   tailer?.stop();
   tailer = null;
+  tailerStore = null;
 }
 
 /** The folder the watch picker opens on: the repo's `telemetry/`, which is
@@ -441,8 +446,11 @@ export function registerIpcHandlers(): void {
     const filePath = result.filePaths[0];
     lastOpenedDir = path.dirname(filePath);
     // The tailer writes into the store it was built with, so it has to be shut
-    // down before that store is closed, not after.
-    stopTailing();
+    // down before that store is closed, not after. Only if that store is the
+    // one being replaced, though: a session's tailer belongs to the game being
+    // played, and stopping it because the user glanced at an old recording
+    // would leave that game with no telemetry for the rest of its run.
+    if (tailerStore === store) stopTailing();
     store?.close();
     store = new HistoryStore(filePath);
     // Opening a recording is a request to look at it, even if a session is
@@ -585,6 +593,7 @@ export function registerIpcHandlers(): void {
     // each on its own loop axis, which is what a live game gets auto-attach
     // and its ignore list for.
     tailer = new TelemetryTailer(store, bus, telemetryDir);
+    tailerStore = store;
     tailer.start();
     // start() polls once, so anything already in the folder is in by now.
     return tailer.status();

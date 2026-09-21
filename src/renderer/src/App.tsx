@@ -541,7 +541,7 @@ export function App(): JSX.Element {
             channels={channels}
             visible={visibleChannels}
             onToggle={handleToggleChannels}
-            onAttach={attachTelemetry}
+            onAttach={live ? null : attachTelemetry}
             streamCount={streamCount}
             notice={notice}
           />
