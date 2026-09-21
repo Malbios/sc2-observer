@@ -18,14 +18,24 @@ npm run dev            # electron-vite dev, the app with HMR
 npm run build:app      # electron-vite production build into out/
 ```
 
-CLIs, all of which need `npm run build` first:
+CLIs, all of which need `npm run build` first. **Call them through `node`, not
+`npm run`**: npm 12 validates flags even after `--`, so `npm run testbot --
+--end surrender` fails with `EUNKNOWNCONFIG`. The npm scripts still work if a
+second `--` is added (`npm run testbot -- -- --end surrender`), which is more
+trouble than it is worth.
 
 ```
-npm run record -- --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 5001]
-npm run dump -- game.sqlite --loop 5000
-npm run import-telemetry -- game.sqlite --file run.ndjson
-npm run testbot -- --end surrender --loops 1000 --telemetry telemetry
+node dist/cli/session.js --map TorchesAIE.SC2Map [--mode A|B] [--games-dir DIR]
+node dist/cli/record.js --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 5001]
+node dist/cli/dump.js game.sqlite --loop 5000
+node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
+node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry
 ```
+
+`session` is the headless equivalent of the app's live session: it owns the
+container, records a file per game, saves replays and creates the next game.
+`record` is the minimal single-game recorder and expects a container to be
+running already; it is what fixtures are made with.
 
 Python emitter (no dependencies, not part of the npm build):
 
