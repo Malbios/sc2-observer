@@ -1,6 +1,6 @@
 import path from "node:path";
 import { app, BrowserWindow } from "electron";
-import { registerIpcHandlers } from "./ipc";
+import { registerIpcHandlers, shutdownSession } from "./ipc";
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -32,4 +32,18 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+/**
+ * Quitting has to wait for the container to go away. Electron would otherwise
+ * tear the process down while `docker rm` is still in flight, and the thing
+ * that survives the app is the one that matters: a container holding port
+ * 5001, and a running SC2 the user has to find and kill by hand.
+ */
+let shuttingDown = false;
+app.on("before-quit", (event) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  event.preventDefault();
+  void shutdownSession().finally(() => app.quit());
 });

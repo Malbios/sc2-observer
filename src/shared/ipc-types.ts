@@ -50,6 +50,44 @@ export interface SessionStatusIpc {
   error: string | null;
 }
 
+/** What the UI has to pick before a session can start. Mode is the user's
+ * choice and is never detected from traffic (§1). */
+export interface StartSessionOptionsIpc {
+  map: string;
+  mode: string;
+  opponentRace?: number;
+  opponentDifficulty?: number;
+}
+
+/** What the Docker panel shows when nothing is running yet, so the user can
+ * see why a session would fail before starting one. */
+export interface DockerStateIpc {
+  available: boolean;
+  version: string | null;
+  /** Why Docker is unusable, in words a user can act on. */
+  reason: string | null;
+  image: string;
+  imageExists: boolean;
+  container: "running" | "exited" | "missing";
+}
+
+/** A line for the diagnostics panel. */
+export interface DockerLogIpc {
+  source: string;
+  line: string;
+}
+
+/**
+ * The two things that are true for a whole game and are needed before the
+ * first frame can be drawn. They are pushed rather than queried because §6.4
+ * keeps the live viewer off the store, and because the store has not flushed
+ * yet when the first frames arrive.
+ */
+export interface LiveTerrainIpc {
+  terrain: TerrainDataIpc | null;
+  unitTypes: Record<number, UnitTypeInfoIpc>;
+}
+
 export interface TerrainDataIpc {
   width: number;
   height: number;
@@ -134,11 +172,29 @@ export interface SpectatorApi {
   stopWatchingTelemetry(): Promise<null>;
   getTelemetryWatch(): Promise<TelemetryWatchIpc | null>;
   /**
-   * Main's only push. It carries no payload on purpose: the renderer re-asks
+   * The telemetry push. It carries no payload on purpose: the renderer re-asks
    * for the loop it is already showing, so live and history go down one path.
    * Returns an unsubscribe.
    */
   onTelemetryAppended(listener: () => void): () => void;
+
+  /** Map names the container can see, for the session's map picker. */
+  listMaps(): Promise<string[]>;
+  getDockerState(): Promise<DockerStateIpc>;
+  startSession(options: StartSessionOptionsIpc): Promise<SessionStatusIpc>;
+  stopSession(): Promise<SessionStatusIpc | null>;
+  /** Null when no session has been started in this run of the app. */
+  getSessionState(): Promise<SessionStatusIpc | null>;
+
+  /**
+   * The live pushes. Unlike telemetry these carry their payload: §6.4 keeps
+   * the live viewer off the store, so the bus is the only place the current
+   * frame exists. Each returns an unsubscribe.
+   */
+  onSessionState(listener: (state: SessionStatusIpc) => void): () => void;
+  onLiveFrame(listener: (frame: FrameAtLoopIpc) => void): () => void;
+  onLiveTerrain(listener: (payload: LiveTerrainIpc) => void): () => void;
+  onDockerLog(listener: (line: DockerLogIpc) => void): () => void;
 }
 
 declare global {

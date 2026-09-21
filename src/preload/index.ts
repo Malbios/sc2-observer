@@ -1,6 +1,22 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { SpectatorApi } from "../shared/ipc-types";
+import type {
+  DockerLogIpc,
+  FrameAtLoopIpc,
+  LiveTerrainIpc,
+  SessionStatusIpc,
+  SpectatorApi,
+  StartSessionOptionsIpc,
+} from "../shared/ipc-types";
 import type { EventFilterIpc } from "../shared/telemetry-types";
+
+/** Every push is exposed the same way: the renderer gets the payload and an
+ * unsubscribe, never the IpcRendererEvent, which would hand it a channel back
+ * into main. */
+function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
+  const handler = (_event: unknown, payload: T): void => listener(payload);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.off(channel, handler);
+}
 
 const api: SpectatorApi = {
   pickAndOpenRecording: () => ipcRenderer.invoke("spectator:pickAndOpenRecording"),
@@ -18,13 +34,18 @@ const api: SpectatorApi = {
   watchTelemetryFolder: () => ipcRenderer.invoke("spectator:watchTelemetryFolder"),
   stopWatchingTelemetry: () => ipcRenderer.invoke("spectator:stopWatchingTelemetry"),
   getTelemetryWatch: () => ipcRenderer.invoke("spectator:getTelemetryWatch"),
-  onTelemetryAppended: (listener: () => void) => {
-    // The IpcRendererEvent is deliberately not passed through: the renderer
-    // gets "re-query", not a channel to main.
-    const handler = (): void => listener();
-    ipcRenderer.on("spectator:telemetryAppended", handler);
-    return () => ipcRenderer.off("spectator:telemetryAppended", handler);
-  },
+  onTelemetryAppended: (listener: () => void) => subscribe("spectator:telemetryAppended", () => listener()),
+
+  listMaps: () => ipcRenderer.invoke("spectator:listMaps"),
+  getDockerState: () => ipcRenderer.invoke("spectator:getDockerState"),
+  startSession: (options: StartSessionOptionsIpc) => ipcRenderer.invoke("spectator:startSession", options),
+  stopSession: () => ipcRenderer.invoke("spectator:stopSession"),
+  getSessionState: () => ipcRenderer.invoke("spectator:getSessionState"),
+
+  onSessionState: (listener: (state: SessionStatusIpc) => void) => subscribe("spectator:sessionState", listener),
+  onLiveFrame: (listener: (frame: FrameAtLoopIpc) => void) => subscribe("spectator:liveFrame", listener),
+  onLiveTerrain: (listener: (payload: LiveTerrainIpc) => void) => subscribe("spectator:liveTerrain", listener),
+  onDockerLog: (listener: (line: DockerLogIpc) => void) => subscribe("spectator:dockerLog", listener),
 };
 
 contextBridge.exposeInMainWorld("spectator", api);

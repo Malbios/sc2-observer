@@ -1,9 +1,12 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, readdirSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
-import { EventBus } from "../bus/EventBus";
+import { EventBus, type FrameEvent } from "../bus/EventBus";
+import { DockerManager, IMAGE_NAME } from "../docker/DockerManager";
 import { HistoryStore } from "../history/HistoryStore";
+import { SessionController } from "../session/SessionController";
+import type { GameMode } from "../proxy/GameProxy";
 import { decodeResponse } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
@@ -13,8 +16,11 @@ import { TelemetryResolver } from "../telemetry/TelemetryResolver";
 import { TelemetryTailer } from "../telemetry/TelemetryTailer";
 import type {
   AttachTelemetryResultIpc,
+  DockerStateIpc,
   FrameAtLoopIpc,
   RecordingInfo,
+  SessionStatusIpc,
+  StartSessionOptionsIpc,
   TelemetryWatchIpc,
   TerrainDataIpc,
   UnitTypeInfoIpc,
@@ -30,9 +36,9 @@ import type {
 } from "../shared/telemetry-types";
 
 /**
- * §4's single in-process bus. Only the tailer speaks on it today; the proxy
- * and session controller join it in Phase 4, and the renderer still sees one
- * push either way.
+ * §4's single in-process bus. The tailer, the proxy, the Docker manager and
+ * the session controller all speak on it, which is what lets the live view,
+ * the history view and persistence consume one stream.
  */
 const bus = new EventBus();
 
@@ -45,6 +51,69 @@ let telemetryResolver: TelemetryResolver | null = null;
 // Starts at the repo's fixtures/ folder (the only place recordings live so
 // far); once a recording is opened, defaults to that file's folder next time.
 let lastOpenedDir = path.join(app.getAppPath(), "fixtures");
+
+// -- the live session ------------------------------------------------------
+
+let session: SessionController | null = null;
+let inspector: DockerManager | null = null;
+/**
+ * Which store the queries answer from. A session and an opened recording can
+ * both exist at once, and they are different games; the viewer shows one of
+ * them, so main answers from that one rather than guessing.
+ */
+let activeSource: "recording" | "live" = "recording";
+/** What `db()` last returned, so changing games drops the caches built from
+ * the previous one. */
+let cachedStore: HistoryStore | null = null;
+
+/** Pushed at most this often. The live view follows the head, and a renderer
+ * cannot draw faster than its frames; every observation is still recorded in
+ * full, this only limits what crosses the IPC boundary. */
+const LIVE_FRAME_INTERVAL_MS = 50;
+
+let liveTerrain: TerrainData | null = null;
+let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
+let liveFootprintsPending = false;
+let firstObservation: Uint8Array | null = null;
+let latestObservation: Uint8Array | null = null;
+let liveFrameTimer: NodeJS.Timeout | null = null;
+
+function dockerDir(): string {
+  return path.join(app.getAppPath(), "docker");
+}
+
+function mapsDir(): string {
+  return path.join(app.getAppPath(), "maps");
+}
+
+/** One SQLite file per game, in the user's own data folder rather than the
+ * repo: a packaged app has no writable folder of its own. */
+function gamesDir(): string {
+  return path.join(app.getPath("userData"), "games");
+}
+
+/** A manager for looking, not touching. The session owns its own; this one
+ * answers the panel's questions before a session exists. */
+function docker(): DockerManager {
+  if (!inspector) inspector = new DockerManager({ bus, dockerfileDir: dockerDir(), mapsDir: mapsDir() });
+  return inspector;
+}
+
+/** The store the queries read from. */
+function db(): HistoryStore | null {
+  const next = activeSource === "live" ? session?.activeStore ?? null : store;
+  if (next !== cachedStore) {
+    cachedStore = next;
+    resetCaches();
+  }
+  return next;
+}
+
+function send(channel: string, payload?: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(channel, payload);
+  }
+}
 
 function toIpcTerrain(terrain: TerrainData): TerrainDataIpc {
   return {
@@ -63,6 +132,106 @@ function resetCaches(): void {
   unitTypeInfoCache = null;
   channelsCache = null;
   telemetryResolver = null;
+}
+
+/** Everything held about the game currently being played. Cleared between
+ * games, so the next one cannot draw on the previous one's map. */
+function resetLiveGame(): void {
+  liveTerrain = null;
+  liveUnitTypes = {};
+  liveFootprintsPending = false;
+  firstObservation = null;
+  latestObservation = null;
+  if (liveFrameTimer) clearTimeout(liveFrameTimer);
+  liveFrameTimer = null;
+}
+
+function pushLiveTerrain(): void {
+  send("spectator:liveTerrain", {
+    terrain: liveTerrain ? toIpcTerrain(liveTerrain) : null,
+    unitTypes: liveUnitTypes,
+  });
+}
+
+/**
+ * The map is drawn from `gameInfo`'s grids minus the footprints of the units
+ * standing on them at the start, which needs the first observation as well as
+ * the map. The two arrive in whichever order the bot asks for them, so this
+ * runs after either and does nothing until both are in.
+ */
+function applyFootprints(): void {
+  if (!liveTerrain || !liveFootprintsPending || !firstObservation) return;
+  clearInitialUnitFootprints(liveTerrain, extractUnits(decodeResponse(firstObservation)));
+  liveFootprintsPending = false;
+}
+
+function pushLiveFrame(): void {
+  const bytes = latestObservation;
+  latestObservation = null;
+  if (!bytes) return;
+  const response = decodeResponse(bytes);
+  const frame: FrameAtLoopIpc = {
+    loop: response.observation?.observation?.game_loop ?? 0,
+    units: extractUnits(response),
+  };
+  send("spectator:liveFrame", frame);
+}
+
+/**
+ * Frames come off the bus at whatever rate the bot steps, which for a bot
+ * stepping every loop is faster than anything can be drawn. Only the newest
+ * one is kept: dropping an intermediate frame is what following the head
+ * means, and the recording still has every one of them.
+ */
+function onLiveFrame(event: FrameEvent): void {
+  if (event.kind === "observation") {
+    if (!firstObservation) {
+      firstObservation = event.bytes;
+      applyFootprints();
+      if (liveTerrain) pushLiveTerrain();
+    }
+    latestObservation = event.bytes;
+    if (!liveFrameTimer) {
+      liveFrameTimer = setTimeout(() => {
+        liveFrameTimer = null;
+        pushLiveFrame();
+      }, LIVE_FRAME_INTERVAL_MS);
+    }
+    return;
+  }
+
+  if (event.kind === "gameInfo") {
+    liveTerrain = extractTerrain(decodeResponse(event.bytes));
+    liveFootprintsPending = liveTerrain !== null;
+    applyFootprints();
+    pushLiveTerrain();
+    return;
+  }
+
+  if (event.kind === "data") {
+    liveUnitTypes = extractUnitTypeInfo(decodeResponse(event.bytes));
+    pushLiveTerrain();
+  }
+}
+
+function listMaps(): string[] {
+  try {
+    return readdirSync(mapsDir())
+      .filter((name) => name.toLowerCase().endsWith(".sc2map"))
+      .sort();
+  } catch {
+    // No maps folder is a state the panel reports, not a crash.
+    return [];
+  }
+}
+
+/** Stops everything this process owns. Called on quit, where leaving a
+ * container running is the failure that outlives the app. */
+export async function shutdownSession(): Promise<void> {
+  stopTailing();
+  if (session) await session.stop();
+  inspector?.stopLogStream();
+  resetLiveGame();
 }
 
 /** Everything derived from telemetry rows is stale once rows arrive: the
@@ -85,6 +254,7 @@ function defaultTelemetryDir(): string {
 }
 
 function resolveTelemetry(loop: number): TelemetryStateIpc {
+  const store = db();
   if (!store) return { loop, overlays: [], snapshots: [], entities: [] };
   if (!telemetryResolver) telemetryResolver = new TelemetryResolver(store);
   return telemetryResolver.stateAt(loop);
@@ -96,6 +266,7 @@ function resolveTelemetry(loop: number): TelemetryStateIpc {
  * (§3.2) and a declaration is a promise the bot may not have kept yet.
  */
 function buildChannels(): ChannelIpc[] {
+  const store = db();
   if (!store) return [];
 
   const declared = new Map<string, ChannelDeclaration>();
@@ -147,6 +318,7 @@ function buildChannels(): ChannelIpc[] {
 }
 
 function toIpcStreams(): TelemetryStreamIpc[] {
+  const store = db();
   if (!store) return [];
   return store.getStreams().map((stream) => ({
     id: stream.id,
@@ -168,10 +340,15 @@ export function registerIpcHandlers(): void {
   // the live path and the history path stay the same path (§3.6).
   bus.on("telemetry", () => {
     invalidateTelemetry();
-    for (const window of BrowserWindow.getAllWindows()) {
-      window.webContents.send("spectator:telemetryAppended");
-    }
+    send("spectator:telemetryAppended");
   });
+
+  bus.on("frame", onLiveFrame);
+  bus.on("sessionState", (state) => send("spectator:sessionState", state));
+  bus.on("dockerLog", (event) => send("spectator:dockerLog", event));
+  // The next game is a different map's worth of terrain and a different unit
+  // list, so nothing from this one may survive into it.
+  bus.on("gameEnded", () => resetLiveGame());
 
   ipcMain.handle("spectator:pickAndOpenRecording", async (): Promise<RecordingInfo | null> => {
     const result = await dialog.showOpenDialog({
@@ -189,6 +366,9 @@ export function registerIpcHandlers(): void {
     stopTailing();
     store?.close();
     store = new HistoryStore(filePath);
+    // Opening a recording is a request to look at it, even if a session is
+    // running: the queries follow the window.
+    activeSource = "recording";
     resetCaches();
 
     const maxLoopRow = store.getMaxLoop();
@@ -203,6 +383,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:getTerrain", (): TerrainDataIpc | null => {
+    const store = db();
     if (!store) return null;
     if (!terrainCache) {
       const bytes = store.readFrameAtOrBefore("gameInfo", 0);
@@ -220,6 +401,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:getUnitTypeInfo", (): Record<number, UnitTypeInfoIpc> => {
+    const store = db();
     if (!store) return {};
     if (!unitTypeInfoCache) {
       const bytes = store.readFrameAtOrBefore("data", 0);
@@ -229,6 +411,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:getFrameAtLoop", (_event, loop: number): FrameAtLoopIpc | null => {
+    const store = db();
     if (!store) return null;
     const bytes = store.readFrameAtOrBefore("observation", loop);
     if (!bytes) return null;
@@ -238,6 +421,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:attachTelemetry", async (): Promise<AttachTelemetryResultIpc | null> => {
+    const store = db();
     if (!store) return null;
     const result = await dialog.showOpenDialog({
       title: "Attach Telemetry",
@@ -285,7 +469,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("spectator:getTelemetryStreams", (): TelemetryStreamIpc[] => toIpcStreams());
 
   ipcMain.handle("spectator:getChannels", (): ChannelIpc[] => {
-    if (!store) return [];
+    if (!db()) return [];
     if (!channelsCache) channelsCache = buildChannels();
     return channelsCache;
   });
@@ -293,16 +477,19 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("spectator:getTelemetryAtLoop", (_event, loop: number): TelemetryStateIpc => resolveTelemetry(loop));
 
   ipcMain.handle("spectator:getSeries", (_event, ch: string, name: string): SeriesDataIpc => {
+    const store = db();
     if (!store) return { ch, name, loops: [], values: [] };
     return store.readSeries(ch, name);
   });
 
   ipcMain.handle("spectator:getEvents", (_event, filter: EventFilterIpc | undefined): EventIpc[] => {
+    const store = db();
     if (!store) return [];
     return store.readEvents(filter ?? {});
   });
 
   ipcMain.handle("spectator:watchTelemetryFolder", async (): Promise<TelemetryWatchIpc | null> => {
+    const store = db();
     if (!store) return null;
     const result = await dialog.showOpenDialog({
       title: "Watch Telemetry Folder",
@@ -327,4 +514,66 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:getTelemetryWatch", (): TelemetryWatchIpc | null => tailer?.status() ?? null);
+
+  // -- the session ---------------------------------------------------------
+
+  ipcMain.handle("spectator:listMaps", (): string[] => listMaps());
+
+  ipcMain.handle("spectator:getDockerState", async (): Promise<DockerStateIpc> => {
+    const manager = docker();
+    const availability = await manager.detect();
+    if (!availability.available) {
+      return {
+        available: false,
+        version: null,
+        reason: availability.reason,
+        image: IMAGE_NAME,
+        imageExists: false,
+        container: "missing",
+      };
+    }
+    return {
+      available: true,
+      version: availability.version,
+      reason: null,
+      image: IMAGE_NAME,
+      imageExists: await manager.imageExists(),
+      container: await manager.containerStatus(),
+    };
+  });
+
+  ipcMain.handle("spectator:startSession", async (_event, options: StartSessionOptionsIpc): Promise<SessionStatusIpc> => {
+    // A session that is still running is not replaced: starting a second one
+    // would bind the same bot port and fight the first for the client.
+    if (session && session.status.phase !== "stopped" && session.status.phase !== "failed") {
+      return session.status;
+    }
+    if (session) await session.stop();
+
+    resetLiveGame();
+    session = new SessionController({
+      bus,
+      dockerfileDir: dockerDir(),
+      mapsDir: mapsDir(),
+      gamesDir: gamesDir(),
+      map: options.map,
+      mode: (options.mode as GameMode) ?? "A",
+      opponentRace: options.opponentRace,
+      opponentDifficulty: options.opponentDifficulty,
+    });
+    activeSource = "live";
+    await session.start();
+    return session.status;
+  });
+
+  ipcMain.handle("spectator:stopSession", async (): Promise<SessionStatusIpc | null> => {
+    if (!session) return null;
+    await session.stop();
+    resetLiveGame();
+    // Back to whatever recording was open, which may be nothing.
+    activeSource = "recording";
+    return session.status;
+  });
+
+  ipcMain.handle("spectator:getSessionState", (): SessionStatusIpc | null => session?.status ?? null);
 }
