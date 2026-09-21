@@ -10,3 +10,5 @@ out/
 *.sqlite-wal
 *.sqlite-shm
 !fixtures/*.sqlite
+__pycache__/
+*.pyc
