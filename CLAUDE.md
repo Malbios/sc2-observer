@@ -113,6 +113,6 @@ Six phases (§7), each depending on the prior and ending with something runnable
 
 **Phase 4 is next**: Docker manager with build/pull, status panel and logs, mode selector, session controller with auto next game and `status`-driven phases, live view fed from the bus with an idle indicator. It inherits three things worth knowing:
 
-- Whether `saveReplay` works when the proxy issues it after `ended` is a §7.1 unknown with no confirming note. Verify it early; the exit criterion depends on it.
+- `saveReplay` after `ended` **works**, confirmed live by `npm run probe-endgame` (8432 bytes returned from `ended`, 8315 from `in_game`). The replay comes back as `ResponseSaveReplay.data` bytes over the wire, so nothing needs mounting into the container: the app writes the file itself. The observed status sequence for a surrendered game is `launched -> init_game -> in_game -> ended -> init_game`, with `ended` and `player_result` arriving together on the observation *after* the stepped surrender, not on the step itself.
 - §3.5 auto-attach of a telemetry file to a live game by timing was deferred out of Phase 3 because it needs a session.
 - The timeline's range comes from recorded frames, so telemetry past the last frame is stored but not reachable by scrubbing. A live session grows frames, which resolves it.
