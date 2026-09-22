@@ -1,5 +1,5 @@
-import { useMemo, type JSX } from "react";
-import type { ChannelIpc } from "../../../shared/telemetry-types";
+import { useMemo, useState, type JSX } from "react";
+import type { ChannelIpc, TelemetryStreamIpc } from "../../../shared/telemetry-types";
 import { colorForChannel, cssColor } from "../colors";
 
 /**
@@ -28,7 +28,14 @@ interface Props {
    * its own bot is writing, and importing any other one writes another
    * game's loops into this recording for good. */
   onAttach: (() => void) | null;
-  streamCount: number;
+  /** The telemetry files in this game (§6.3 records one row per file). The
+   * list is what makes a mis-attached file identifiable: name, where it came
+   * from, and the loops it covers. */
+  streams: TelemetryStreamIpc[];
+  /** §3.5's recovery. Null when detaching is not available: a tailer is
+   * appending to this game, and removing a stream underneath it would have it
+   * re-created on the next poll. */
+  onDetach: ((streamId: number) => void) | null;
   /** Result of the last attach, so a rejected line or a duplicate file is
    * visible in the UI rather than only in the console. */
   notice: string | null;
@@ -148,8 +155,10 @@ function TreeRow({
   );
 }
 
-export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount, notice }: Props): JSX.Element {
+export function ChannelTree({ channels, visible, onToggle, onAttach, streams, onDetach, notice }: Props): JSX.Element {
   const tree = useMemo(() => buildTree(channels), [channels]);
+  const [showStreams, setShowStreams] = useState(false);
+  const [confirming, setConfirming] = useState<number | null>(null);
   const allPaths = useMemo(() => channels.map((channel) => channel.ch), [channels]);
   const allShown = allPaths.length > 0 && allPaths.every((path) => visible.has(path));
 
@@ -169,7 +178,7 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount
 
       {channels.length === 0 ? (
         <div style={{ fontSize: 12, color: "#8b93a1", lineHeight: 1.5 }}>
-          {streamCount === 0
+          {streams.length === 0
             ? "No telemetry attached to this recording."
             : "Attached, but no channels were written."}
         </div>
@@ -178,6 +187,58 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streamCount
           {tree.map((node) => (
             <TreeRow key={node.path} node={node} depth={0} visible={visible} onToggle={onToggle} />
           ))}
+        </div>
+      )}
+
+      {streams.length > 0 && (
+        <div style={{ marginTop: 12, fontSize: 11, color: "#8b93a1" }}>
+          <button
+            onClick={() => setShowStreams((shown) => !shown)}
+            style={{ background: "none", border: "none", color: "#8b93a1", cursor: "pointer", padding: 0, fontSize: 11 }}
+          >
+            {showStreams ? "▾" : "▸"} {streams.length} stream{streams.length === 1 ? "" : "s"}
+          </button>
+          {showStreams && (
+            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+              {streams.map((stream) => (
+                <div key={stream.id} style={{ borderLeft: "2px solid #2b323d", paddingLeft: 6, lineHeight: 1.5 }}>
+                  <div style={{ color: "#e7e9ec" }}>{stream.name}</div>
+                  <div title={stream.sourcePath} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {stream.sourcePath.split(/[\\/]/).pop()}
+                  </div>
+                  <div>
+                    loops {stream.firstLoop ?? "-"} to {stream.lastLoop ?? "-"}, {stream.messageCount} messages
+                    {stream.rejectedCount > 0 && `, ${stream.rejectedCount} rejected`}
+                  </div>
+                  {onDetach &&
+                    (confirming === stream.id ? (
+                      <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                        <button
+                          style={{ fontSize: 11, padding: "0 6px", color: "#e06c75" }}
+                          onClick={() => {
+                            setConfirming(null);
+                            onDetach(stream.id);
+                          }}
+                        >
+                          Remove from this game
+                        </button>
+                        <button style={{ fontSize: 11, padding: "0 6px" }} onClick={() => setConfirming(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        style={{ fontSize: 11, padding: "0 6px", marginTop: 2 }}
+                        onClick={() => setConfirming(stream.id)}
+                        title="Take this file's messages back out of this game"
+                      >
+                        Detach
+                      </button>
+                    ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

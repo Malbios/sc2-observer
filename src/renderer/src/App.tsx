@@ -13,7 +13,7 @@ import type {
   UnitSummaryIpc,
   UnitTypeInfoIpc,
 } from "../../shared/ipc-types";
-import type { ChannelIpc, EventIpc, TelemetryStateIpc } from "../../shared/telemetry-types";
+import type { ChannelIpc, EventIpc, TelemetryStateIpc, TelemetryStreamIpc } from "../../shared/telemetry-types";
 import { ChannelTree } from "./components/ChannelTree";
 import { EventLog } from "./components/EventLog";
 import { GameCatalog } from "./components/GameCatalog";
@@ -44,6 +44,29 @@ type ViewKind = "catalog" | "recording" | "live";
 /** The two of those that are a game, which is what main answers queries
  * from. The catalog reads files directly and needs no active source. */
 type SourceKind = "recording" | "live";
+
+/**
+ * Whether an imported telemetry file looks like it belongs to some other
+ * game, which §3.5 says has to be recoverable and is better not to do in the
+ * first place.
+ *
+ * The test is how much of the file lands inside the game at all. Telemetry
+ * legitimately runs a little past the last recorded frame, so an overrun is
+ * not itself suspicious; a file whose loops are mostly outside the game is
+ * another run's, and the half is a stated threshold rather than a guess at
+ * intent. Returns null when there is nothing to warn about.
+ */
+function rangeMismatch(firstLoop: number | null, lastLoop: number | null, gameMaxLoop: number): string | null {
+  if (firstLoop === null || lastLoop === null || gameMaxLoop <= 0) return null;
+  const span = lastLoop - firstLoop;
+  if (span <= 0) return null;
+  const overlap = Math.min(lastLoop, gameMaxLoop) - Math.max(firstLoop, 0);
+  if (overlap / span >= 0.5) return null;
+  return (
+    `Careful: that file covers loops ${firstLoop} to ${lastLoop}, and this game only reaches ${gameMaxLoop}. ` +
+    "It may belong to another game; you can detach it under Channels."
+  );
+}
 
 /** A session owns the client between these phases, which is when it is the
  * thing the viewer should be showing. */
@@ -82,7 +105,7 @@ export function App(): JSX.Element {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [channels, setChannels] = useState<ChannelIpc[]>([]);
-  const [streamCount, setStreamCount] = useState(0);
+  const [streams, setStreams] = useState<TelemetryStreamIpc[]>([]);
   const [visibleChannels, setVisibleChannels] = useState<ReadonlySet<string>>(new Set());
   const [telemetry, setTelemetry] = useState<TelemetryStateIpc | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -126,13 +149,13 @@ export function App(): JSX.Element {
    * attaching wants; a live append merges instead.
    */
   const loadChannels = useCallback(async (reset: boolean) => {
-    const [channelList, streams, events] = await Promise.all([
+    const [channelList, streamList, events] = await Promise.all([
       window.spectator.getChannels(),
       window.spectator.getTelemetryStreams(),
       window.spectator.getEvents({}),
     ]);
     setChannels(channelList);
-    setStreamCount(streams.length);
+    setStreams(streamList);
     setTimelineEvents(events);
 
     if (reset) seenChannelsRef.current = new Set();
@@ -205,11 +228,49 @@ export function App(): JSX.Element {
       setNotice(`${ingested.messageCount} messages, loops ${ingested.firstLoop} to ${ingested.lastLoop}.`);
     }
 
+    if (ingested) {
+      const mismatch = rangeMismatch(ingested.firstLoop, ingested.lastLoop, recording?.maxLoop ?? 0);
+      if (mismatch) setNotice(mismatch);
+      // Telemetry can run past the last recorded frame, and the timeline has
+      // to grow with it or the messages sit where no scrubbing reaches them.
+      if (ingested.lastLoop !== null) {
+        setRecording((current) =>
+          current ? { ...current, maxLoop: Math.max(current.maxLoop, ingested.lastLoop!) } : current
+        );
+      }
+    }
+
     await loadChannels(true);
     // The loop has not changed, so the fetch effect will not re-run; pull the
     // newly-ingested state for where the cursor already is.
     setTelemetry(await window.spectator.getTelemetryAtLoop(loop));
-  }, [loadChannels, loop]);
+  }, [loadChannels, loop, recording]);
+
+  /**
+   * §3.5's recovery, from the stream list in the channel panel. Main removes
+   * the rows and rebuilds the checkpoints; here the game gets shorter, the
+   * channels it contributed disappear, and the loop on screen is re-resolved
+   * without it.
+   */
+  const detachStream = useCallback(
+    async (streamId: number) => {
+      const result = await window.spectator.detachStream(streamId);
+      setStreams(result.streams);
+      if (result.status !== "done") {
+        setNotice(result.problem ?? "That stream could not be detached.");
+        return;
+      }
+      setNotice(null);
+      setRecording((current) => (current ? { ...current, maxLoop: result.maxLoop } : current));
+      if (loopRef.current > result.maxLoop) {
+        loopRef.current = result.maxLoop;
+        setLoop(result.maxLoop);
+      }
+      await loadChannels(true);
+      setTelemetry(await window.spectator.getTelemetryAtLoop(loopRef.current));
+    },
+    [loadChannels]
+  );
 
   const toggleWatch = useCallback(async () => {
     if (watch) {
@@ -371,7 +432,7 @@ export function App(): JSX.Element {
     setSelectedUnit(null);
     setTelemetry(null);
     setChannels([]);
-    setStreamCount(0);
+    setStreams([]);
     setVisibleChannels(new Set());
     seenChannelsRef.current = new Set();
     setTimelineEvents([]);
@@ -713,7 +774,11 @@ export function App(): JSX.Element {
             visible={visibleChannels}
             onToggle={handleToggleChannels}
             onAttach={live ? null : attachTelemetry}
-            streamCount={streamCount}
+            streams={streams}
+            // Detaching underneath a tailer would have it re-create the
+            // stream on its next poll, so it is not offered while one is
+            // reading into this game; main refuses it as well.
+            onDetach={live || watch ? null : (id) => void detachStream(id)}
             notice={notice}
           />
         </div>
