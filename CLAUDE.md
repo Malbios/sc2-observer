@@ -92,7 +92,7 @@ vendor/           s2clientprotocol .proto files, pinned
 
 ## Persistence
 
-One SQLite file per game (better-sqlite3, WAL) plus a future global catalog. Observations are Brotli-compressed raw protobuf bytes, not JSON (sizing rationale in §6.1). A single global database and flat-file-only storage were both considered and rejected (§6.2).
+One SQLite file per game (better-sqlite3, WAL) plus a global catalog file that holds settings and nothing else (`src/history/CatalogStore.ts`; the games themselves are read from the folder on demand, see `src/history/peek.ts`). Observations are Brotli-compressed raw protobuf bytes, not JSON (sizing rationale in §6.1). A single global database and flat-file-only storage were both considered and rejected (§6.2).
 
 The schema is versioned in `meta.schema_version` with ordered additive migrations in `HistoryStore.MIGRATIONS`. Opening a file migrates it, and the store refuses a file newer than the build understands. **Adding a migration means adding to that array, never editing an existing one.**
 
@@ -108,7 +108,7 @@ Field spellings live in `src/shared/telemetry-types.ts`, which both the viewer a
 
 Everything below the viewer is tested against recorded frames and bytes, never against a live game, so tests stay deterministic:
 
-- `npm run verify` runs `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied) and `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication), driving the tailer's `poll()` directly rather than racing its timer.
+- `npm run verify` builds and runs seven suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
@@ -120,10 +120,12 @@ Live-path facts already established, so they do not need re-deriving: `surrender
 
 Six phases (§7), each depending on the prior and ending with something runnable: Phase 0 (Dockerfile + proxy spike) → Phase 1 (decode + record) → Phase 2 (viewer on recordings) → Phase 3 (telemetry file) → Phase 4 (live session + Docker UI) → Phase 5 (history browser) → Phase 6 (replays + debug draws).
 
-**Phases 0 through 3 are complete.** Phase 3 is verified against live games, not only fixtures: the tailer followed two real bot runs (`hang` and `disconnect`) with zero rejections across 3231 messages.
+**Phases 0 through 5 are complete.** Each was verified against live games, not only fixtures: Phase 3's tailer followed two real bot runs with zero rejections across 3231 messages, Phase 4's session played, recorded, saved a replay and created the next game with no manual step, and Phase 5's catalog was exercised against the games those sessions left behind.
 
-**Phase 4 is next**: Docker manager with build/pull, status panel and logs, mode selector, session controller with auto next game and `status`-driven phases, live view fed from the bus with an idle indicator. It inherits three things worth knowing:
+**Phase 6 is next**: replay playback and drag-and-drop of `.SC2Replay` files, pairing a ladder replay with its telemetry, debug draws, and the settings §7 defers to it (ports, folders, retention). It inherits a few things worth knowing:
 
-- `saveReplay` after `ended` **works**, confirmed live by `npm run probe-endgame` (8432 bytes returned from `ended`, 8315 from `in_game`). The replay comes back as `ResponseSaveReplay.data` bytes over the wire, so nothing needs mounting into the container: the app writes the file itself. The observed status sequence for a surrendered game is `launched -> init_game -> in_game -> ended -> init_game`, with `ended` and `player_result` arriving together on the observation *after* the stepped surrender, not on the step itself.
-- §3.5 auto-attach of a telemetry file to a live game by timing was deferred out of Phase 3 because it needs a session.
-- The timeline's range comes from recorded frames, so telemetry past the last frame is stored but not reachable by scrubbing. A live session grows frames, which resolves it.
+- `saveReplay` works from `ended` and from `in_game`, confirmed by `npm run probe-endgame`, and the bytes come back over the wire, so nothing needs mounting into the container. A game ended by `leave_game` leaves the client at `launched`, which returns no replay at all; the session logs that and carries on.
+- `CatalogStore` (`<userData>/catalog.sqlite`) exists with a `settings` table and one setting in it. That is where Phase 6's ports, folders and retention belong. There is deliberately **no `games` table**: under WAL a cache of the game files has no workable staleness key, so `listGames` peeks the folder on every call (the reasoning is in `src/history/peek.ts`).
+- `meta.source` is already written as `"live"`, so §6.4's replay-sourced games need no migration.
+- Game files are named in UTC while the catalog shows local time, which is a deliberate choice: names stay sortable and unambiguous, and the row's tooltip carries the path.
+- A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.
