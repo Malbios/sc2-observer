@@ -10,6 +10,7 @@ import {
   GameEndReason,
 } from "../bus/EventBus";
 import { DockerManager } from "../docker/DockerManager";
+import { gameFileName, replayPathFor } from "../history/gameFiles";
 import { HistoryStore } from "../history/HistoryStore";
 import { GameMode, GameProxy, PlayerResult } from "../proxy/GameProxy";
 import { SC2_STATUS, statusName } from "../protocol/status";
@@ -63,23 +64,6 @@ export interface SessionControllerOptions {
   /** Stamped into each game's `meta` (§6.3), so a file that will not open can
    * be traced to the build that wrote it. */
   appVersion?: string;
-}
-
-/**
- * A game file per game, named for when its first frame arrived and the map it
- * was played on. The map name loses its extension and anything that is not
- * alphanumeric, because it ends up in a file name on Windows.
- */
-export function gameFileName(map: string, at: Date): string {
-  const stamp = at.toISOString().replace("T", "_").replace(/[:.]/g, "-").slice(0, 19);
-  const name = map.replace(/\.SC2Map$/i, "").replace(/[^A-Za-z0-9]+/g, "") || "game";
-  return `${stamp}-${name}.sqlite`;
-}
-
-/** The replay lands beside its recording and shares its name, so a pair is
- * obvious from a directory listing. */
-export function replayPathFor(gameFilePath: string): string {
-  return gameFilePath.replace(/\.sqlite$/i, ".SC2Replay");
 }
 
 /**

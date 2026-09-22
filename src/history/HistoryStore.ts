@@ -15,7 +15,10 @@ import type {
   TelemetryStyle,
 } from "../shared/telemetry-types";
 
-const SCHEMA_VERSION = 2;
+/** The schema this build writes and understands. Exported so the catalog can
+ * say "this file is newer than me" without opening it through the store,
+ * which would try to migrate it. */
+export const SCHEMA_VERSION = 2;
 const BATCH_SIZE = 50;
 /** §6.4 asks for "one transaction per second (or per 50 events)". */
 const FLUSH_INTERVAL_MS = 1000;

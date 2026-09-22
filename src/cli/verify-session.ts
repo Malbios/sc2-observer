@@ -18,7 +18,8 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { EventBus } from "../bus/EventBus";
 import { SC2_STATUS } from "../protocol/status";
-import { ClientHost, GameHost, SessionController, gameFileName, replayPathFor } from "../session/SessionController";
+import { gameFileName, replayPathFor } from "../history/gameFiles";
+import { ClientHost, GameHost, SessionController } from "../session/SessionController";
 import type { SessionPhase } from "../shared/ipc-types";
 
 let failures = 0;

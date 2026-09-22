@@ -17,6 +17,48 @@ export interface RecordingInfo {
 }
 
 /**
+ * What the catalog can say about a game file. A file that will not open is a
+ * row with a reason, not an omission: §6.4 exists precisely so the games that
+ * went wrong can be found.
+ *
+ * - `ok`: a finished game.
+ * - `incomplete`: no `ended_at`, so the app that wrote it never closed it.
+ *   Either it is being played right now or it was killed mid-game.
+ * - `newer`: written by a newer build; readable enough to list, not to open.
+ * - `unreadable`: not a game file, or damaged beyond opening.
+ */
+export type GameFileState = "ok" | "incomplete" | "newer" | "unreadable";
+
+/** One row of the catalog (§6.4). Everything here is derived from the game
+ * file itself, so the list is never stale with respect to the folder. */
+export interface GameSummaryIpc {
+  filePath: string;
+  fileName: string;
+  state: GameFileState;
+  /** Why the file is `newer` or `unreadable`, in words to put on the row. */
+  problem: string | null;
+  /** The game file plus its WAL sidecar, which is where a game being played
+   * right now keeps most of itself. */
+  sizeBytes: number;
+  map: string | null;
+  mode: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  /** The bot's own outcome, or "unknown" for the endings that produce none. */
+  result: string | null;
+  endReason: string | null;
+  /** The last loop the file holds, counting telemetry as well as frames:
+   * loops are the time axis (§3), and a game can hold telemetry past its last
+   * recorded frame. */
+  maxLoop: number | null;
+  /** From each stream's `hello` (§6.3). Empty when no telemetry was attached. */
+  botNames: string[];
+  tags: string[];
+  hasReplay: boolean;
+  gameId: string | null;
+}
+
+/**
  * The session state machine (§4), plus the three states that are not part of
  * the game cycle: before it starts, after the user stops it, and when
  * something it depends on is not there.
