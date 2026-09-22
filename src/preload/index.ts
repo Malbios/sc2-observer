@@ -20,6 +20,14 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 
 const api: SpectatorApi = {
   pickAndOpenRecording: () => ipcRenderer.invoke("spectator:pickAndOpenRecording"),
+
+  listGames: () => ipcRenderer.invoke("spectator:listGames"),
+  openGame: (filePath: string) => ipcRenderer.invoke("spectator:openGame", filePath),
+  deleteGame: (filePath: string) => ipcRenderer.invoke("spectator:deleteGame", filePath),
+  exportGame: (filePath: string) => ipcRenderer.invoke("spectator:exportGame", filePath),
+  setGameTags: (filePath: string, tags: string[]) => ipcRenderer.invoke("spectator:setGameTags", filePath, tags),
+  detachStream: (streamId: number) => ipcRenderer.invoke("spectator:detachStream", streamId),
+
   getTerrain: () => ipcRenderer.invoke("spectator:getTerrain"),
   getUnitTypeInfo: () => ipcRenderer.invoke("spectator:getUnitTypeInfo"),
   getFrameAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getFrameAtLoop", loop),

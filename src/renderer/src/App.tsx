@@ -126,9 +126,9 @@ export function App(): JSX.Element {
     setTelemetryRevision((revision) => revision + 1);
   }, []);
 
-  const openRecording = useCallback(async () => {
-    const info = await window.spectator.pickAndOpenRecording();
-    if (!info) return;
+  /** Everything the viewer resets when the game under it changes. Shared by
+   * the picker and, from Phase 5's catalog, by a clicked row. */
+  const showRecording = useCallback(async (info: RecordingInfo) => {
     setRecording(info);
     // Main has already pointed its queries at this file; the view follows.
     setView("recording");
@@ -149,6 +149,16 @@ export function App(): JSX.Element {
     setUnitTypeInfo(typeInfo);
     await loadChannels(true);
   }, [loadChannels]);
+
+  const openRecording = useCallback(async () => {
+    const result = await window.spectator.pickAndOpenRecording();
+    if (result.status === "cancelled") return;
+    if (result.status !== "done" || !result.recording) {
+      setNotice(result.problem ?? "That game could not be opened.");
+      return;
+    }
+    await showRecording(result.recording);
+  }, [showRecording]);
 
   const attachTelemetry = useCallback(async () => {
     const result = await window.spectator.attachTelemetry();

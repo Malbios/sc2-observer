@@ -469,6 +469,33 @@ export class HistoryStore {
   }
 
   /**
+   * Removes a stream and everything that came in through it, in one
+   * transaction: a half-removed stream would leave a chart with values whose
+   * messages no longer exist.
+   *
+   * Checkpoints are not this method's business, but they are wrong the moment
+   * a stream leaves, so nothing should call this directly. `detachStream` in
+   * `telemetry/detach.ts` is the way in (§3.5).
+   *
+   * Returns false when there is no such stream, which is what a second click
+   * on a row that has already gone looks like.
+   */
+  deleteStream(id: number): boolean {
+    // Anything still buffered belongs to the file as it was before the
+    // detach, and writing it afterwards would put some of the stream back.
+    this.flush();
+    return this.db.transaction((): boolean => {
+      const existing = this.stmt("SELECT 1 AS present FROM streams WHERE id = ?").get(id);
+      if (existing === undefined) return false;
+      for (const table of ["telemetry", "series", "events"]) {
+        this.db.prepare(`DELETE FROM ${table} WHERE stream_id = ?`).run(id);
+      }
+      this.stmt("DELETE FROM streams WHERE id = ?").run(id);
+      return true;
+    })();
+  }
+
+  /**
    * Throws away every checkpoint. They are a cache of the resolved state, so
    * this only costs time: `TelemetryResolver` falls back to replaying from the
    * first message. Called when a checkpoint's meaning changes underneath it,

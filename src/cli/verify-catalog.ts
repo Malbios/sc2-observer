@@ -10,14 +10,17 @@
  *
  * Run with: node dist/cli/verify-catalog.js
  */
-import { copyFileSync, existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { CatalogStore } from "../history/CatalogStore";
+import { exportGameTo, normalizeTags, writeGameTags } from "../history/manage";
 import { HistoryStore, SCHEMA_VERSION } from "../history/HistoryStore";
 import { listGames, peekGame } from "../history/peek";
-import { replayPathFor } from "../history/gameFiles";
+import { gameFilesFor, replayPathFor } from "../history/gameFiles";
+import { StreamIngest } from "../telemetry/ingest";
+import { TELEMETRY_SCHEMA_VERSION } from "../shared/telemetry-types";
 
 let failures = 0;
 
@@ -216,6 +219,75 @@ function main(): void {
       broken.prepare("UPDATE meta SET value = ? WHERE key = 'tags'").run("not json");
       broken.close();
       check("a tag value that is not a list is ignored, not fatal", peekGame(file).tags, []);
+    }
+
+    // -- tags as they are stored --------------------------------------------
+    {
+      check("tags are trimmed and emptied out", normalizeTags([" ladder ", "", "   "]), ["ladder"]);
+      check("and deduplicated regardless of case", normalizeTags(["Bug", "bug", "BUG"]), ["Bug"]);
+      check("in the order they were typed", normalizeTags(["zerg", "ladder", "bug"]), ["zerg", "ladder", "bug"]);
+
+      const file = path.join(dir, "extra", "tagged.sqlite");
+      writeFinishedGame(file, { map: "Tagged.SC2Map", startedAt: "2026-02-01T00:00:00.000Z", result: "Victory" });
+      writeGameTags(file, ["  ladder", "Ladder", "bug "]);
+      check("written tags come back off the file", peekGame(file).tags, ["ladder", "bug"]);
+    }
+
+    // -- a game whose telemetry outruns its frames ---------------------------
+    {
+      // The Phase 3 debt: messages past the last recorded frame were stored
+      // where no amount of scrubbing could reach them, because the timeline's
+      // range came from frames alone.
+      const file = path.join(dir, "extra", "late-telemetry.sqlite");
+      const store = new HistoryStore(file);
+      store.setMeta("map", "Late.SC2Map");
+      store.setMeta("started_at", "2026-02-02T00:00:00.000Z");
+      for (let loop = 0; loop <= 400; loop += 100) store.recordFrame(frame(loop));
+      const ingest = new StreamIngest(store, path.join(dir, "extra", "late.ndjson"), "late");
+      ingest.line(JSON.stringify({ v: TELEMETRY_SCHEMA_VERSION, kind: "hello", data: { name: "late" } }), 1);
+      ingest.line(
+        JSON.stringify({ v: TELEMETRY_SCHEMA_VERSION, kind: "series", loop: 900, ch: "late/econ", data: 7 }),
+        2,
+      );
+      ingest.finish();
+      store.setMeta("ended_at", "2026-02-02T00:10:00.000Z");
+      store.flush();
+      store.close();
+
+      check("the last loop counts telemetry, not just frames", peekGame(file).maxLoop, 900);
+    }
+
+    // -- export --------------------------------------------------------------
+    {
+      const source = path.join(dir, "2026-01-01_00-00-00-Torches.sqlite");
+      const destination = path.join(dir, "exported", "copy.sqlite");
+      mkdirSync(path.dirname(destination), { recursive: true });
+
+      check("the replay goes with the game", exportGameTo(source, destination), true);
+      const copy = peekGame(destination);
+      check("the copy is a game in its own right", copy.state, "ok");
+      check("with the same outcome", copy.result, "Victory");
+      check("and the same frames", copy.maxLoop, 400);
+      check("and its replay beside it", copy.hasReplay, true);
+
+      // Exporting checkpoints the source first, so the copy is one whole file
+      // rather than a database whose last rows are still in a sidecar the
+      // user was never told to take.
+      check("the copy needs no sidecar", existsSync(`${destination}-wal`), false);
+
+      const noReplay = path.join(dir, "exported", "no-replay.sqlite");
+      check("a game with no replay exports anyway", exportGameTo(path.join(dir, "extra", "tagged.sqlite"), noReplay), false);
+      check("and still opens", peekGame(noReplay).state, "ok");
+    }
+
+    // -- what belongs to one game on disk ------------------------------------
+    {
+      const files = gameFilesFor("C:/games/a.sqlite");
+      check(
+        "a game is four files, sidecars first",
+        files,
+        ["C:/games/a.sqlite-wal", "C:/games/a.sqlite-shm", "C:/games/a.sqlite", "C:/games/a.SC2Replay"],
+      );
     }
 
     // -- the catalog file ---------------------------------------------------

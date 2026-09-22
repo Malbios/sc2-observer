@@ -58,6 +58,55 @@ export interface GameSummaryIpc {
   gameId: string | null;
 }
 
+/** The games folder as the catalog sees it right now. Which row is live and
+ * which is open are main's to know, not the renderer's to work out. */
+export interface GameCatalogIpc {
+  dir: string;
+  games: GameSummaryIpc[];
+  /** The game being played right now, so its row can say so instead of
+   * looking like an abandoned one. */
+  liveFilePath: string | null;
+  /** The recording the viewer currently has open. */
+  openFilePath: string | null;
+}
+
+/**
+ * What became of an action on a game file.
+ *
+ * `refused` and `failed` are different things to a person: refused means the
+ * app would not do it and can say why ("that game is being played right now"),
+ * failed means it tried and the filesystem said no. Both carry a `problem`;
+ * `cancelled` is a dialog dismissed and needs no message at all.
+ */
+export type GameActionStatus = "done" | "cancelled" | "refused" | "failed";
+
+export interface GameActionResultIpc {
+  status: GameActionStatus;
+  problem: string | null;
+  /** The folder as it is now, so the caller never shows a row it just
+   * deleted. */
+  catalog: GameCatalogIpc;
+}
+
+/** Opening a game can be refused (a file written by a newer build) or fail (a
+ * file that has been deleted since it was listed), and either way the row that
+ * was clicked is the place to say so. */
+export interface OpenGameResultIpc {
+  status: GameActionStatus;
+  problem: string | null;
+  recording: RecordingInfo | null;
+}
+
+/** Detaching a stream changes the open recording rather than the folder, so
+ * it reports what changed there (§3.5). */
+export interface DetachStreamResultIpc {
+  status: GameActionStatus;
+  problem: string | null;
+  streams: TelemetryStreamIpc[];
+  /** The game's range after the detach: dropping a stream can shorten it. */
+  maxLoop: number;
+}
+
 /**
  * The session state machine (§4), plus the three states that are not part of
  * the game cycle: before it starts, after the user stops it, and when
@@ -195,7 +244,26 @@ export interface TelemetryWatchIpc {
 }
 
 export interface SpectatorApi {
-  pickAndOpenRecording(): Promise<RecordingInfo | null>;
+  pickAndOpenRecording(): Promise<OpenGameResultIpc>;
+
+  /** The history browser (§6.4). The folder is peeked on every call, so a game
+   * deleted in Explorer is gone from the next listing. */
+  listGames(): Promise<GameCatalogIpc>;
+  /** The same open as the picker's, by path instead of by dialog. */
+  openGame(filePath: string): Promise<OpenGameResultIpc>;
+  /** Sends a game and its replay to the recycle bin. Refused for the game
+   * being played; the open recording is closed first, because Windows will
+   * not unlink a file SQLite still has open. */
+  deleteGame(filePath: string): Promise<GameActionResultIpc>;
+  /** Copies the game and its replay somewhere the user picks. */
+  exportGame(filePath: string): Promise<GameActionResultIpc>;
+  /** Tags live in the game file's own `meta`, so they survive it being copied
+   * to another machine. */
+  setGameTags(filePath: string, tags: string[]): Promise<GameActionResultIpc>;
+  /** §3.5's recovery: takes a telemetry stream out of the open recording,
+   * rows, checkpoints and all. */
+  detachStream(streamId: number): Promise<DetachStreamResultIpc>;
+
   getTerrain(): Promise<TerrainDataIpc | null>;
   getUnitTypeInfo(): Promise<Record<number, UnitTypeInfoIpc>>;
   getFrameAtLoop(loop: number): Promise<FrameAtLoopIpc | null>;

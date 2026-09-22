@@ -57,11 +57,11 @@ export interface TelemetryAppendedEvent {
   lastLoop: number | null;
 }
 
-/** A line for the diagnostics panel (§4). `manager` and `session` lines are
- * the app's own narration of what it is doing and why it is waiting; the other
- * two are Docker's own output. */
+/** A line for the diagnostics panel (§4). `manager`, `session` and `history`
+ * lines are the app's own narration of what it is doing and why it is
+ * waiting; `build` and `container` are Docker's own output. */
 export interface DockerLogEvent {
-  source: "manager" | "session" | "build" | "container";
+  source: "manager" | "session" | "history" | "build" | "container";
   line: string;
 }
 

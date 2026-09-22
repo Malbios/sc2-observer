@@ -1,9 +1,13 @@
-import { createReadStream, readdirSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { EventBus, type FrameEvent } from "../bus/EventBus";
 import { DockerManager, IMAGE_NAME } from "../docker/DockerManager";
+import { CatalogStore } from "../history/CatalogStore";
+import { gameFilesFor, replayPathFor } from "../history/gameFiles";
+import { exportGameTo, normalizeTags, writeGameTags } from "../history/manage";
+import { listGames } from "../history/peek";
 import { HistoryStore } from "../history/HistoryStore";
 import { SessionController } from "../session/SessionController";
 import type { GameMode } from "../proxy/GameProxy";
@@ -11,13 +15,18 @@ import { decodeResponse } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
 import { extractUnitTypeInfo } from "../state/unitTypes";
+import { detachStream } from "../telemetry/detach";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
 import { TelemetryTailer } from "../telemetry/TelemetryTailer";
 import type {
   AttachTelemetryResultIpc,
+  DetachStreamResultIpc,
   DockerStateIpc,
   FrameAtLoopIpc,
+  GameActionResultIpc,
+  GameCatalogIpc,
+  OpenGameResultIpc,
   RecordingInfo,
   SessionPhase,
   SessionStatusIpc,
@@ -52,9 +61,12 @@ let terrainCache: TerrainData | null = null;
 let unitTypeInfoCache: Record<number, UnitTypeInfoIpc> | null = null;
 let channelsCache: ChannelIpc[] | null = null;
 let telemetryResolver: TelemetryResolver | null = null;
-// Starts at the repo's fixtures/ folder (the only place recordings live so
-// far); once a recording is opened, defaults to that file's folder next time.
-let lastOpenedDir = path.join(app.getAppPath(), "fixtures");
+/** The file `store` was opened from, which is what the catalog marks as the
+ * row on screen. */
+let openFilePath: string | null = null;
+/** Starts at the repo's fixtures/ folder, then follows the last file opened.
+ * Restored from the catalog on first use, so it survives a restart. */
+let lastOpenedDir: string | null = null;
 
 // -- the live session ------------------------------------------------------
 
@@ -114,6 +126,31 @@ function gamesDir(): string {
   return path.join(app.getPath("userData"), "games");
 }
 
+/** The global catalog (§6.2), which holds settings and nothing else. Opened
+ * on first use so a run that never touches the history browser never creates
+ * it. */
+let catalog: CatalogStore | null = null;
+
+function settings(): CatalogStore {
+  if (!catalog) catalog = new CatalogStore(path.join(app.getPath("userData"), "catalog.sqlite"));
+  return catalog;
+}
+
+/** Where the file pickers open. The last folder used outlives the run, which
+ * is the difference between a tool that remembers where your games are and
+ * one that starts in the repo's fixtures every launch. */
+function pickerDir(): string {
+  if (lastOpenedDir === null) {
+    lastOpenedDir = settings().getSetting("lastOpenedDir") ?? path.join(app.getAppPath(), "fixtures");
+  }
+  return lastOpenedDir;
+}
+
+function rememberPickerDir(dir: string): void {
+  lastOpenedDir = dir;
+  settings().setSetting("lastOpenedDir", dir);
+}
+
 /** A manager for looking, not touching. The session owns its own; this one
  * answers the panel's questions before a session exists. */
 function docker(): DockerManager {
@@ -129,6 +166,84 @@ function db(): HistoryStore | null {
     resetCaches();
   }
   return next;
+}
+
+/** Windows paths are case-insensitive, so two spellings of the same file are
+ * the same file. Used wherever a path decides something: whether a telemetry
+ * file is already attached, whether a game is the one being played. */
+function samePath(a: string, b: string): boolean {
+  const left = path.resolve(a);
+  const right = path.resolve(b);
+  return process.platform === "win32" ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+/**
+ * A recording's header line.
+ *
+ * `maxLoop` counts telemetry as well as frames. A game can hold messages past
+ * its last recorded frame (an imported ladder file runs to the end of a match
+ * this app only saw part of), and a timeline that stops at the last frame
+ * stores them where no amount of scrubbing can reach.
+ */
+function recordingInfo(recording: HistoryStore, filePath: string): RecordingInfo {
+  return {
+    filePath,
+    map: recording.getMeta("map") ?? "",
+    mode: recording.getMeta("mode") ?? "",
+    startedAt: recording.getMeta("started_at"),
+    endedAt: recording.getMeta("ended_at"),
+    maxLoop: Math.max(recording.getMaxLoop(), recording.getTelemetryMaxLoop() ?? 0),
+  };
+}
+
+/**
+ * Opening a game file, whether it came from the picker or from a row in the
+ * catalog. One body, so the two cannot drift: the catalog is the main route
+ * now, and the picker is what opens a game from somewhere else entirely.
+ */
+function openRecordingFile(filePath: string): OpenGameResultIpc {
+  rememberPickerDir(path.dirname(filePath));
+  // The tailer writes into the store it was built with, so it has to be shut
+  // down before that store is closed, not after. Only if that store is the
+  // one being replaced, though: a session's tailer belongs to the game being
+  // played, and stopping it because the user glanced at an old recording
+  // would leave that game with no telemetry for the rest of its run.
+  if (tailerStore === store) stopTailing();
+  store?.close();
+  store = null;
+  openFilePath = null;
+  // Opening a recording is a request to look at it, even if a session is
+  // running: the queries follow the window.
+  activeSource = "recording";
+  resetCaches();
+
+  try {
+    store = new HistoryStore(filePath);
+  } catch (err) {
+    // A file written by a newer build, or one that has been deleted or
+    // damaged since it was listed. Either way the row that was clicked is
+    // where it belongs on screen, not in a crash.
+    resetCaches();
+    return { status: "refused", problem: (err as Error).message, recording: null };
+  }
+
+  openFilePath = filePath;
+  return { status: "done", problem: null, recording: recordingInfo(store, filePath) };
+}
+
+/** The games folder as the history browser sees it. Which row is live and
+ * which is open are known here and nowhere else. */
+function buildCatalog(): GameCatalogIpc {
+  return {
+    dir: gamesDir(),
+    games: listGames(gamesDir()),
+    liveFilePath: session?.status.gameFile ?? null,
+    openFilePath,
+  };
+}
+
+function refused(problem: string): GameActionResultIpc {
+  return { status: "refused", problem, catalog: buildCatalog() };
 }
 
 function send(channel: string, payload?: unknown): void {
@@ -293,6 +408,8 @@ export async function shutdownSession(): Promise<void> {
   if (session) await session.stop();
   inspector?.stopLogStream();
   resetLiveGame();
+  catalog?.close();
+  catalog = null;
 }
 
 /** Everything derived from telemetry rows is stale once rows arrive: the
@@ -434,39 +551,140 @@ export function registerIpcHandlers(): void {
     resetLiveGame();
   });
 
-  ipcMain.handle("spectator:pickAndOpenRecording", async (): Promise<RecordingInfo | null> => {
+  ipcMain.handle("spectator:pickAndOpenRecording", async (): Promise<OpenGameResultIpc> => {
     const result = await dialog.showOpenDialog({
       title: "Open Recording",
-      defaultPath: lastOpenedDir,
+      defaultPath: pickerDir(),
       filters: [{ name: "Spectator recordings", extensions: ["sqlite"] }],
       properties: ["openFile"],
     });
-    if (result.canceled || result.filePaths.length === 0) return null;
+    if (result.canceled || result.filePaths.length === 0) {
+      return { status: "cancelled", problem: null, recording: null };
+    }
+    return openRecordingFile(result.filePaths[0]!);
+  });
 
-    const filePath = result.filePaths[0];
-    lastOpenedDir = path.dirname(filePath);
-    // The tailer writes into the store it was built with, so it has to be shut
-    // down before that store is closed, not after. Only if that store is the
-    // one being replaced, though: a session's tailer belongs to the game being
-    // played, and stopping it because the user glanced at an old recording
-    // would leave that game with no telemetry for the rest of its run.
-    if (tailerStore === store) stopTailing();
-    store?.close();
-    store = new HistoryStore(filePath);
-    // Opening a recording is a request to look at it, even if a session is
-    // running: the queries follow the window.
-    activeSource = "recording";
-    resetCaches();
+  // -- the history browser (§6.4) -------------------------------------------
 
-    const maxLoopRow = store.getMaxLoop();
-    return {
-      filePath,
-      map: store.getMeta("map") ?? "",
-      mode: store.getMeta("mode") ?? "",
-      startedAt: store.getMeta("started_at"),
-      endedAt: store.getMeta("ended_at"),
-      maxLoop: maxLoopRow,
-    };
+  ipcMain.handle("spectator:listGames", (): GameCatalogIpc => buildCatalog());
+
+  ipcMain.handle("spectator:openGame", (_event, filePath: string): OpenGameResultIpc => {
+    if (!existsSync(filePath)) {
+      return { status: "failed", problem: "That game is no longer on disk.", recording: null };
+    }
+    return openRecordingFile(filePath);
+  });
+
+  /**
+   * Delete, to the recycle bin rather than to nowhere. A game is 20 MB of
+   * something that cannot be replayed into existence, and the confirmation
+   * the user clicked through says which files go; it does not say "forever".
+   */
+  ipcMain.handle("spectator:deleteGame", async (_event, filePath: string): Promise<GameActionResultIpc> => {
+    const live = session?.status.gameFile;
+    if (live && samePath(live, filePath)) {
+      return refused("That game is being played right now.");
+    }
+
+    // Windows will not unlink a file SQLite still has open, and the failure
+    // is a permission error with nothing in it about why. So the viewer lets
+    // go first; the renderer sees `openFilePath` come back null and goes back
+    // to the list.
+    if (openFilePath && samePath(openFilePath, filePath)) {
+      if (tailerStore === store) stopTailing();
+      store?.close();
+      store = null;
+      openFilePath = null;
+      resetCaches();
+    }
+
+    for (const file of gameFilesFor(filePath)) {
+      if (!existsSync(file)) continue;
+      const failure = await shell.trashItem(file).then(
+        () => null,
+        (err: Error) => err.message,
+      );
+      if (failure) {
+        return { status: "failed", problem: `${path.basename(file)}: ${failure}`, catalog: buildCatalog() };
+      }
+    }
+    return { status: "done", problem: null, catalog: buildCatalog() };
+  });
+
+  ipcMain.handle("spectator:exportGame", async (_event, filePath: string): Promise<GameActionResultIpc> => {
+    if (!existsSync(filePath)) {
+      return { status: "failed", problem: "That game is no longer on disk.", catalog: buildCatalog() };
+    }
+    const result = await dialog.showSaveDialog({
+      title: "Export Game",
+      defaultPath: path.join(pickerDir(), path.basename(filePath)),
+      filters: [{ name: "Spectator recordings", extensions: ["sqlite"] }],
+    });
+    if (result.canceled || !result.filePath) {
+      return { status: "cancelled", problem: null, catalog: buildCatalog() };
+    }
+
+    try {
+      const withReplay = exportGameTo(filePath, result.filePath);
+      bus.emit("dockerLog", {
+        source: "history",
+        line: withReplay
+          ? `exported ${path.basename(filePath)} and its replay to ${result.filePath}`
+          : `exported ${path.basename(filePath)} to ${result.filePath} (no replay beside it)`,
+      });
+    } catch (err) {
+      return { status: "failed", problem: (err as Error).message, catalog: buildCatalog() };
+    }
+    return { status: "done", problem: null, catalog: buildCatalog() };
+  });
+
+  /** Tags go into the game's own `meta` so they travel with the file. Written
+   * through the open store when there is one, rather than through a second
+   * connection to a database this process already holds. */
+  ipcMain.handle("spectator:setGameTags", (_event, filePath: string, tags: string[]): GameActionResultIpc => {
+    const normalized = normalizeTags(tags ?? []);
+    try {
+      const open =
+        openFilePath && samePath(openFilePath, filePath)
+          ? store
+          : session?.status.gameFile && samePath(session.status.gameFile, filePath)
+            ? session.activeStore
+            : null;
+      if (open) open.setMeta("tags", JSON.stringify(normalized));
+      else writeGameTags(filePath, normalized);
+    } catch (err) {
+      return { status: "failed", problem: (err as Error).message, catalog: buildCatalog() };
+    }
+    return { status: "done", problem: null, catalog: buildCatalog() };
+  });
+
+  /**
+   * §3.5's recovery. The rows go, and with them every checkpoint, which is
+   * not tidiness: a checkpoint holds the resolved state of all streams at a
+   * loop, so the departed stream's overlays are baked into each one and
+   * nothing in the remaining messages would ever take them out.
+   */
+  ipcMain.handle("spectator:detachStream", (_event, streamId: number): DetachStreamResultIpc => {
+    const target = db();
+    const report = (status: DetachStreamResultIpc["status"], problem: string | null): DetachStreamResultIpc => ({
+      status,
+      problem,
+      streams: toIpcStreams(),
+      maxLoop: target ? Math.max(target.getMaxLoop(), target.getTelemetryMaxLoop() ?? 0) : 0,
+    });
+
+    if (!target) return report("refused", "No game is open.");
+    // A tailer appends to the store as the file grows, and it holds the
+    // stream ids it is writing into. Detaching underneath it would have it
+    // re-create the stream on its next poll, or write rows against an id that
+    // no longer exists.
+    if (tailerStore === target) {
+      return report("refused", "Telemetry is still being read into this game. Stop watching it first.");
+    }
+
+    if (!detachStream(target, streamId)) return report("refused", "That stream is not in this game.");
+    invalidateTelemetry();
+    return report("done", null);
   });
 
   ipcMain.handle("spectator:getTerrain", (): TerrainDataIpc | null => {
@@ -512,7 +730,7 @@ export function registerIpcHandlers(): void {
     if (!store) return null;
     const result = await dialog.showOpenDialog({
       title: "Attach Telemetry",
-      defaultPath: lastOpenedDir,
+      defaultPath: pickerDir(),
       filters: [{ name: "Telemetry (NDJSON)", extensions: ["ndjson"] }],
       properties: ["openFile"],
     });
@@ -521,10 +739,7 @@ export function registerIpcHandlers(): void {
     const filePath = path.resolve(result.filePaths[0]!);
     // Importing the same file twice would duplicate every row: two streams,
     // two overlays drawn on top of each other, every series counted twice.
-    // Windows paths are case-insensitive, so compare them that way.
-    const samePath = (a: string, b: string): boolean =>
-      process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b;
-    if (store.getStreams().some((stream) => samePath(path.resolve(stream.sourcePath), filePath))) {
+    if (store.getStreams().some((stream) => samePath(stream.sourcePath, filePath))) {
       return { status: "already-attached", streams: toIpcStreams(), ingested: null };
     }
 

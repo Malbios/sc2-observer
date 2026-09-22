@@ -28,3 +28,15 @@ export function replayPathFor(gameFilePath: string): string {
 export function sidecarPathsFor(gameFilePath: string): string[] {
   return [`${gameFilePath}-wal`, `${gameFilePath}-shm`];
 }
+
+/**
+ * Every file that is part of one game, in the order a delete should take
+ * them: the sidecars before the database they belong to, so a delete
+ * interrupted half way leaves a game that still opens rather than a database
+ * whose WAL outlived it.
+ *
+ * Which of these exist is the caller's problem; this says what to look for.
+ */
+export function gameFilesFor(gameFilePath: string): string[] {
+  return [...sidecarPathsFor(gameFilePath), gameFilePath, replayPathFor(gameFilePath)];
+}

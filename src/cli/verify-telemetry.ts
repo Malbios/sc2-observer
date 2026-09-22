@@ -18,6 +18,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { HistoryStore } from "../history/HistoryStore";
+import { detachStream } from "../telemetry/detach";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
 import { TELEMETRY_SCHEMA_VERSION } from "../shared/telemetry-types";
@@ -65,6 +66,7 @@ function main(): void {
   try {
     checkOneStream(scratch);
     checkTwoStreams(scratch);
+    checkDetach(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -125,6 +127,46 @@ function checkTwoStreams(scratch: string): void {
   // the overlay arrives at loop 10, so a checkpoint at 0 must not contain it.
   const atZero = store.readCheckpointAtOrBefore(0);
   check("the checkpoint at loop 0 predates the overlays", JSON.stringify(atZero?.state).includes("/plan"), false);
+
+  store.close();
+}
+
+/**
+ * §3.5's recovery: a file attached to the wrong game has to be removable
+ * again. The interesting part is the checkpoints, which hold the departed
+ * stream's overlays as resolved state; nothing in the remaining messages
+ * would ever remove them, so a detach that only deleted rows would leave a
+ * ghost on the map for the rest of the game.
+ */
+function checkDetach(scratch: string): void {
+  const store = new HistoryStore(path.join(scratch, "detach.sqlite"));
+  const mine = new StreamIngest(store, path.join(scratch, "mine.ndjson"), "mine");
+  const foreign = new StreamIngest(store, path.join(scratch, "foreign.ndjson"), "foreign");
+  feed(mine, "mine");
+  feed(foreign, "foreign");
+  mine.finish();
+  foreign.finish();
+
+  check("both streams are in the game to begin with", overlaysAt(store, 900), ["foreign/plan", "mine/plan"]);
+  const foreignId = store.getStreams().find((stream) => stream.name === "foreign")!.id;
+
+  check("the stream is detached", detachStream(store, foreignId), true);
+  check("only one stream is left", store.streamCount(), 1);
+  check("its overlay is gone from the resolved state", overlaysAt(store, 900), ["mine/plan"]);
+  check("and gone from the checkpoints too", JSON.stringify(store.readCheckpointAtOrBefore(900)?.state).includes("foreign"), false);
+  check("the remaining stream keeps its own overlay at every loop", overlaysAt(store, 100), ["mine/plan"]);
+  check("its series are still charted", store.readSeries("mine/econ", "econ").loops.length > 0, true);
+  check("the departed stream's series are not", store.readSeries("foreign/econ", "econ").loops.length, 0);
+  check("checkpoints are rebuilt, not just dropped", store.readCheckpointAtOrBefore(600)?.loop, 500);
+
+  check("detaching it again is refused rather than fatal", detachStream(store, foreignId), false);
+
+  // The last stream can go too, which is what recovering a game that was
+  // given entirely the wrong file looks like.
+  const mineId = store.getStreams()[0]!.id;
+  check("the last stream can be detached as well", detachStream(store, mineId), true);
+  check("leaving no telemetry", overlaysAt(store, 900), []);
+  check("and no checkpoints to replay from", store.readCheckpointAtOrBefore(900), undefined);
 
   store.close();
 }
