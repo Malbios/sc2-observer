@@ -3,6 +3,8 @@ import type {
   DockerLogIpc,
   DockerStateIpc,
   FrameAtLoopIpc,
+  GameCatalogIpc,
+  GameSummaryIpc,
   RecordingInfo,
   SessionStatusIpc,
   StartSessionOptionsIpc,
@@ -14,6 +16,7 @@ import type {
 import type { ChannelIpc, EventIpc, TelemetryStateIpc } from "../../shared/telemetry-types";
 import { ChannelTree } from "./components/ChannelTree";
 import { EventLog } from "./components/EventLog";
+import { GameCatalog } from "./components/GameCatalog";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { SeriesChart } from "./components/SeriesChart";
@@ -31,6 +34,17 @@ const LOOPS_PER_SECOND = 22.4;
  * tail, which is the part that says what went wrong. */
 const MAX_LOG_LINES = 500;
 
+/**
+ * The three things the window can be showing. `catalog` is the history
+ * browser (§6.4) and is where the app opens: a list of games is a more useful
+ * empty state than a button that opens a file picker.
+ */
+type ViewKind = "catalog" | "recording" | "live";
+
+/** The two of those that are a game, which is what main answers queries
+ * from. The catalog reads files directly and needs no active source. */
+type SourceKind = "recording" | "live";
+
 /** A session owns the client between these phases, which is when it is the
  * thing the viewer should be showing. */
 function sessionRunning(status: SessionStatusIpc | null): boolean {
@@ -45,7 +59,14 @@ export function App(): JSX.Element {
    * on screen. Main is told, so its queries answer from the same store (§6.4
    * keeps frames off the store, but telemetry genuinely lives in it).
    */
-  const [view, setView] = useState<"recording" | "live">("recording");
+  const [view, setView] = useState<ViewKind>("catalog");
+  /** The games folder as main last peeked it. Null until the catalog is
+   * first asked for. */
+  const [catalog, setCatalog] = useState<GameCatalogIpc | null>(null);
+  const [catalogProblem, setCatalogProblem] = useState<string | null>(null);
+  /** Which game view the catalog came from, so leaving it goes back to what
+   * was on screen rather than always to the recording. */
+  const [lastSource, setLastSource] = useState<SourceKind>("recording");
   const [session, setSession] = useState<SessionStatusIpc | null>(null);
   const [dockerState, setDockerState] = useState<DockerStateIpc | null>(null);
   const [maps, setMaps] = useState<string[]>([]);
@@ -130,8 +151,10 @@ export function App(): JSX.Element {
    * the picker and, from Phase 5's catalog, by a clicked row. */
   const showRecording = useCallback(async (info: RecordingInfo) => {
     setRecording(info);
-    // Main has already pointed its queries at this file; the view follows.
+    // Main has already pointed its queries at this file; the view follows,
+    // and so does what the catalog offers to go back to.
     setView("recording");
+    setLastSource("recording");
     setSelectedUnit(null);
     setPlaying(false);
     loopRef.current = 0;
@@ -212,7 +235,7 @@ export function App(): JSX.Element {
 
   /** Set below, once switchView exists. The mount effect needs it without
    * taking it as a dependency, which would re-run the adoption. */
-  const switchViewRef = useRef<(kind: "recording" | "live") => Promise<void>>(async () => undefined);
+  const switchViewRef = useRef<(kind: SourceKind) => Promise<void>>(async () => undefined);
 
   /**
    * A reloaded window (or a hot reload during development) comes up knowing
@@ -308,11 +331,64 @@ export function App(): JSX.Element {
     refreshDocker();
   }, [refreshDocker]);
 
+  // -- the history browser -------------------------------------------------
+
+  /**
+   * The list is peeked off the folder on every call rather than cached, so
+   * asking again is how it stays true: a game deleted in Explorer, or one the
+   * running session just finished, shows up on the next refresh.
+   */
+  const refreshCatalog = useCallback(async () => {
+    setCatalog(await window.spectator.listGames());
+  }, []);
+
+  /**
+   * The list is a snapshot of a folder other things write into, so it is
+   * re-peeked whenever it comes on screen and whenever the session closes a
+   * game, which is when a new row exists to show.
+   */
+  useEffect(() => {
+    if (view !== "catalog") return;
+    void refreshCatalog();
+  }, [view, session?.gameFile, session?.gamesPlayed, refreshCatalog]);
+
+  const showCatalog = useCallback(() => {
+    setView("catalog");
+    viewRef.current = "catalog";
+    setCatalogProblem(null);
+    void refreshCatalog();
+  }, [refreshCatalog]);
+
+  /**
+   * Clicking a row. The game being played right now is not opened as a file:
+   * its store belongs to the session, and the live view is already showing
+   * it, so the click goes there instead.
+   */
+  const openGameRow = useCallback(
+    async (game: GameSummaryIpc) => {
+      if (catalog?.liveFilePath === game.filePath) {
+        await switchViewRef.current("live");
+        return;
+      }
+      const result = await window.spectator.openGame(game.filePath);
+      if (result.status !== "done" || !result.recording) {
+        setCatalogProblem(result.problem ?? "That game could not be opened.");
+        void refreshCatalog();
+        return;
+      }
+      setCatalogProblem(null);
+      setLastSource("recording");
+      await showRecording(result.recording);
+    },
+    [catalog, refreshCatalog, showRecording]
+  );
+
   /** Switching what the window shows also switches what main answers from. */
   const switchView = useCallback(
-    async (kind: "recording" | "live") => {
+    async (kind: SourceKind) => {
       setView(kind);
       viewRef.current = kind;
+      setLastSource(kind);
       lastFetchedLoopRef.current = -1;
       await window.spectator.setActiveSource(kind);
       if (kind === "recording") {
@@ -461,22 +537,43 @@ export function App(): JSX.Element {
     />
   );
 
-  if (!recording && !live) {
+  // Where a game can be gone back to from the catalog: the live game if that
+  // is what was on screen, otherwise whatever is open.
+  const returnTo: SourceKind | null =
+    lastSource === "live" && sessionRunning(session) ? "live" : recording ? "recording" : sessionRunning(session) ? "live" : null;
+
+  if (view === "catalog" || (!recording && !live)) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 20,
-          height: "100%",
-        }}
-      >
-        <button onClick={openRecording} style={{ padding: "10px 20px", fontSize: 14 }}>
-          Open Recording...
-        </button>
-        <div style={{ borderTop: "1px solid #2b323d", paddingTop: 20, minWidth: 420 }}>{sessionPanel(false)}</div>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <div
+          style={{
+            padding: "8px 16px",
+            borderBottom: "1px solid #2b323d",
+            fontSize: 13,
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
+          <span>Games</span>
+          {returnTo && (
+            <button onClick={() => void switchView(returnTo)} style={{ fontSize: 12 }}>
+              Back to {returnTo === "live" ? "the live game" : "the recording"}
+            </button>
+          )}
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Games from elsewhere: a copy someone sent, or the repo's
+                fixtures. Anything in the games folder is already a row. */}
+            <button onClick={openRecording}>Open Recording...</button>
+            {sessionPanel(true)}
+          </span>
+        </div>
+        <GameCatalog
+          catalog={catalog}
+          problem={catalogProblem}
+          onOpen={(game) => void openGameRow(game)}
+          onRefresh={() => void refreshCatalog()}
+        />
       </div>
     );
   }
@@ -493,6 +590,9 @@ export function App(): JSX.Element {
           alignItems: "center",
         }}
       >
+        <button onClick={showCatalog} style={{ fontSize: 12 }} title="Back to the list of games">
+          Games
+        </button>
         <span>{map}</span>
         <span style={{ color: "#8b93a1" }}>mode {mode}</span>
         {recording && sessionRunning(session) && (
