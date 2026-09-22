@@ -161,6 +161,23 @@ function main(): void {
     proxy.publishResponse(observation(200, SC2_STATUS.ended, true));
     check("the result is kept once it arrives", proxy.lastResult?.length, 2);
     check("with the player it belongs to", proxy.lastResult?.[0]?.player_id, 1);
+    // A live surrender wrote `result = 2.0` into a game file before this
+    // check existed: `decode` leaves an enum as its number, and only
+    // protobufjs' own `toJSON` renders the name, so the raw array looked
+    // right in a log and was a number everywhere it was used.
+    check("the result is the enum's name, not its number", proxy.lastResult?.[0]?.result, "Defeat");
+    check("and the other player's too", proxy.lastResult?.[1]?.result, "Victory");
+
+    proxy.resetForNewGame();
+    // proto2's first enum value is `Victory`, so an entry whose result was
+    // never set decodes as a win. Presence, not truthiness.
+    proxy.publishResponse(
+      encodeResponse({
+        status: SC2_STATUS.ended,
+        observation: { observation: { game_loop: 300 }, player_result: [{ player_id: 1 }] },
+      }),
+    );
+    check("a result-less entry is not read as a win", proxy.lastResult?.[0]?.result, "unknown");
 
     proxy.resetForNewGame();
     check("the next game starts with no result", proxy.lastResult, null);

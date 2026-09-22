@@ -19,6 +19,20 @@ const root = loadRoot();
 export const RequestType = root.lookupType("SC2APIProtocol.Request");
 export const ResponseType = root.lookupType("SC2APIProtocol.Response");
 
+const ResultEnum = root.lookupEnum("SC2APIProtocol.Result");
+
+/**
+ * The name of a `Result` enum value, e.g. 2 -> "Defeat".
+ *
+ * `decode` leaves enums as their numbers; only protobufjs' own `toJSON` maps
+ * them to names, which is why `JSON.stringify(decoded)` looks like it decoded
+ * names and reading the field does not. Anything stored or displayed goes
+ * through here, so a game file says "Defeat" rather than 2.
+ */
+export function resultName(value: number): string {
+  return ResultEnum.valuesById[value] ?? `unknown(${value})`;
+}
+
 // Loose shape -- protobufjs' decoded messages are structurally what we need,
 // but generating full static types from these .proto files is more tooling
 // than Phase 1 needs. Fields are the snake_case names from the .proto source

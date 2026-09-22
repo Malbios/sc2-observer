@@ -1,6 +1,6 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { EventBus } from "../bus/EventBus";
-import { decodeRequest, decodeResponse, encodeRequest } from "../protocol/schema";
+import { decodeRequest, decodeResponse, encodeRequest, resultName } from "../protocol/schema";
 import { isTerminalStatus, SC2_STATUS } from "../protocol/status";
 import { classifyRequest, classifyResponse, LoopTracker } from "../state/frames";
 
@@ -11,8 +11,8 @@ import { classifyRequest, classifyResponse, LoopTracker } from "../state/frames"
  */
 export type GameMode = "A" | "B";
 
-/** One entry of `ResponseObservation.player_result`. The result is an enum the
- * schema decodes to its name, e.g. "Victory". */
+/** One entry of `ResponseObservation.player_result`, normalized: the result is
+ * the enum's name, e.g. "Victory", never the number the wire carries. */
 export interface PlayerResult {
   player_id: number;
   result: string;
@@ -287,7 +287,22 @@ export class GameProxy {
       // Every observation after a surrender repeats this, so it is assigned
       // rather than accumulated, and it keeps being assigned after the game
       // has been declared over.
-      this.playerResult = playerResult as PlayerResult[];
+      //
+      // The entries are decoded messages, not plain data: `result` is the enum
+      // number and an absent one reads as `Victory`, the first value, which is
+      // the proto2 trap CLAUDE.md describes. Both are resolved here so nothing
+      // downstream has to know it is holding a protobuf object.
+      this.playerResult = playerResult.map((entry) => {
+        const fields = entry as Record<string, unknown>;
+        return {
+          // An absent player_id decodes as 0, which is why the bot's own id is
+          // taken from the join response rather than assumed to be first.
+          player_id: Number(fields["player_id"]),
+          result: Object.prototype.hasOwnProperty.call(fields, "result")
+            ? resultName(Number(fields["result"]))
+            : "unknown",
+        };
+      });
       this.endGame("result");
     }
     // After the result, so a frame carrying both is attributed to the result,
