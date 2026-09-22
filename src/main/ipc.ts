@@ -654,6 +654,7 @@ export function registerIpcHandlers(): void {
       mode: (options.mode as GameMode) ?? "A",
       opponentRace: options.opponentRace,
       opponentDifficulty: options.opponentDifficulty,
+      appVersion: app.getVersion(),
     });
     activeSource = "live";
     await session.start();

@@ -59,6 +59,8 @@ class FakeClient implements ClientHost {
 class FakeGame implements GameHost {
   botConnected = false;
   currentLoop = 0;
+  lastResult: { player_id: number; result: string }[] | null = null;
+  botPlayerId: number | null = null;
   startCalls = 0;
   stopCalls = 0;
   createCalls = 0;
@@ -91,6 +93,10 @@ class FakeGame implements GameHost {
 
   resetForNewGame(): void {
     this.resetCalls++;
+    // The real proxy clears these here, and a game inheriting the last one's
+    // result is the bug this method exists for.
+    this.lastResult = null;
+    this.botPlayerId = null;
   }
 }
 
@@ -242,6 +248,13 @@ async function checkOneGame(): Promise<void> {
   check("the first frame opens a file", gameFile !== null, true);
   check("exactly one game file exists", h.files().filter((f) => f.endsWith(".sqlite")).length, 1);
 
+  // What the client reported, and which player the bot joined as, both known
+  // by the time the game ends.
+  h.game.botPlayerId = 1;
+  h.game.lastResult = [
+    { player_id: 1, result: "Defeat" },
+    { player_id: 2, result: "Victory" },
+  ];
   h.ends("result", 100);
   await settle();
   check("the session is in the ended phase", h.controller.status.phase, "ended");
@@ -262,6 +275,15 @@ async function checkOneGame(): Promise<void> {
   check("the frames were flushed", frameCount(gameFile!), 2);
   check("the game is counted", h.controller.status.gamesPlayed, 1);
 
+  // The catalog's headline column: the bot's own outcome, not the list of
+  // everyone's, and the reason it ended beside it.
+  check("the recording knows how it ended", meta.end_reason, "result");
+  check("the result is the bot's own", meta.result, "Defeat");
+  check("the bot's player id is recorded", meta.bot_player_id, "1");
+  check("the raw result is kept too", JSON.parse(meta.player_result ?? "[]").length, 2);
+  check("the game has an id of its own", typeof meta.game_id, "string");
+  check("the game says where it came from", meta.source, "live");
+
   check("Mode A creates the next game", h.game.createCalls, 1);
   check("the proxy is reset before it does", h.game.resetCalls, 1);
   check("the session is waiting for the next bot", h.controller.status.phase, "gameCreated");
@@ -277,6 +299,14 @@ async function checkOneGame(): Promise<void> {
   check("the second game got its own file", h.files().filter((f) => f.endsWith(".sqlite")).length, 2);
   check("both games were counted", h.controller.status.gamesPlayed, 2);
   check("the proxy was reset once per finished game", h.game.resetCalls, 2);
+
+  // A bot that vanished produces no result at all, and the second game must
+  // not inherit the first one's Defeat.
+  const second = metaOf(join(h.gamesDir, h.files().filter((f) => f.endsWith(".sqlite")).sort()[1]!));
+  check("a game with no outcome says so", second.result, "unknown");
+  check("and records why it ended", second.end_reason, "botClosed");
+  check("no result is carried over from the last game", second.player_result, undefined);
+  check("each game gets its own id", second.game_id === meta.game_id, false);
 
   await h.controller.stop();
 }

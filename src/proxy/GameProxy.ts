@@ -11,6 +11,13 @@ import { classifyRequest, classifyResponse, LoopTracker } from "../state/frames"
  */
 export type GameMode = "A" | "B";
 
+/** One entry of `ResponseObservation.player_result`. The result is an enum the
+ * schema decodes to its name, e.g. "Victory". */
+export interface PlayerResult {
+  player_id: number;
+  result: string;
+}
+
 export interface GameProxyOptions {
   sessionId: string;
   bus: EventBus;
@@ -60,6 +67,10 @@ export class GameProxy {
   private lastStatus: number | null = null;
   private botSocket: WebSocket | null = null;
   private sc2Socket: WebSocket | null = null;
+  /** The most recent `player_result`, kept rather than announced. See the
+   * getter below for why it is not on `gameEnded`. */
+  private playerResult: PlayerResult[] | null = null;
+  private joinedPlayerId: number | null = null;
 
   constructor(options: GameProxyOptions) {
     this.sessionId = options.sessionId;
@@ -82,6 +93,28 @@ export class GameProxy {
 
   get currentLoop(): number {
     return this.loopTracker.loop;
+  }
+
+  /**
+   * The outcome SC2 last reported, or null for the endings that produce none:
+   * a clean `leave_game` and a bot that vanishes both leave the game genuinely
+   * without a result (§7.1).
+   *
+   * This is read at the end rather than carried on `gameEnded` on purpose.
+   * `endGame` is debounced and first-signal-wins, so a status transition
+   * arriving before the observation that carries the result would freeze an
+   * empty payload into the event and lose an outcome the client did report.
+   * A field updated by every observation cannot lose it.
+   */
+  get lastResult(): PlayerResult[] | null {
+    return this.playerResult;
+  }
+
+  /** Which player the bot joined as, from the join response the proxy relays.
+   * Without it a result is a list of player ids with nothing saying which one
+   * was ours. */
+  get botPlayerId(): number | null {
+    return this.joinedPlayerId;
   }
 
   private get sc2Url(): string {
@@ -189,6 +222,10 @@ export class GameProxy {
     this.loopTracker.reset();
     this.gameEndedEmitted = false;
     this.lastStatus = null;
+    // Game two inheriting game one's Victory is the same bug this method
+    // exists for, one field along.
+    this.playerResult = null;
+    this.joinedPlayerId = null;
   }
 
   /**
@@ -235,8 +272,22 @@ export class GameProxy {
       if (storeOnce) this.storedOnceKinds.add(kind);
     }
 
+    // The join response is relayed like any other frame and stored as none:
+    // `classifyResponse` gives it no kind. Reading the id off the decode that
+    // already happened costs nothing and changes nothing on the wire.
+    // Presence, not truthiness: player id 0 is a legal id, and proto2 makes
+    // an unset field indistinguishable from a zero one under `if`.
+    const join = decoded.join_game as Record<string, unknown> | undefined;
+    if (join && Object.prototype.hasOwnProperty.call(join, "player_id")) {
+      this.joinedPlayerId = Number(join["player_id"]);
+    }
+
     const playerResult = decoded.observation?.player_result;
     if (Array.isArray(playerResult) && playerResult.length > 0) {
+      // Every observation after a surrender repeats this, so it is assigned
+      // rather than accumulated, and it keeps being assigned after the game
+      // has been declared over.
+      this.playerResult = playerResult as PlayerResult[];
       this.endGame("result");
     }
     // After the result, so a frame carrying both is attributed to the result,

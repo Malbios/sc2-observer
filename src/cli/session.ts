@@ -10,6 +10,7 @@
  * Ctrl+C stops the session, which closes the current recording and removes the
  * container. Killing this process any other way leaves the container running.
  */
+import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EventBus } from "../bus/EventBus";
 import { GameMode } from "../proxy/GameProxy";
@@ -17,6 +18,16 @@ import { SessionController } from "../session/SessionController";
 import { parseArgs } from "./args";
 
 const REPO_ROOT = join(__dirname, "..", "..");
+
+/** The same string the app stamps into a game's `meta`, so a file recorded
+ * from the terminal is as traceable as one recorded from the window. */
+function appVersion(): string | undefined {
+  try {
+    return JSON.parse(readFileSync(join(REPO_ROOT, "package.json"), "utf8")).version as string;
+  } catch {
+    return undefined;
+  }
+}
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
@@ -42,6 +53,7 @@ async function main(): Promise<void> {
     opponentDifficulty: args.difficulty ? Number(args.difficulty) : undefined,
     hostPort: args["sc2-port"] ? Number(args["sc2-port"]) : undefined,
     botPort: args["bot-port"] ? Number(args["bot-port"]) : undefined,
+    appVersion: appVersion(),
   });
 
   // The container's own output is noisy and says nothing useful once SC2 is

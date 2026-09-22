@@ -48,7 +48,17 @@ const observation = (loop: number, status: number, ended = false): Uint8Array =>
     status,
     observation: {
       observation: { game_loop: loop },
-      ...(ended ? { player_result: [{ player_id: 1, result: 1 }] } : {}),
+      // A real game reports every player, which is why the result has to be
+      // resolved against the id the bot joined as rather than read off the
+      // front of the list.
+      ...(ended
+        ? {
+            player_result: [
+              { player_id: 1, result: 2 /* Defeat */ },
+              { player_id: 2, result: 1 /* Victory */ },
+            ],
+          }
+        : {}),
     },
   });
 
@@ -132,6 +142,58 @@ function main(): void {
   {
     const { proxy } = harness();
     check("no bot is attached to a fresh proxy", proxy.botConnected, false);
+  }
+
+  // -- the outcome, which the catalog lists games by -----------------------
+  {
+    const { proxy } = harness();
+    check("a fresh proxy knows no result", proxy.lastResult, null);
+    check("nor which player the bot is", proxy.botPlayerId, null);
+
+    // The join response is relayed and stored as nothing; the id is read off
+    // the decode that happens anyway.
+    proxy.publishResponse(encodeResponse({ status: SC2_STATUS.inGame, join_game: { player_id: 2 } }));
+    check("the join tells us which player the bot is", proxy.botPlayerId, 2);
+
+    proxy.publishResponse(observation(100, SC2_STATUS.inGame));
+    check("an ordinary observation carries no result", proxy.lastResult, null);
+
+    proxy.publishResponse(observation(200, SC2_STATUS.ended, true));
+    check("the result is kept once it arrives", proxy.lastResult?.length, 2);
+    check("with the player it belongs to", proxy.lastResult?.[0]?.player_id, 1);
+
+    proxy.resetForNewGame();
+    check("the next game starts with no result", proxy.lastResult, null);
+    check("and no player id", proxy.botPlayerId, null);
+  }
+
+  // -- a result arriving after the game was already declared over ----------
+  {
+    // The ordering that made carrying the result on `gameEnded` wrong: the
+    // status moves first, the game is declared over, and only the next
+    // observation says who won. A debounced event would have frozen an empty
+    // payload; a field cannot.
+    const { ends, proxy } = harness();
+    proxy.publishResponse(observation(50, SC2_STATUS.inGame));
+    proxy.publishResponse(encodeResponse({ status: SC2_STATUS.ended }));
+    check("the status ended the game", ends.length, 1);
+    check("by status, not by result", ends[0]!.reason, "status");
+
+    proxy.publishResponse(observation(58, SC2_STATUS.ended, true));
+    check("a late result is still recorded", proxy.lastResult?.length, 2);
+    check("and does not end the game a second time", ends.length, 1);
+  }
+
+  // -- the relay does not touch what it forwards ---------------------------
+  {
+    // §4's first rule, and the one this file's subject is now reading fields
+    // out of: publishing a frame must not alter the bytes that go on to the
+    // bot. Checked against a copy taken before publishing.
+    const { proxy } = harness();
+    const bytes = observation(1234, SC2_STATUS.inGame, true);
+    const before = Array.from(bytes);
+    proxy.publishResponse(bytes);
+    check("publishing a response leaves its bytes alone", Array.from(bytes), before);
   }
 
   if (failures > 0) {

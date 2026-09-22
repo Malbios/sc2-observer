@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -6,10 +7,11 @@ import {
   EventBus,
   FrameEvent,
   GameEndedEvent,
+  GameEndReason,
 } from "../bus/EventBus";
 import { DockerManager } from "../docker/DockerManager";
 import { HistoryStore } from "../history/HistoryStore";
-import { GameMode, GameProxy } from "../proxy/GameProxy";
+import { GameMode, GameProxy, PlayerResult } from "../proxy/GameProxy";
 import { SC2_STATUS, statusName } from "../protocol/status";
 import type { SessionPhase, SessionStatusIpc } from "../shared/ipc-types";
 
@@ -28,6 +30,10 @@ export interface ClientHost {
 export interface GameHost {
   readonly botConnected: boolean;
   readonly currentLoop: number;
+  /** The outcome, if the ending produced one. Read at the end of a game
+   * rather than delivered with `gameEnded`; see `GameProxy.lastResult`. */
+  readonly lastResult: PlayerResult[] | null;
+  readonly botPlayerId: number | null;
   start(): Promise<void>;
   stop(): void;
   createGame(): Promise<void>;
@@ -54,6 +60,9 @@ export interface SessionControllerOptions {
   game?: GameHost;
   /** A clock, so file names are predictable in tests. */
   now?: () => Date;
+  /** Stamped into each game's `meta` (§6.3), so a file that will not open can
+   * be traced to the build that wrote it. */
+  appVersion?: string;
 }
 
 /**
@@ -94,8 +103,12 @@ export class SessionController {
   private readonly map: string;
   private readonly mode: GameMode;
   private readonly now: () => Date;
+  private readonly appVersion: string | null;
   private readonly client: ClientHost;
   private readonly game: GameHost;
+  /** Why the game that is finishing ended, held between the signal and the
+   * write because `finishGame` runs after waiting for the bot to let go. */
+  private endReason: GameEndReason | null = null;
 
   private phase: SessionPhase = "idle";
   private store: HistoryStore | null = null;
@@ -115,6 +128,7 @@ export class SessionController {
     this.map = options.map;
     this.mode = options.mode ?? "A";
     this.now = options.now ?? (() => new Date());
+    this.appVersion = options.appVersion ?? null;
 
     this.client =
       options.client ??
@@ -225,11 +239,22 @@ export class SessionController {
    */
   private ensureStore(): HistoryStore {
     if (this.store) return this.store;
-    const path = this.nextGamePath();
+    // One reading of the clock for the name and the timestamp, so a file
+    // called 12-00-00 does not say it started at 12-00-01.
+    const at = this.now();
+    const path = this.nextGamePath(at);
     const store = new HistoryStore(path);
     store.setMeta("map", this.map);
     store.setMeta("mode", this.mode);
-    store.setMeta("started_at", this.now().toISOString());
+    store.setMeta("started_at", at.toISOString());
+    // Identity that survives the file being renamed or moved, which a path
+    // does not, and which costs one line now against a migration later.
+    store.setMeta("game_id", randomUUID());
+    // §6.4 files a replay opened for viewing as a game too, with
+    // `source = replay`. Phase 6 writes those; saying which kind this one is
+    // now means nothing has to guess later.
+    store.setMeta("source", "live");
+    if (this.appVersion) store.setMeta("app_version", this.appVersion);
     this.store = store;
     this.gameFile = path;
     this.log(`recording to ${path}`);
@@ -243,8 +268,8 @@ export class SessionController {
    * That only happens when a game ends the instant it starts, which is exactly
    * the case worth being able to look at afterwards.
    */
-  private nextGamePath(): string {
-    const base = join(this.gamesDir, gameFileName(this.map, this.now()));
+  private nextGamePath(at: Date): string {
+    const base = join(this.gamesDir, gameFileName(this.map, at));
     if (!existsSync(base)) return base;
     for (let n = 2; ; n++) {
       const candidate = base.replace(/\.sqlite$/, `-${n}.sqlite`);
@@ -295,8 +320,9 @@ export class SessionController {
    * for the bot to let go before asking for the replay or creating the next
    * game: SC2 accepts a single client connection at a time.
    */
-  private async onGameEnded(reason: string, loop: number): Promise<void> {
+  private async onGameEnded(reason: GameEndReason, loop: number): Promise<void> {
     if (this.phase !== "gameCreated" && this.phase !== "inGame" && this.phase !== "clientReady") return;
+    this.endReason = reason;
     this.log(`game over at loop ${loop} (${reason})`);
     this.setPhase("ended");
 
@@ -315,6 +341,35 @@ export class SessionController {
       this.setPhase("clientReady");
       this.log("waiting for the bot to create the next game");
     }
+  }
+
+  /**
+   * Writes what the catalog will show about how this game went (§6.3's
+   * `meta` holds the result; §6.4's `incomplete` is the absence of an
+   * `ended_at`).
+   *
+   * Two of the three endings produce no result at all: a clean `leave_game`
+   * and a bot that vanishes leave SC2 with nothing to report. Those games get
+   * `result = unknown` and an `end_reason` that says which it was, rather than
+   * a winner invented from the fact that somebody stopped playing. The raw
+   * array is kept beside the resolved answer so a game whose player ids never
+   * lined up can still be looked at.
+   */
+  private writeOutcome(store: HistoryStore): void {
+    if (this.endReason) store.setMeta("end_reason", this.endReason);
+
+    const results = this.game.lastResult;
+    if (!results || results.length === 0) {
+      store.setMeta("result", "unknown");
+      return;
+    }
+
+    store.setMeta("player_result", JSON.stringify(results));
+    const botPlayerId = this.game.botPlayerId;
+    if (botPlayerId !== null) store.setMeta("bot_player_id", String(botPlayerId));
+
+    const ours = botPlayerId === null ? undefined : results.find((entry) => entry.player_id === botPlayerId);
+    store.setMeta("result", ours ? ours.result : "unknown");
   }
 
   /** Asks for the replay, closes the game file, and counts the game. The
@@ -337,11 +392,13 @@ export class SessionController {
       this.log("no replay was returned by the client");
     }
 
+    this.writeOutcome(store);
     store.setMeta("ended_at", this.now().toISOString());
     store.flush();
     store.close();
     this.store = null;
     this.gameFile = null;
+    this.endReason = null;
     this.gamesPlayed += 1;
     this.announce();
   }
@@ -389,11 +446,16 @@ export class SessionController {
     this.game.stop();
 
     if (this.store) {
+      // A game abandoned by stopping the session is still a finished file, and
+      // it records the same things as one that ended on its own: usually no
+      // result, which is the truth about it.
+      this.writeOutcome(this.store);
       this.store.setMeta("ended_at", this.now().toISOString());
       this.store.flush();
       this.store.close();
       this.store = null;
       this.gameFile = null;
+      this.endReason = null;
     }
 
     await this.client.stopContainer();
