@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type JSX } from "react";
+import { Fragment, useMemo, useState, type CSSProperties, type JSX } from "react";
 import type { GameCatalogIpc, GameSummaryIpc } from "../../../shared/ipc-types";
 
 /**
@@ -18,8 +18,14 @@ interface Props {
   catalog: GameCatalogIpc | null;
   /** Something main refused or could not do, shown above the list. */
   problem: string | null;
+  /** Something that worked and is worth saying, such as where a game was
+   * exported to. */
+  notice: string | null;
   onOpen(game: GameSummaryIpc): void;
   onRefresh(): void;
+  onSetTags(game: GameSummaryIpc, tags: string[]): void;
+  onExport(game: GameSummaryIpc): void;
+  onDelete(game: GameSummaryIpc): void;
 }
 
 function formatWhen(iso: string | null): string {
@@ -77,6 +83,20 @@ function outcome(game: GameSummaryIpc): { text: string; color: string } {
   return { text: endReasonLabel(game.endReason), color: "#8b93a1" };
 }
 
+/** Tags as typed: one line, commas between them. Whitespace and duplicates
+ * are main's to clean up, since a tag written by hand into a game file has to
+ * come out the same way. */
+function splitTags(text: string): string[] {
+  return text.split(",");
+}
+
+/** What the confirmation says goes. Both files by name, and the sidecars,
+ * because a `-wal` left behind is inherited by the next file of that name. */
+function deleteQuestion(game: GameSummaryIpc): string {
+  const replay = game.hasReplay ? ` and ${game.fileName.replace(/\.sqlite$/i, ".SC2Replay")}` : "";
+  return `Move ${game.fileName}${replay}, and any -wal/-shm sidecars, to the recycle bin?`;
+}
+
 function matches(game: GameSummaryIpc, needle: string): boolean {
   if (!needle) return true;
   const haystack = [
@@ -111,8 +131,27 @@ const HEAD: CSSProperties = {
   background: "#181c22",
 };
 
-export function GameCatalog({ catalog, problem, onOpen, onRefresh }: Props): JSX.Element {
+/** The small buttons in the actions column, which are not row-sized. */
+const ACTION: CSSProperties = { fontSize: 11, padding: "1px 6px" };
+
+export function GameCatalog({
+  catalog,
+  problem,
+  notice,
+  onOpen,
+  onRefresh,
+  onSetTags,
+  onExport,
+  onDelete,
+}: Props): JSX.Element {
   const [filter, setFilter] = useState("");
+  /** The game whose tags are being typed, and the text as typed. Tags are
+   * committed on Enter or on leaving the field, never per keystroke: each
+   * write goes to the game file on disk. */
+  const [editing, setEditing] = useState<{ filePath: string; text: string } | null>(null);
+  /** Delete asks first, in the row rather than in a dialog box, and the
+   * question names what goes. */
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const games = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -140,6 +179,7 @@ export function GameCatalog({ catalog, problem, onOpen, onRefresh }: Props): JSX
       </div>
 
       {problem && <div style={{ padding: "0 16px 8px", color: "#e06c75", fontSize: 12 }}>{problem}</div>}
+      {notice && !problem && <div style={{ padding: "0 16px 8px", color: "#8b93a1", fontSize: 12 }}>{notice}</div>}
 
       <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
         {total === 0 ? (
@@ -151,13 +191,14 @@ export function GameCatalog({ catalog, problem, onOpen, onRefresh }: Props): JSX
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th style={{ ...HEAD, width: "22%" }}>Map</th>
-                <th style={{ ...HEAD, width: "15%" }}>When</th>
-                <th style={{ ...HEAD, width: "15%" }}>Length</th>
-                <th style={{ ...HEAD, width: "13%" }}>Outcome</th>
-                <th style={{ ...HEAD, width: "13%" }}>Bot</th>
+                <th style={{ ...HEAD, width: "20%" }}>Map</th>
+                <th style={{ ...HEAD, width: "13%" }}>When</th>
+                <th style={{ ...HEAD, width: "13%" }}>Length</th>
+                <th style={{ ...HEAD, width: "11%" }}>Outcome</th>
+                <th style={{ ...HEAD, width: "10%" }}>Bot</th>
                 <th style={{ ...HEAD, width: "14%" }}>Tags</th>
-                <th style={{ ...HEAD, width: "8%", textAlign: "right" }}>Size</th>
+                <th style={{ ...HEAD, width: "7%", textAlign: "right" }}>Size</th>
+                <th style={{ ...HEAD, width: "12%" }} />
               </tr>
             </thead>
             <tbody>
@@ -167,8 +208,8 @@ export function GameCatalog({ catalog, problem, onOpen, onRefresh }: Props): JSX
                 const result = outcome(game);
                 const openable = game.state === "ok" || game.state === "incomplete";
                 return (
+                  <Fragment key={game.filePath}>
                   <tr
-                    key={game.filePath}
                     onClick={() => openable && onOpen(game)}
                     title={game.problem ?? game.filePath}
                     style={{
@@ -208,9 +249,76 @@ export function GameCatalog({ catalog, problem, onOpen, onRefresh }: Props): JSX
                     </td>
                     <td style={{ ...CELL, color: result.color }}>{result.text}</td>
                     <td style={{ ...CELL, color: "#8b93a1" }}>{game.botNames.join(", ") || "-"}</td>
-                    <td style={{ ...CELL, color: "#8b93a1" }}>{game.tags.join(", ") || "-"}</td>
+                    <td
+                      style={{ ...CELL, color: "#8b93a1" }}
+                      onClick={(event) => {
+                        // The row opens a game; the tags cell edits tags.
+                        event.stopPropagation();
+                        setEditing({ filePath: game.filePath, text: game.tags.join(", ") });
+                      }}
+                      title="Click to tag this game"
+                    >
+                      {editing?.filePath === game.filePath ? (
+                        <input
+                          autoFocus
+                          value={editing.text}
+                          onChange={(event) => setEditing({ filePath: game.filePath, text: event.target.value })}
+                          onBlur={() => {
+                            onSetTags(game, splitTags(editing.text));
+                            setEditing(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") event.currentTarget.blur();
+                            // Escape abandons the edit, which is the only way
+                            // back out of a mistyped tag without saving it.
+                            if (event.key === "Escape") setEditing(null);
+                          }}
+                          placeholder="comma, separated"
+                          style={{ width: "100%", fontSize: 12 }}
+                        />
+                      ) : (
+                        game.tags.join(", ") || "-"
+                      )}
+                    </td>
                     <td style={{ ...CELL, color: "#8b93a1", textAlign: "right" }}>{formatSize(game.sizeBytes)}</td>
+                    <td style={CELL} onClick={(event) => event.stopPropagation()}>
+                      <span style={{ display: "flex", gap: 4 }}>
+                        <button style={ACTION} onClick={() => onExport(game)} title="Copy this game and its replay elsewhere">
+                          Export
+                        </button>
+                        <button
+                          style={ACTION}
+                          onClick={() => setConfirming(game.filePath)}
+                          disabled={live}
+                          title={live ? "This game is being played right now" : "Delete this game and its replay"}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    </td>
                   </tr>
+                  {confirming === game.filePath && (
+                    <tr>
+                      <td colSpan={8} style={{ ...CELL, whiteSpace: "normal", background: "#1d2127" }}>
+                        <span style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                          <span>{deleteQuestion(game)}</span>
+                          <button
+                            style={{ ...ACTION, color: "#e06c75" }}
+                            onClick={() => {
+                              setConfirming(null);
+                              onDelete(game);
+                            }}
+                          >
+                            Move to recycle bin
+                          </button>
+                          <button style={ACTION} onClick={() => setConfirming(null)}>
+                            Cancel
+                          </button>
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

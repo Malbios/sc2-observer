@@ -64,6 +64,7 @@ export function App(): JSX.Element {
    * first asked for. */
   const [catalog, setCatalog] = useState<GameCatalogIpc | null>(null);
   const [catalogProblem, setCatalogProblem] = useState<string | null>(null);
+  const [catalogNotice, setCatalogNotice] = useState<string | null>(null);
   /** Which game view the catalog came from, so leaving it goes back to what
    * was on screen rather than always to the recording. */
   const [lastSource, setLastSource] = useState<SourceKind>("recording");
@@ -356,8 +357,64 @@ export function App(): JSX.Element {
     setView("catalog");
     viewRef.current = "catalog";
     setCatalogProblem(null);
+    setCatalogNotice(null);
     void refreshCatalog();
   }, [refreshCatalog]);
+
+  /** The viewer after the game under it has gone. Main has already closed the
+   * store; this is the window catching up. */
+  const clearRecordingView = useCallback(() => {
+    setRecording(null);
+    setTerrain(null);
+    setUnitTypeInfo({});
+    setFrame(null);
+    setSelectedUnit(null);
+    setTelemetry(null);
+    setChannels([]);
+    setStreamCount(0);
+    setVisibleChannels(new Set());
+    seenChannelsRef.current = new Set();
+    setTimelineEvents([]);
+    setWatch(null);
+    setPlaying(false);
+    loopRef.current = 0;
+    setLoop(0);
+    lastFetchedLoopRef.current = -1;
+  }, []);
+
+  /** Tags are written to the game file itself, so the answer comes back as a
+   * fresh listing rather than as an optimistic edit of the row. */
+  const setGameTags = useCallback(async (game: GameSummaryIpc, tags: string[]) => {
+    const result = await window.spectator.setGameTags(game.filePath, tags);
+    setCatalog(result.catalog);
+    setCatalogProblem(result.problem);
+    if (result.status === "done") setCatalogNotice(null);
+  }, []);
+
+  const exportGame = useCallback(async (game: GameSummaryIpc) => {
+    const result = await window.spectator.exportGame(game.filePath);
+    setCatalog(result.catalog);
+    setCatalogProblem(result.problem);
+    if (result.status === "done") setCatalogNotice(`Exported ${game.fileName}.`);
+  }, []);
+
+  /**
+   * Delete. Main refuses the game being played and closes the open recording
+   * before unlinking it, because Windows will not remove a file SQLite still
+   * holds; if that was the game on screen, the window has to let go of it too.
+   */
+  const deleteGame = useCallback(
+    async (game: GameSummaryIpc) => {
+      const wasOpen = recording?.filePath === game.filePath;
+      const result = await window.spectator.deleteGame(game.filePath);
+      setCatalog(result.catalog);
+      setCatalogProblem(result.problem);
+      if (result.status !== "done") return;
+      setCatalogNotice(`${game.fileName} is in the recycle bin.`);
+      if (wasOpen) clearRecordingView();
+    },
+    [recording, clearRecordingView]
+  );
 
   /**
    * Clicking a row. The game being played right now is not opened as a file:
@@ -571,8 +628,12 @@ export function App(): JSX.Element {
         <GameCatalog
           catalog={catalog}
           problem={catalogProblem}
+          notice={catalogNotice}
           onOpen={(game) => void openGameRow(game)}
           onRefresh={() => void refreshCatalog()}
+          onSetTags={(game, tags) => void setGameTags(game, tags)}
+          onExport={(game) => void exportGame(game)}
+          onDelete={(game) => void deleteGame(game)}
         />
       </div>
     );
