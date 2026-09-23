@@ -2,6 +2,7 @@ import type { FrameEvent } from "../bus/EventBus";
 import type { HistoryStore } from "../history/HistoryStore";
 import { decodeRequest, decodeResponse, type Response } from "../protocol/schema";
 import type { ChannelIpc, OverlayStateIpc } from "../shared/telemetry-types";
+import { DEBUG_CHANNEL, DebugDrawModel, readDebugDraw } from "./debugDraw";
 import { abilityChannels, IntentModel, INTENT_PREFIX, readUnitCommands } from "./intent";
 
 type Frame = Pick<FrameEvent, "kind" | "direction" | "loop" | "bytes">;
@@ -19,12 +20,13 @@ type Frame = Pick<FrameEvent, "kind" | "direction" | "loop" | "bytes">;
 export class GameOverlays {
   private channelNames = new Map<number, string>();
   private readonly intent = new IntentModel();
+  private readonly debug = new DebugDrawModel();
 
   static fromStore(store: HistoryStore): GameOverlays {
     const overlays = new GameOverlays();
     // Read as a list rather than "at loop 0": a bot that asks for data after
     // its first observation has it tagged with that observation's loop.
-    for (const kind of ["data", "action"]) {
+    for (const kind of ["data", "action", "debug"]) {
       const direction = kind === "data" ? "response" : "request";
       for (const frame of store.readFrames(kind, direction)) {
         overlays.addFrame({ kind: kind as FrameEvent["kind"], direction, loop: frame.loop, bytes: frame.bytes });
@@ -43,6 +45,13 @@ export class GameOverlays {
     if (frame.kind === "action" && frame.direction === "request") {
       return this.intent.add(readUnitCommands(decodeRequest(frame.bytes), frame.loop));
     }
+    if (frame.kind === "debug" && frame.direction === "request") {
+      const drawing = readDebugDraw(decodeRequest(frame.bytes));
+      if (!drawing) return false;
+      const fresh = this.debug.isEmpty;
+      this.debug.add(frame.loop, drawing);
+      return fresh;
+    }
     return false;
   }
 
@@ -53,12 +62,13 @@ export class GameOverlays {
   }
 
   overlaysAt(loop: number, observation: Response | null): OverlayStateIpc[] {
-    if (!observation || this.intent.isEmpty) return [];
-    return this.intent.overlaysAt(loop, observation, this.channelOf);
+    const intent = observation && !this.intent.isEmpty ? this.intent.overlaysAt(loop, observation, this.channelOf) : [];
+    return [...intent, ...this.debug.overlaysAt(loop)];
   }
 
   channels(): ChannelIpc[] {
     const names = new Set(this.intent.abilities().map(this.channelOf));
+    if (!this.debug.isEmpty) names.add(DEBUG_CHANNEL);
     return [...names].map((ch) => ({
       ch,
       kind: "overlay",

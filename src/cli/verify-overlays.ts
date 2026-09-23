@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { HistoryStore } from "../history/HistoryStore";
 import { decodeRequest, decodeResponse, encodeRequest, encodeResponse, type Response } from "../protocol/schema";
+import { DEBUG_CHANNEL } from "../state/debugDraw";
+import { GameOverlays } from "../state/GameOverlays";
 import { abilityChannels, IntentModel, INTENT_PREFIX, readUnitCommands } from "../state/intent";
 import type { LineShape, OverlayStateIpc } from "../shared/telemetry-types";
 
@@ -36,6 +38,7 @@ function main(): void {
   }
 
   checkSyntheticIntent();
+  checkDebugDraws();
 
   if (failures > 0) {
     console.error(`\n${failures} check(s) failed`);
@@ -102,6 +105,17 @@ function checkFixtureIntent(fixturePath: string): void {
   const attack = lines(model.overlaysAt(3240, observationAt(3240), channelOf), `${INTENT_PREFIX}Attack`);
   check("the attack command draws a line per unit that is still under way", attack.length > 0, true);
   check("to the attack's target", attack[0]?.to, [124.5, 48.5]);
+
+  // The viewer's path: the same answers through GameOverlays, built from the
+  // store the way main builds it for a recording.
+  const overlays = GameOverlays.fromStore(store);
+  check("GameOverlays offers the same channels", overlays.channels().map((c) => c.ch).sort(), names);
+  check(
+    "and the same lines",
+    lines(overlays.overlaysAt(600, observationAt(600)), `${INTENT_PREFIX}Build SpawningPool`)[0]?.to,
+    POOL_TARGET,
+  );
+  check("a recording made before debug frames were stored has no debug channel", overlays.channels().some((c) => c.ch === DEBUG_CHANNEL), false);
 
   store.close();
 }
@@ -228,6 +242,68 @@ function checkSyntheticIntent(): void {
     check("a no-target command introduces no channel", fresh, false);
     check("and leaves the model empty", model.isEmpty, true);
   }
+}
+
+// -- native debug draws -----------------------------------------------------
+
+const point = (x: number, y: number): Record<string, number> => ({ x, y, z: 10 });
+
+function debugFrame(loop: number, commands: Record<string, unknown>[]) {
+  return { kind: "debug" as const, direction: "request" as const, loop, bytes: encodeRequest({ debug: { debug: commands } }) };
+}
+
+function checkDebugDraws(): void {
+  const overlays = new GameOverlays();
+  const red = { r: 255, g: 0, b: 0 };
+  const green = { r: 0, g: 200, b: 16 };
+
+  const first = overlays.addFrame(
+    debugFrame(100, [
+      {
+        draw: {
+          lines: [{ color: red, line: { p0: point(1, 2), p1: point(3, 4) } }],
+          boxes: [{ color: green, min: point(10, 10), max: point(12, 14) }],
+          spheres: [{ color: red, p: point(20, 20), r: 2.5 }],
+          text: [
+            { color: green, text: "here", world_pos: point(30, 30) },
+            { text: "on screen", virtual_pos: point(0.5, 0.5) },
+          ],
+        },
+      },
+    ]),
+  );
+  check("the first draw adds the debug channel", first, true);
+  check("which the tree offers", overlays.channels().map((c) => c.ch), [DEBUG_CHANNEL]);
+
+  check("nothing before the first draw", overlays.overlaysAt(99, null), []);
+  const at100 = overlays.overlaysAt(150, null);
+  check("one overlay per color", at100.map((o) => o.style?.color), ["#ff0000", "#00c810"]);
+  check("all on the debug channel", at100.every((o) => o.ch === DEBUG_CHANNEL), true);
+  check("carrying the draw's loop", at100.map((o) => o.loop), [100, 100]);
+  check("red holds the line and the sphere", at100[0]?.shapes, [
+    { type: "line", from: [1, 2], to: [3, 4] },
+    { type: "circle", pos: [20, 20], r: 2.5 },
+  ]);
+  check("green holds the box and the world-space text, not the screen text", at100[1]?.shapes, [
+    { type: "rect", p0: [10, 10], p1: [12, 14] },
+    { type: "text", pos: [30, 30], text: "here" },
+  ]);
+
+  // A debug request with no draw in it is not a draw.
+  const surrender = overlays.addFrame(debugFrame(200, [{ end_game: { end_result: 1 } }]));
+  check("a surrender adds no channel", surrender, false);
+  check("and leaves the drawing alone", overlays.overlaysAt(250, null).length, 2);
+
+  // The next draw replaces everything, including colors it does not use.
+  const second = overlays.addFrame(debugFrame(300, [{ draw: { lines: [{ line: { p0: point(5, 5), p1: point(6, 6) } }] } }]));
+  check("a second draw is not a new channel", second, false);
+  const at300 = overlays.overlaysAt(300, null);
+  check("replaces the first entirely", at300.map((o) => o.style?.color), ["#ffffff"]);
+  check("with its own shapes", at300[0]?.shapes, [{ type: "line", from: [5, 5], to: [6, 6] }]);
+  check("scrubbing back finds the first again", overlays.overlaysAt(299, null).length, 2);
+
+  overlays.addFrame(debugFrame(400, [{ draw: {} }]));
+  check("an empty draw clears the map", overlays.overlaysAt(400, null), []);
 }
 
 main();

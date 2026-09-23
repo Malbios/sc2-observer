@@ -517,23 +517,29 @@ export function MapView({
     updateHoverRef.current();
   }, [frame, selectedTag, terrain, pixiReady, unitTypeInfo, iconVersion]);
 
-  // Telemetry overlays: one pooled container per channel, redrawn when the
-  // resolved state changes. Depends on pixiReady for the same reason the
-  // effects above do -- telemetry can arrive before Pixi has finished its
-  // async init, and this would otherwise read a null ref once and never
-  // re-run.
+  // Telemetry overlays: one pooled container per overlay, redrawn when the
+  // resolved state changes. A bot's channel resolves to one overlay, but a
+  // native debug draw has a color per shape and so one overlay per color on
+  // the same channel, which is why the pool is keyed by channel and position.
+  // Depends on pixiReady for the same reason the effects above do --
+  // telemetry can arrive before Pixi has finished its async init, and this
+  // would otherwise read a null ref once and never re-run.
   useEffect(() => {
     const layer = overlayLayerRef.current;
     if (!layer || !terrain) return;
 
     const pool = overlayVisualsRef.current;
     const seen = new Set<string>();
+    const perChannel = new Map<string, number>();
 
     for (const overlay of telemetry?.overlays ?? []) {
       if (!visibleChannels.has(overlay.ch)) continue;
-      seen.add(overlay.ch);
+      const index = perChannel.get(overlay.ch) ?? 0;
+      perChannel.set(overlay.ch, index + 1);
+      const key = `${overlay.ch}#${index}`;
+      seen.add(key);
 
-      let visual = pool.get(overlay.ch);
+      let visual = pool.get(key);
       if (!visual) {
         const container = new PIXI.Container();
         const graphics = new PIXI.Graphics();
@@ -544,7 +550,7 @@ export function MapView({
         container.addChild(graphics, extras);
         layer.addChild(container);
         visual = { container, graphics, extras, drawnLoop: -1 };
-        pool.set(overlay.ch, visual);
+        pool.set(key, visual);
       }
       visual.container.visible = true;
       // Nothing changed for this channel since it was last drawn; rebuilding a
@@ -581,8 +587,8 @@ export function MapView({
     // A channel that is switched off, or that retention has expired, keeps its
     // container for the next time it appears; only channels gone from the
     // recording entirely are destroyed, which scrubbing never causes.
-    for (const [ch, visual] of pool) {
-      if (!seen.has(ch)) {
+    for (const [key, visual] of pool) {
+      if (!seen.has(key)) {
         visual.graphics.clear();
         visual.extras.removeChildren().forEach((child) => child.destroy(DESTROY_WITH_TEXTURE));
         visual.container.visible = false;
