@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { SessionStatusIpc } from "../shared/ipc-types";
 
-export type FrameKind = "gameInfo" | "data" | "observation" | "action";
+export type FrameKind = "gameInfo" | "data" | "observation" | "action" | "debug";
 export type FrameDirection = "request" | "response";
 
 export interface FrameEvent {

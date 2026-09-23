@@ -302,7 +302,9 @@ export class GameProxy {
     this.noteStatus(decoded.status);
   }
 
-  private publishRequest(bytes: Uint8Array): void {
+  /** The relay's request side. Public for the same reason as
+   * `publishResponse`. */
+  publishRequest(bytes: Uint8Array): void {
     const decoded = decodeRequest(bytes);
     const kind = classifyRequest(decoded);
     if (kind) this.frames.emit(kind, bytes, "request");

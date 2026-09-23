@@ -11,7 +11,7 @@
  * Run with: node dist/cli/verify-proxy.js
  */
 import { EventBus, type ClientStatusEvent, type FrameEvent, type GameEndedEvent } from "../bus/EventBus";
-import { encodeResponse } from "../protocol/schema";
+import { encodeRequest, encodeResponse } from "../protocol/schema";
 import { SC2_STATUS } from "../protocol/status";
 import { GameProxy } from "../proxy/GameProxy";
 
@@ -211,6 +211,24 @@ function main(): void {
     const before = Array.from(bytes);
     proxy.publishResponse(bytes);
     check("publishing a response leaves its bytes alone", Array.from(bytes), before);
+  }
+
+  // -- debug requests are recorded, untouched -------------------------------
+  {
+    // §6.3 lists `debug` among the stored frame kinds. A draw is published so
+    // it can be shown; its bytes are still what goes on to SC2.
+    const { frames, proxy } = harness();
+    const draw = encodeRequest({
+      debug: { debug: [{ draw: { lines: [{ line: { p0: { x: 1, y: 2, z: 0 }, p1: { x: 3, y: 4, z: 0 } } }] } }] },
+    });
+    const before = Array.from(draw);
+    proxy.publishRequest(draw);
+    check("a debug request is published as a frame", frames.map((f) => [f.kind, f.direction]), [["debug", "request"]]);
+    check("with the bytes it arrived with", Array.from(frames[0]!.bytes), before);
+    check("and publishing it leaves them alone", Array.from(draw), before);
+
+    proxy.publishRequest(encodeRequest({ step: { count: 8 } }));
+    check("a step is still not recorded", frames.length, 1);
   }
 
   if (failures > 0) {

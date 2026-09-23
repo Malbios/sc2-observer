@@ -37,8 +37,11 @@ export function classifyResponse(response: Response): FrameKind | null {
   return null;
 }
 
+/** §6.3's request kinds: what the bot told its units, and what it drew with
+ * SC2's own debug API. */
 export function classifyRequest(request: Request): FrameKind | null {
   if (request.action) return "action";
+  if (request.debug) return "debug";
   return null;
 }
 
