@@ -96,15 +96,65 @@ const GENERIC_ICON_PATTERNS: [RegExp, string][] = [
   [/geyser|vespene/i, "vespene.png"],
 ];
 
-function resolveIconUrl(name: string): string {
+/** Unit types with user-supplied .png art (see public/icons/SOURCE.md),
+ * named exactly as the API's `data` response names them, which is also
+ * where python-sc2's UnitTypeId names come from. Like minerals.png these
+ * have real alpha and skip the black-keying step. Anything not listed here
+ * falls back to the .webp portraits. */
+const PNG_ICONS = new Set([
+  "BanelingNest", "CreepTumor", "EvolutionChamber", "Extractor", "GreaterSpire", "Hatchery", "Hive",
+  "HydraliskDen", "InfestationPit", "Lair", "LurkerDenMP", "NydusNetwork", "NydusCanal", "RoachWarren",
+  "SpawningPool", "SpineCrawler", "Spire", "SporeCrawler", "UltraliskCavern",
+  "Baneling", "Changeling", "Corruptor", "Drone", "Egg", "Hydralisk", "Infestor", "Larva", "LocustMP",
+  "LocustMPFlying", "LurkerMP", "Mutalisk", "Overlord", "OverlordTransport", "Overseer", "Queen",
+  "Ravager", "Roach", "SwarmHostMP", "Viper", "Zergling",
+]);
+
+/** Unit types that are another form of one we have art for: burrowed,
+ * uprooted, morphing or disguised. The API gives each its own name, so
+ * without this they would draw as plain shapes. */
+const ICON_ALIASES: Record<string, string> = {
+  BanelingBurrowed: "Baneling",
+  DroneBurrowed: "Drone",
+  HydraliskBurrowed: "Hydralisk",
+  RoachBurrowed: "Roach",
+  ZerglingBurrowed: "Zergling",
+  QueenBurrowed: "Queen",
+  InfestorBurrowed: "Infestor",
+  RavagerBurrowed: "Ravager",
+  UltraliskBurrowed: "Ultralisk",
+  LurkerMPBurrowed: "LurkerMP",
+  SwarmHostBurrowedMP: "SwarmHostMP",
+  CreepTumorBurrowed: "CreepTumor",
+  CreepTumorQueen: "CreepTumor",
+  SpineCrawlerUprooted: "SpineCrawler",
+  SporeCrawlerUprooted: "SporeCrawler",
+  OverseerSiegeMode: "Overseer",
+  ExtractorRich: "Extractor",
+  ChangelingZealot: "Changeling",
+  ChangelingMarine: "Changeling",
+  ChangelingMarineShield: "Changeling",
+  ChangelingZergling: "Changeling",
+  ChangelingZerglingWings: "Changeling",
+  // Morph cocoons have no art of their own; the egg is the closest.
+  BanelingCocoon: "Egg",
+  RavagerCocoon: "Egg",
+  BroodLordCocoon: "Egg",
+  OverlordCocoon: "Egg",
+  TransportOverlordCocoon: "Egg",
+  LurkerMPEgg: "Egg",
+};
+
+function resolveIconUrl(requested: string): string {
+  const name = ICON_ALIASES[requested] ?? requested;
   for (const [pattern, file] of GENERIC_ICON_PATTERNS) {
     if (pattern.test(name)) return `/icons/${file}`;
   }
-  return `/icons/${name}.webp`;
+  return PNG_ICONS.has(name) ? `/icons/${name}.png` : `/icons/${name}.webp`;
 }
 
 /** Loads the icon for a unit type name (see public/icons/SOURCE.md for
- * provenance of the .webp portraits), caching both hits and misses by name
+ * provenance of the portraits), caching both hits and misses by name
  * so a type without an icon is only ever attempted once, not retried per
  * unit instance. */
 export function loadIconTexture(name: string): Promise<PIXI.Texture | null> {

@@ -1,6 +1,6 @@
 # Where these icons came from
 
-The 125 `.webp` unit and building portraits in this folder were copied from
+The 88 `.webp` unit and building portraits in this folder were copied from
 [`stephanzlatarev/vscode-starcraft`](https://github.com/stephanzlatarev/vscode-starcraft)
 (`icons/` in that repository), the VS Code extension this project studied as
 prior art.
@@ -19,3 +19,11 @@ to revisit.
 `minerals.png` and `vespene.png` are not from that set. They are supplied by
 the project owner and stand in for the mineral-field and vespene-geyser unit
 types, which have no portrait in the `.webp` set.
+
+The Zerg `.png` files (units and buildings, 40 of them) were supplied by the
+project owner on 2026-09-23 and replace the Zerg portraits from the `.webp`
+set. They are named after the unit type names the SC2 API reports (so
+`LurkerMP`, `SwarmHostMP` and `NydusCanal`, not the display names), and were
+downscaled from 1254px to 512px, which is still twice the size the viewer
+ever uses. Ultralisk, BroodLord and Broodling still use their `.webp` until
+art for them turns up.
