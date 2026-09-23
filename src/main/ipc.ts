@@ -11,9 +11,10 @@ import { listGames } from "../history/peek";
 import { HistoryStore } from "../history/HistoryStore";
 import { SessionController } from "../session/SessionController";
 import type { GameMode } from "../proxy/GameProxy";
-import { decodeResponse } from "../protocol/schema";
+import { decodeResponse, type Response } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
+import { GameOverlays } from "../state/GameOverlays";
 import { extractUnitTypeInfo } from "../state/unitTypes";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
 import { ReplaySession } from "../replay/ReplaySession";
@@ -67,6 +68,12 @@ let terrainCache: TerrainData | null = null;
 let unitTypeInfoCache: Record<number, UnitTypeInfoIpc> | null = null;
 let channelsCache: ChannelIpc[] | null = null;
 let telemetryResolver: TelemetryResolver | null = null;
+/** The open recording's derived overlays (command intent, debug draws), built
+ * from its stored frames the first time they are asked for. */
+let gameOverlaysCache: GameOverlays | null = null;
+/** The last observation decoded for a loop. The frame and the telemetry for a
+ * loop are asked for in the same round, and both need it. */
+let observationMemo: { loop: number; response: Response | null } | null = null;
 /** The file `store` was opened from, which is what the catalog marks as the
  * row on screen. */
 let openFilePath: string | null = null;
@@ -98,6 +105,13 @@ let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
 let liveFootprintsPending = false;
 let firstObservation: Uint8Array | null = null;
 let latestObservation: Uint8Array | null = null;
+/** The live game's derived overlays, fed off the bus. Not read back from the
+ * store: it flushes once a second, and lines drawn from there would start at
+ * where the units were a second ago. */
+let liveOverlays = new GameOverlays();
+/** The observation behind the last pushed frame, so overlays are drawn
+ * against the same unit positions the map is showing. */
+let liveObservation: Response | null = null;
 /** The last frame actually pushed, kept so a renderer coming back to the live
  * view sees the game immediately instead of an empty map until the next one. */
 let lastLiveFrame: FrameAtLoopIpc | null = null;
@@ -312,6 +326,8 @@ function resetCaches(): void {
   unitTypeInfoCache = null;
   channelsCache = null;
   telemetryResolver = null;
+  gameOverlaysCache = null;
+  observationMemo = null;
 }
 
 /** Everything held about the game currently being played. Cleared between
@@ -322,6 +338,8 @@ function resetLiveGame(): void {
   liveFootprintsPending = false;
   firstObservation = null;
   latestObservation = null;
+  liveOverlays = new GameOverlays();
+  liveObservation = null;
   lastLiveFrame = null;
   if (liveFrameTimer) clearTimeout(liveFrameTimer);
   liveFrameTimer = null;
@@ -355,6 +373,7 @@ function pushLiveFrame(): void {
     loop: response.observation?.observation?.game_loop ?? 0,
     units: extractUnits(response),
   };
+  liveObservation = response;
   lastLiveFrame = frame;
   send("spectator:liveFrame", frame);
 }
@@ -366,6 +385,13 @@ function pushLiveFrame(): void {
  * means, and the recording still has every one of them.
  */
 function onLiveFrame(event: FrameEvent): void {
+  // A new channel (the first Attack order, say) has to reach the tree. The
+  // lines themselves need no push: the renderer asks for every loop it shows.
+  if (liveOverlays.addFrame(event) && activeSource === "live") {
+    channelsCache = null;
+    send("spectator:telemetryAppended");
+  }
+
   if (event.kind === "observation") {
     if (!firstObservation) {
       firstObservation = event.bytes;
@@ -677,11 +703,44 @@ function defaultTelemetryDir(): string {
   return path.join(app.getAppPath(), "telemetry");
 }
 
+/** The recorded observation at or before `loop`, decoded once per loop. Not
+ * remembered for a live game, whose store is still filling in. */
+function observationAt(store: HistoryStore, loop: number): Response | null {
+  if (activeSource === "live" || observationMemo?.loop !== loop) {
+    const bytes = store.readFrameAtOrBefore("observation", loop);
+    observationMemo = { loop, response: bytes ? decodeResponse(bytes) : null };
+  }
+  return observationMemo.response;
+}
+
+/** The derived overlays for whichever game is on screen: the live one from
+ * the bus, a recording from its stored frames. */
+function currentGameOverlays(store: HistoryStore): GameOverlays {
+  if (activeSource === "live") return liveOverlays;
+  if (!gameOverlaysCache) gameOverlaysCache = GameOverlays.fromStore(store);
+  return gameOverlaysCache;
+}
+
+/**
+ * The telemetry state plus the overlays derived from the game itself. They
+ * are merged here, on the way out, rather than written into the telemetry
+ * tables: nothing is stored, so checkpoints, detach and streams never see
+ * them.
+ */
 function resolveTelemetry(loop: number): TelemetryStateIpc {
   const store = db();
   if (!store) return { loop, overlays: [], snapshots: [], entities: [] };
   if (!telemetryResolver) telemetryResolver = new TelemetryResolver(store);
-  return telemetryResolver.stateAt(loop);
+  const state = telemetryResolver.stateAt(loop);
+
+  const derived = currentGameOverlays(store);
+  const observation = !derived.needsObservation
+    ? null
+    : activeSource === "live"
+      ? liveObservation
+      : observationAt(store, loop);
+  const extra = derived.overlaysAt(loop, observation);
+  return extra.length === 0 ? state : { ...state, overlays: [...state.overlays, ...extra] };
 }
 
 /**
@@ -735,6 +794,10 @@ function buildChannels(): ChannelIpc[] {
       sticky: declaration.sticky ?? false,
       seriesNames: [],
     });
+    seen.add(ch);
+  }
+  for (const channel of currentGameOverlays(store).channels()) {
+    if (!seen.has(channel.ch)) channels.push(channel);
   }
 
   channels.sort((a, b) => a.ch.localeCompare(b.ch));
@@ -1020,9 +1083,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("spectator:getFrameAtLoop", (_event, loop: number): FrameAtLoopIpc | null => {
     const store = db();
     if (!store) return null;
-    const bytes = store.readFrameAtOrBefore("observation", loop);
-    if (!bytes) return null;
-    const response = decodeResponse(bytes);
+    const response = observationAt(store, loop);
+    if (!response) return null;
     const actualLoop = response.observation?.observation?.game_loop ?? loop;
     return { loop: actualLoop, units: extractUnits(response) };
   });
