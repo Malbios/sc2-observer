@@ -31,6 +31,11 @@ const USAGE = `Usage: testbot [options]
   --loops <n>           stop after this many game loops, 0 = play to the end (default 1000)
   --end <mode>          surrender | leave | disconnect | hang | play (default surrender)
   --chat <n>            send a chat action every n steps, 0 = off (default 0)
+  --command             order two workers about with raw unit commands: one
+                        moves to the map centre then attack-moves on (queued),
+                        the other attack-moves straight to the enemy start
+  --debug-draw          draw a line, a box, a sphere and text with SC2's debug
+                        API every step, in four colors
   --telemetry <dir>     write a §3 NDJSON telemetry file into this directory
   --create-game <map>   create the game first, e.g. TorchesAIE.SC2Map
                         (this is Mode B: use it straight against the container,
@@ -47,6 +52,13 @@ type EndMode = (typeof END_MODES)[number];
 const SURRENDER = 1;
 /** ActionChat.Channel.Broadcast in sc2api.proto. */
 const CHAT_BROADCAST = 1;
+/** Ability ids from the data frame: MOVE_MOVE and the general ATTACK. */
+const MOVE = 16;
+const ATTACK = 3674;
+/** SCV, Drone and Probe. The test bot may know unit types; the app may not. */
+const WORKER_TYPES = new Set([45, 104, 84]);
+/** When the workers are ordered, late enough for the first steps to settle. */
+const COMMAND_AT_LOOP = 64;
 
 const CONNECT_RETRY_MS = 500;
 
@@ -178,6 +190,11 @@ function deriveMapInfo(gameInfo: Response, ownUnits: UnitSummary[]): TelemetryMa
   return { ourStart, enemyStart, playableArea };
 }
 
+function playableCentre(mapInfo: TelemetryMapInfo): Point {
+  const area = mapInfo.playableArea;
+  return { x: (area.x0 + area.x1) / 2, y: (area.y0 + area.y1) / 2 };
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if ("help" in args) {
@@ -192,6 +209,8 @@ async function main(): Promise<void> {
   const maxLoops = args.loops !== undefined ? Number(args.loops) : 1000;
   const endMode = parseEndMode(args.end);
   const chatEvery = args.chat ? Number(args.chat) : 0;
+  const sendCommands = "command" in args;
+  const debugDraw = "debug-draw" in args;
   const telemetryDir = args.telemetry || null;
   const createMap = args["create-game"] || null;
   const connectTimeout = args["connect-timeout"] ? Number(args["connect-timeout"]) : 60_000;
@@ -250,6 +269,8 @@ async function main(): Promise<void> {
   await conn.request({ ping: {} });
 
   let telemetry: TestTelemetryWriter | null = null;
+  let mapInfo: TelemetryMapInfo | null = null;
+  let commanded = false;
   let loop = 0;
   let step = 0;
   let naturalEnd = false;
@@ -267,9 +288,10 @@ async function main(): Promise<void> {
     }
 
     const ownUnits = extractUnits(observation).filter((unit) => unit.owner === playerId);
+    if (!mapInfo) mapInfo = deriveMapInfo(gameInfo, ownUnits);
 
     if (telemetryDir && !telemetry) {
-      telemetry = new TestTelemetryWriter(telemetryDir, name, deriveMapInfo(gameInfo, ownUnits), {
+      telemetry = new TestTelemetryWriter(telemetryDir, name, mapInfo, {
         url,
         step: stepSize,
         end: endMode,
@@ -289,9 +311,65 @@ async function main(): Promise<void> {
       ownUnits,
     });
 
+    // Raw unit commands, for the viewer's intent lines: an unqueued move with
+    // a queued attack-move chained after it, and a plain attack-move, so both
+    // the chain and two ability channels show up.
+    if (sendCommands && !commanded && loop >= COMMAND_AT_LOOP) {
+      commanded = true;
+      const workers = ownUnits.filter((unit) => WORKER_TYPES.has(unit.unitType));
+      const centre = playableCentre(mapInfo);
+      const enemy = { x: mapInfo.enemyStart.x, y: mapInfo.enemyStart.y };
+      if (workers.length >= 2) {
+        const [first, second] = [workers[0]!.tag, workers[1]!.tag];
+        await conn.request({
+          action: {
+            actions: [
+              { action_raw: { unit_command: { ability_id: MOVE, unit_tags: [first], target_world_space_pos: centre } } },
+              {
+                action_raw: {
+                  unit_command: { ability_id: ATTACK, unit_tags: [first], target_world_space_pos: enemy, queue_command: true },
+                },
+              },
+              { action_raw: { unit_command: { ability_id: ATTACK, unit_tags: [second], target_world_space_pos: enemy } } },
+            ],
+          },
+        });
+        console.log(`[testbot] loop ${loop}: worker ${first} moves to the centre then attacks, ${second} attacks.`);
+      } else {
+        console.log(`[testbot] loop ${loop}: fewer than two workers, no commands sent.`);
+      }
+    }
+
+    // Replaced every step, which is SC2's own rule for debug draws: the
+    // sphere grows with the loop so each step's draw is visibly a new one.
+    if (debugDraw) {
+      const centre = playableCentre(mapInfo);
+      const at = (p: { x: number; y: number }, z = 12) => ({ x: p.x, y: p.y, z });
+      await conn.request({
+        debug: {
+          debug: [
+            {
+              draw: {
+                lines: [{ color: { r: 255, g: 80, b: 80 }, line: { p0: at(mapInfo.ourStart), p1: at(mapInfo.enemyStart) } }],
+                boxes: [
+                  {
+                    color: { r: 80, g: 255, b: 120 },
+                    min: at({ x: mapInfo.ourStart.x - 6, y: mapInfo.ourStart.y - 6 }),
+                    max: at({ x: mapInfo.ourStart.x + 6, y: mapInfo.ourStart.y + 6 }),
+                  },
+                ],
+                spheres: [{ color: { r: 90, g: 160, b: 255 }, p: at(centre), r: 3 + ((loop / 8) % 10) }],
+                text: [{ color: { r: 255, g: 220, b: 60 }, text: `testbot loop ${loop}`, world_pos: at(centre) }],
+              },
+            },
+          ],
+        },
+      });
+    }
+
     // A chat action is the cheapest real Request.action: it proves action
     // frames round-trip through the proxy and land in the recording without
-    // needing ability-id lookups. Raw unit commands wait for Phase 6.
+    // needing ability-id lookups.
     if (chatEvery > 0 && step % chatEvery === 0) {
       await conn.request({
         action: { actions: [{ action_chat: { channel: CHAT_BROADCAST, message: `testbot loop ${loop}` } }] },
