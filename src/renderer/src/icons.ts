@@ -107,7 +107,7 @@ const PNG_ICONS = new Set([
   "SpawningPool", "SpineCrawler", "Spire", "SporeCrawler", "UltraliskCavern",
   "Baneling", "Changeling", "Corruptor", "Drone", "Egg", "Hydralisk", "Infestor", "Larva", "LocustMP",
   "LocustMPFlying", "LurkerMP", "Mutalisk", "Overlord", "OverlordTransport", "Overseer", "Queen",
-  "Ravager", "Roach", "SwarmHostMP", "Viper", "Zergling",
+  "Ravager", "Roach", "SwarmHostMP", "Viper", "Zergling", "Ultralisk", "BroodLord", "Broodling",
 ]);
 
 /** Unit types that are another form of one we have art for: burrowed,
