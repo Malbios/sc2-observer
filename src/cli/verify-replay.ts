@@ -68,6 +68,9 @@ interface FakeOptions {
  * which is enough to drive every branch the driver has. */
 class FakeClient implements Sc2Connection {
   readonly sent: string[] = [];
+  /** The `start_replay` payload as sent, so the view options can be checked
+   * without a client to look at. */
+  startRequest: Record<string, unknown> | null = null;
   private loop = 0;
   private closed = false;
 
@@ -94,6 +97,7 @@ class FakeClient implements Sc2Connection {
           replay_info: this.options.infoError ? this.options.infoError : REPLAY_INFO,
         });
       case "start_replay":
+        this.startRequest = fields["start_replay"] as Record<string, unknown>;
         return this.options.startError
           ? encodeResponse({ status: SC2_STATUS.launched, start_replay: this.options.startError })
           : encodeResponse({ status: SC2_STATUS.inReplay, start_replay: {} });
@@ -134,7 +138,10 @@ interface Harness {
   progress: ReplayProgressEvent[];
 }
 
-function harness(options: FakeOptions = {}, driverOptions: { stepLoops?: number } = {}): Harness {
+function harness(
+  options: FakeOptions = {},
+  driverOptions: { stepLoops?: number; observedPlayerId?: number } = {},
+): Harness {
   const bus = new EventBus();
   const client = new FakeClient({ ...options, stepLoops: driverOptions.stepLoops });
   const frames: FrameEvent[] = [];
@@ -149,6 +156,7 @@ function harness(options: FakeOptions = {}, driverOptions: { stepLoops?: number 
     sessionId: "test",
     connect: async () => client,
     replayData: new Uint8Array([1, 2, 3, 4]),
+    observedPlayerId: driverOptions.observedPlayerId,
     stepLoops: driverOptions.stepLoops,
     speed: "max",
   });
@@ -239,6 +247,25 @@ async function checkStart(): Promise<void> {
     );
     check("every frame is a response", frames.every((frame) => frame.direction === "response"), true);
     check("nothing has ended", driver.isFinished, false);
+  }
+
+  {
+    // Whose eyes, and what that does to fog. Measured against the real
+    // client: from the observer slot, disabling fog opens the whole map,
+    // while against a player it cuts the view to a fraction of what that
+    // player actually saw. So the player case keeps fog on, and a replay
+    // watched as player N then holds exactly what the live recording of that
+    // game holds, unit for unit.
+    const everything = harness();
+    await everything.driver.start();
+    check("the observer slot sees the whole map", everything.client.startRequest?.["observed_player_id"], 0);
+    check("which is what disabling fog does there", everything.client.startRequest?.["disable_fog"], true);
+
+    const asPlayer = harness({}, { observedPlayerId: 1 });
+    await asPlayer.driver.start();
+    check("watching as a player asks for that player", asPlayer.client.startRequest?.["observed_player_id"], 1);
+    check("and leaves fog alone, which is what they could see", asPlayer.client.startRequest?.["disable_fog"], false);
+    check("raw data either way", (asPlayer.client.startRequest?.["options"] as Record<string, unknown>)?.["raw"], true);
   }
 
   {

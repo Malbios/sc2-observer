@@ -23,13 +23,13 @@ import { FramePublisher } from "../state/FramePublisher";
  * - **A replay reports its outcome.** The final observation carries
  *   `player_result`, and `replay_info` carries it before the replay is even
  *   started, so a converted replay has the same headline as a live game.
- * - **`disable_fog` does not mean what it sounds like.** Watching as player 1
- *   with fog disabled shows 27 units at loop 200 of a test game: that player's
- *   own vision and nothing else. The same replay watched from the observer
- *   slot (`observed_player_id = 0`) with fog disabled shows 229: both players
- *   and every neutral unit on the map. Full-map review is therefore the
- *   observer slot, and watching as a player is the other, equally useful
- *   thing: seeing exactly what that player could see.
+ * - **`disable_fog` does not mean what it sounds like.** From the observer
+ *   slot it opens the whole map: 229 units at loop 200 of a test game, both
+ *   players and every neutral. Against a *player* it does the opposite,
+ *   cutting the view down to 27, where the live recording of that same game
+ *   holds 212. So fog is disabled only from the observer slot, and watching
+ *   as a player leaves it on, which reproduces what that player actually saw
+ *   down to the unit.
  *
  * It must not run while a live session holds the client: SC2 accepts one
  * connection at a time, and §4 says so explicitly. Enforcing that is the
@@ -215,8 +215,13 @@ export class ReplayDriver {
         replay_data: this.replayData,
         observed_player_id: this.observedPlayerId,
         options: { raw: true, score: true },
-        // §4: fog off. A replay is being reviewed, not played.
-        disable_fog: true,
+        // Fog off only from the observer slot. Measured: from the observer
+        // slot it opens the whole map (229 units at loop 200 of a test game),
+        // but against a *player* it restricts the view to a fraction of what
+        // that player actually saw (27, where the live recording of the same
+        // game holds 212). So watching as a player keeps fog on, which
+        // reproduces that player's vision exactly.
+        disable_fog: this.observedPlayerId === OBSERVER_SLOT,
         realtime: false,
       },
     });

@@ -7,10 +7,10 @@ import type { InspectReplayResultIpc } from "../../../shared/ipc-types";
  *
  * That choice is not cosmetic. Watching from the observer slot records the
  * whole map, both players and every neutral unit; watching as a player
- * records exactly what that player could see, which is the view a bot author
- * usually wants when asking "why did it do that?". The recording is made once
- * and scrubbed forever after, so the choice has to be made here rather than
- * in the viewer.
+ * records exactly what that player could see, down to the unit, which is the
+ * view a bot author usually wants when asking "why did it do that?". The
+ * recording is made once and scrubbed forever after, so the choice has to be
+ * made here rather than in the viewer.
  */
 
 const OBSERVER_SLOT = 0;
