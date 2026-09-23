@@ -30,12 +30,17 @@ node dist/cli/record.js --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 50
 node dist/cli/dump.js game.sqlite --loop 5000
 node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
 node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry
+node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
+node dist/cli/probe-replay.js --file game.SC2Replay
 ```
 
 `session` is the headless equivalent of the app's live session: it owns the
 container, records a file per game, saves replays and creates the next game.
 `record` is the minimal single-game recorder and expects a container to be
-running already; it is what fixtures are made with.
+running already; it is what fixtures are made with. `replay` plays a
+`.SC2Replay` through the client and records it as a game: `--watch` is whose
+eyes it is watched through (0, the default, is the observer slot and sees
+everything) and `--player` is whose result the game file calls its own.
 
 Python emitter (no dependencies, not part of the npm build):
 
@@ -70,6 +75,7 @@ One Electron main process owns the Docker manager, game proxy, session controlle
 ```
 src/bus/          EventBus: frame, gameEnded, telemetry
 src/proxy/        GameProxy (Mode A: the proxy sends createGame itself)
+src/replay/       ReplayDriver (plays a .SC2Replay) and ReplaySession (records it)
 src/protocol/     protobufjs loader for the vendored .proto files
 src/state/        decode helpers: frames (units, request/response classification), terrain, unitTypes
 src/history/      HistoryStore, one SQLite file per game
@@ -85,6 +91,7 @@ vendor/           s2clientprotocol .proto files, pinned
 ### Traps that have already cost time
 
 - **protobufjs and proto2 enum defaults.** An unset optional enum field decodes as its first value, which for `ResponseJoinGame.error` is `MissingParticipation = 1`. Testing `if (response.join_game.error)` reports every successful join as a failure. Check presence with `Object.prototype.hasOwnProperty.call(...)`, never truthiness. The schema loader needs `keepCase: true`, or `oneof` request fields are silently never set.
+- **protobufjs decodes enums as numbers, and only `toJSON` renders names.** `JSON.stringify(decoded)` shows `"result": "Defeat"` while reading the same field gives `2`, so a value that looked right in a log was written to a game file as `2.0`. It cost time twice (a game's result, then a replay's races and player types). Anything stored or displayed goes through `enumName()` in `src/protocol/schema.ts`.
 - **Any handler on a socket must be attached before yielding.** Attaching a `message` listener after an `await` loses frames that arrive during the gap: `ws` neither buffers them nor errors, and both sides hang forever with no diagnostic.
 - **`tsconfig.web.json` is not covered by `npm run build`.** Run `npm run typecheck`, or renderer type errors accumulate unnoticed.
 - **`npm run dev` hot-reloads the renderer only.** A change under `src/main`, `src/preload`, or anything they import (`src/state`, `src/session`, ...) needs the dev server restarted, or the window keeps running the previous build and the fix appears not to work. Restarting also kills any live session, which is a hard kill, so the container it owned is left behind: `docker rm -f sc2-observer`.
@@ -108,11 +115,13 @@ Field spellings live in `src/shared/telemetry-types.ts`, which both the viewer a
 
 Everything below the viewer is tested against recorded frames and bytes, never against a live game, so tests stay deterministic:
 
-- `npm run verify` builds and runs seven suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
+- `npm run verify` builds and runs eight suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, and the game file a replay becomes), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
 The live path (proxy, session controller, tailer) cannot be covered that way, so `src/cli/testbot.ts` is a scripted SC2 API client: it joins like a real bot, steps for a set number of loops, optionally writes a conformant telemetry file, and ends the game on command (`surrender`, `leave`, `disconnect`, `hang`, `play`) so failure modes reproduce in seconds instead of a full game. It is a dev tool only. The real python-sc2 bot at `C:\dev\sc2-ai` stays the realism oracle and **must not be modified** for this project's needs.
+
+Replay facts, measured by `node dist/cli/probe-replay.js` rather than read off the proto: `replay_info` and `start_replay` both accept the replay as **bytes** (`replay_data`), so nothing is copied into the container; a replay ends by the client leaving `in_replay`, which is what the driver stops on; `replay_info` carries the map, the length in loops, the build and every player with race and result, so a converted replay is filed with its outcome before a loop is stepped; and **`disable_fog` does not mean "see everything"**. Watching as player 1 with fog off showed 27 units at loop 200 of a test game (that player's own vision); the same replay from the observer slot (`observed_player_id = 0`) with fog off showed 229 (both players and every neutral). Full-map review is the observer slot; watching as a player is the other, equally useful thing.
 
 Live-path facts already established, so they do not need re-deriving: `surrender` (via `debug.end_game`) is the only fast end that yields a real `player_result`; `leave` transitions `in_game -> launched` cleanly but produces no `player_result`, so `record` hangs; a bot that **disconnects leaves SC2 in `in_game` forever with no status transition**, so a finished session must be detected from the bot socket closing, not from game status; recovery is `leave_game` on a fresh connection, after which `create_game` works with no container restart.
 
@@ -120,12 +129,16 @@ Live-path facts already established, so they do not need re-deriving: `surrender
 
 Six phases (§7), each depending on the prior and ending with something runnable: Phase 0 (Dockerfile + proxy spike) → Phase 1 (decode + record) → Phase 2 (viewer on recordings) → Phase 3 (telemetry file) → Phase 4 (live session + Docker UI) → Phase 5 (history browser) → Phase 6 (replays + debug draws).
 
-**Phases 0 through 5 are complete.** Each was verified against live games, not only fixtures: Phase 3's tailer followed two real bot runs with zero rejections across 3231 messages, Phase 4's session played, recorded, saved a replay and created the next game with no manual step, and Phase 5's catalog was exercised against the games those sessions left behind.
+**Phases 0 through 5 are complete**, each verified against live games rather than only fixtures.
 
-**Phase 6 is next**: replay playback and drag-and-drop of `.SC2Replay` files, pairing a ladder replay with its telemetry, debug draws, and the settings §7 defers to it (ports, folders, retention). It inherits a few things worth knowing:
+**Phase 6 is in progress.** The replay path is done: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. What is left of the phase, planned separately: native debug draws as `_game/debug` overlays, command-intent lines from `Request.action`, keyboard shortcuts, settings (ports, folders, retention), and the installer.
 
-- `saveReplay` works from `ended` and from `in_game`, confirmed by `npm run probe-endgame`, and the bytes come back over the wire, so nothing needs mounting into the container. A game ended by `leave_game` leaves the client at `launched`, which returns no replay at all; the session logs that and carries on.
-- `CatalogStore` (`<userData>/catalog.sqlite`) exists with a `settings` table and one setting in it. That is where Phase 6's ports, folders and retention belong. There is deliberately **no `games` table**: under WAL a cache of the game files has no workable staleness key, so `listGames` peeks the folder on every call (the reasoning is in `src/history/peek.ts`).
-- `meta.source` is already written as `"live"`, so §6.4's replay-sourced games need no migration.
-- Game files are named in UTC while the catalog shows local time, which is a deliberate choice: names stay sortable and unambiguous, and the row's tooltip carries the path.
+Decisions already taken that the rest of the phase should not re-litigate:
+
+- **A replay is played once and recorded, then watched as a recording.** SC2 cannot seek a replay backwards, so the driver writes every observation into a game file and the viewer scrubs that. Play/pause/speed/seek are therefore the controls the viewer already has, and the second viewing needs no container at all.
+- **Whose eyes and whose result are separate.** `observed_player_id` decides how much of the map the recording holds; the subject player decides whose result the row reports. A ladder replay is watched from the observer slot and still filed under the bot's defeat.
+- **The client is one seat.** A replay is refused while a session runs and a session is refused while a replay plays, enforced in `src/main/ipc.ts`, because SC2 accepts one connection at a time and a session's `ensureClientReady({replaceRunning: true})` would destroy a container a replay was using.
+- **Retention, when it is built, reports and never deletes on its own**: the folder's size plus a manual "delete games older than X" behind the same confirmation as a single delete.
+- `CatalogStore` (`<userData>/catalog.sqlite`) holds settings and nothing else. That is where the settings step belongs. There is deliberately **no `games` table**: under WAL a cache of the game files has no workable staleness key, so `listGames` peeks the folder on every call (the reasoning is in `src/history/peek.ts`).
+- Game files are named in UTC while the catalog shows local time, deliberately: names stay sortable and unambiguous, and the row's tooltip carries the path.
 - A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.
