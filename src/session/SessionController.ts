@@ -10,7 +10,7 @@ import {
   GameEndReason,
 } from "../bus/EventBus";
 import { DockerManager } from "../docker/DockerManager";
-import { gameFileName, replayPathFor } from "../history/gameFiles";
+import { gameFileName, replayPathFor, uniqueGamePath } from "../history/gameFiles";
 import { HistoryStore } from "../history/HistoryStore";
 import { GameMode, GameProxy, PlayerResult } from "../proxy/GameProxy";
 import { SC2_STATUS, statusName } from "../protocol/status";
@@ -246,19 +246,8 @@ export class SessionController {
     return store;
   }
 
-  /**
-   * Names are per second, so two games that both start within one second
-   * would otherwise open the same file and quietly merge into one recording.
-   * That only happens when a game ends the instant it starts, which is exactly
-   * the case worth being able to look at afterwards.
-   */
   private nextGamePath(at: Date): string {
-    const base = join(this.gamesDir, gameFileName(this.map, at));
-    if (!existsSync(base)) return base;
-    for (let n = 2; ; n++) {
-      const candidate = base.replace(/\.sqlite$/, `-${n}.sqlite`);
-      if (!existsSync(candidate)) return candidate;
-    }
+    return uniqueGamePath(join(this.gamesDir, gameFileName(this.map, at)), existsSync);
   }
 
   /**

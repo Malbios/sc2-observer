@@ -2,7 +2,8 @@ import WebSocket, { WebSocketServer } from "ws";
 import { EventBus } from "../bus/EventBus";
 import { decodeRequest, decodeResponse, encodeRequest, resultName } from "../protocol/schema";
 import { isTerminalStatus, SC2_STATUS } from "../protocol/status";
-import { classifyRequest, classifyResponse, LoopTracker } from "../state/frames";
+import { classifyRequest } from "../state/frames";
+import { FramePublisher } from "../state/FramePublisher";
 
 /**
  * §1: the user picks this before a session; it is never detected from traffic.
@@ -58,9 +59,10 @@ export class GameProxy {
   private readonly botPort: number;
   private readonly sc2Host: string;
   private readonly sc2Port: number;
-  private readonly loopTracker = new LoopTracker();
+  /** The publish half, shared with the replay driver: loop tracking, the
+   * store-once rule for `gameInfo`/`data`, and the bus emission. */
+  private readonly frames: FramePublisher;
   private server: WebSocketServer | null = null;
-  private storedOnceKinds = new Set<string>();
   /** Once per game: a surrender puts `player_result` in every subsequent
    * observation, and the status stays `ended`, so both signals repeat. */
   private gameEndedEmitted = false;
@@ -83,6 +85,7 @@ export class GameProxy {
     this.botPort = options.botPort ?? 5000;
     this.sc2Host = options.sc2Host ?? "127.0.0.1";
     this.sc2Port = options.sc2Port ?? 5001;
+    this.frames = new FramePublisher(this.sessionId, this.bus);
   }
 
   /** True while a bot holds the relay open, which is exactly when the proxy
@@ -92,7 +95,7 @@ export class GameProxy {
   }
 
   get currentLoop(): number {
-    return this.loopTracker.loop;
+    return this.frames.loop;
   }
 
   /**
@@ -218,8 +221,7 @@ export class GameProxy {
    * its loop axis at zero.
    */
   resetForNewGame(): void {
-    this.storedOnceKinds.clear();
-    this.loopTracker.reset();
+    this.frames.reset();
     this.gameEndedEmitted = false;
     this.lastStatus = null;
     // Game two inheriting game one's Victory is the same bug this method
@@ -249,7 +251,7 @@ export class GameProxy {
   private endGame(reason: "result" | "status" | "botClosed"): void {
     if (this.gameEndedEmitted) return;
     this.gameEndedEmitted = true;
-    this.bus.emit("gameEnded", { sessionId: this.sessionId, loop: this.loopTracker.loop, reason });
+    this.bus.emit("gameEnded", { sessionId: this.sessionId, loop: this.frames.loop, reason });
   }
 
   /**
@@ -260,17 +262,7 @@ export class GameProxy {
    */
   publishResponse(bytes: Uint8Array): void {
     const decoded = decodeResponse(bytes);
-    const loop = this.loopTracker.observe(decoded);
-    const kind = classifyResponse(decoded);
-    // gameInfo and data are static for the whole game (§6.3: "gameInfo and
-    // data appear once") but some bots re-request them every step; only the
-    // first copy is worth persisting.
-    const storeOnce = kind === "gameInfo" || kind === "data";
-    const alreadyStored = kind !== null && this.storedOnceKinds.has(kind);
-    if (kind && !(storeOnce && alreadyStored)) {
-      this.bus.emit("frame", { sessionId: this.sessionId, loop, kind, direction: "response", bytes });
-      if (storeOnce) this.storedOnceKinds.add(kind);
-    }
+    this.frames.publish(bytes, decoded);
 
     // The join response is relayed like any other frame and stored as none:
     // `classifyResponse` gives it no kind. Reading the id off the decode that
@@ -313,9 +305,7 @@ export class GameProxy {
   private publishRequest(bytes: Uint8Array): void {
     const decoded = decodeRequest(bytes);
     const kind = classifyRequest(decoded);
-    if (kind) {
-      this.bus.emit("frame", { sessionId: this.sessionId, loop: this.loopTracker.loop, kind, direction: "request", bytes });
-    }
+    if (kind) this.frames.emit(kind, bytes, "request");
   }
 
   async start(): Promise<void> {
@@ -336,7 +326,7 @@ export class GameProxy {
       const pending: Buffer[] = [];
       let sc2Ws: WebSocket | null = null;
       this.botSocket = botWs;
-      this.bus.emit("botConnection", { sessionId: this.sessionId, connected: true, loop: this.loopTracker.loop });
+      this.bus.emit("botConnection", { sessionId: this.sessionId, connected: true, loop: this.frames.loop });
 
       botWs.on("message", (data: Buffer) => {
         this.publishRequest(data);
@@ -376,7 +366,7 @@ export class GameProxy {
         // `player_result` (§7.1). If the game already ended this is just the
         // bot leaving between games, and endGame's guard swallows it.
         this.endGame("botClosed");
-        this.bus.emit("botConnection", { sessionId: this.sessionId, connected: false, loop: this.loopTracker.loop });
+        this.bus.emit("botConnection", { sessionId: this.sessionId, connected: false, loop: this.frames.loop });
       };
       botWs.on("close", closeBoth);
       sc2Ws.on("close", closeBoth);

@@ -57,6 +57,26 @@ export interface TelemetryAppendedEvent {
   lastLoop: number | null;
 }
 
+/**
+ * Where a replay being played through the client has got to.
+ *
+ * A replay is the one producer whose end is known in advance: §7's
+ * `ResponseReplayInfo` gives the game's length in loops before the first step,
+ * so this is a real fraction rather than a spinner. It is a separate event
+ * from `sessionState` because a replay is not a session: no bot, no container
+ * ownership, no next game.
+ */
+export interface ReplayProgressEvent {
+  sessionId: string;
+  loop: number;
+  /** The replay's length from `replay_info`, or 0 when it did not say. */
+  totalLoops: number;
+  playing: boolean;
+  finished: boolean;
+  /** Set when the replay stopped because something went wrong. */
+  error: string | null;
+}
+
 /** A line for the diagnostics panel (§4). `manager`, `session` and `history`
  * lines are the app's own narration of what it is doing and why it is
  * waiting; `build` and `container` are Docker's own output. */
@@ -72,6 +92,7 @@ interface EventBusEvents {
   clientStatus: [ClientStatusEvent];
   botConnection: [BotConnectionEvent];
   telemetry: [TelemetryAppendedEvent];
+  replayProgress: [ReplayProgressEvent];
   dockerLog: [DockerLogEvent];
 }
 

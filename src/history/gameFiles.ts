@@ -30,6 +30,23 @@ export function sidecarPathsFor(gameFilePath: string): string[] {
 }
 
 /**
+ * A path no game is using yet.
+ *
+ * Names are per second, so two games that both start within one second would
+ * otherwise open the same file and quietly merge into one recording. That
+ * happens when a game ends the instant it starts, which is exactly the case
+ * worth being able to look at afterwards, and again when the same replay is
+ * converted twice.
+ */
+export function uniqueGamePath(basePath: string, exists: (path: string) => boolean): string {
+  if (!exists(basePath)) return basePath;
+  for (let n = 2; ; n++) {
+    const candidate = basePath.replace(/\.sqlite$/i, `-${n}.sqlite`);
+    if (!exists(candidate)) return candidate;
+  }
+}
+
+/**
  * Every file that is part of one game, in the order a delete should take
  * them: the sidecars before the database they belong to, so a delete
  * interrupted half way leaves a game that still opens rather than a database
