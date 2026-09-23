@@ -145,12 +145,14 @@ const ICON_ALIASES: Record<string, string> = {
   LurkerMPEgg: "Egg",
 };
 
+/** Relative, not `/icons/`: the built app loads index.html from disk, where
+ * a leading slash means the drive root, and every icon silently failed. */
 function resolveIconUrl(requested: string): string {
   const name = ICON_ALIASES[requested] ?? requested;
   for (const [pattern, file] of GENERIC_ICON_PATTERNS) {
-    if (pattern.test(name)) return `/icons/${file}`;
+    if (pattern.test(name)) return `icons/${file}`;
   }
-  return PNG_ICONS.has(name) ? `/icons/${name}.png` : `/icons/${name}.webp`;
+  return PNG_ICONS.has(name) ? `icons/${name}.png` : `icons/${name}.webp`;
 }
 
 /** Loads the icon for a unit type name (see public/icons/SOURCE.md for
