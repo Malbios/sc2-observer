@@ -29,7 +29,7 @@ node dist/cli/session.js --map TorchesAIE.SC2Map [--mode A|B] [--games-dir DIR]
 node dist/cli/record.js --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 5001]
 node dist/cli/dump.js game.sqlite --loop 5000
 node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
-node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry
+node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw]
 node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
 node dist/cli/probe-replay.js --file game.SC2Replay
 ```
@@ -77,7 +77,8 @@ src/bus/          EventBus: frame, gameEnded, telemetry
 src/proxy/        GameProxy (Mode A: the proxy sends createGame itself)
 src/replay/       ReplayDriver (plays a .SC2Replay) and ReplaySession (records it)
 src/protocol/     protobufjs loader for the vendored .proto files
-src/state/        decode helpers: frames (units, request/response classification), terrain, unitTypes
+src/state/        decode helpers: frames (units, request/response classification), terrain, unitTypes;
+                  and the overlays derived from the game itself: intent, debugDraw, GameOverlays
 src/history/      HistoryStore, one SQLite file per game
 src/telemetry/    parse, TelemetryModel (retention), TelemetryResolver, ingest, TelemetryTailer
 src/shared/       IPC and telemetry types, shared by main and renderer
@@ -90,7 +91,7 @@ vendor/           s2clientprotocol .proto files, pinned
 
 ### Traps that have already cost time
 
-- **protobufjs and proto2 enum defaults.** An unset optional enum field decodes as its first value, which for `ResponseJoinGame.error` is `MissingParticipation = 1`. Testing `if (response.join_game.error)` reports every successful join as a failure. Check presence with `Object.prototype.hasOwnProperty.call(...)`, never truthiness. The schema loader needs `keepCase: true`, or `oneof` request fields are silently never set.
+- **protobufjs and proto2 enum defaults.** An unset optional enum field decodes as its first value, which for `ResponseJoinGame.error` is `MissingParticipation = 1`. Testing `if (response.join_game.error)` reports every successful join as a failure. Check presence with `Object.prototype.hasOwnProperty.call(...)`, never truthiness. The schema loader needs `keepCase: true`, or `oneof` request fields are silently never set. The same goes for a `oneof`: an unset `target_unit_tag` reads as `0` beside a real `target_world_space_pos`, so which target a command has is also a presence check.
 - **protobufjs decodes enums as numbers, and only `toJSON` renders names.** `JSON.stringify(decoded)` shows `"result": "Defeat"` while reading the same field gives `2`, so a value that looked right in a log was written to a game file as `2.0`. It cost time twice (a game's result, then a replay's races and player types). Anything stored or displayed goes through `enumName()` in `src/protocol/schema.ts`.
 - **Any handler on a socket must be attached before yielding.** Attaching a `message` listener after an `await` loses frames that arrive during the gap: `ws` neither buffers them nor errors, and both sides hang forever with no diagnostic.
 - **`tsconfig.web.json` is not covered by `npm run build`.** Run `npm run typecheck`, or renderer type errors accumulate unnoticed.
@@ -115,11 +116,11 @@ Field spellings live in `src/shared/telemetry-types.ts`, which both the viewer a
 
 Everything below the viewer is tested against recorded frames and bytes, never against a live game, so tests stay deterministic:
 
-- `npm run verify` builds and runs eight suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, and the game file a replay becomes), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
+- `npm run verify` builds and runs nine suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-overlays` (command-intent lines against the same fixture copy, plus synthetic chains, unit targets and debug draws), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, and the game file a replay becomes), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, re-watch deduplication, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
-The live path (proxy, session controller, tailer) cannot be covered that way, so `src/cli/testbot.ts` is a scripted SC2 API client: it joins like a real bot, steps for a set number of loops, optionally writes a conformant telemetry file, and ends the game on command (`surrender`, `leave`, `disconnect`, `hang`, `play`) so failure modes reproduce in seconds instead of a full game. It is a dev tool only. The real python-sc2 bot at `C:\dev\sc2-ai` stays the realism oracle and **must not be modified** for this project's needs.
+The live path (proxy, session controller, tailer) cannot be covered that way, so `src/cli/testbot.ts` is a scripted SC2 API client: it joins like a real bot, steps for a set number of loops, optionally writes a conformant telemetry file, gives raw unit orders (`--command`) and draws with the debug API (`--debug-draw`), and ends the game on command (`surrender`, `leave`, `disconnect`, `hang`, `play`) so failure modes reproduce in seconds instead of a full game. It is a dev tool only. The real python-sc2 bot at `C:\dev\sc2-ai` stays the realism oracle and **must not be modified** for this project's needs.
 
 Replay facts, measured by `node dist/cli/probe-replay.js` rather than read off the proto: `replay_info` and `start_replay` both accept the replay as **bytes** (`replay_data`), so nothing is copied into the container; a replay ends by the client leaving `in_replay`, which is what the driver stops on; `replay_info` carries the map, the length in loops, the build and every player with race and result, so a converted replay is filed with its outcome before a loop is stepped; and **`disable_fog` does not mean "see everything"**. Watching as player 1 with fog off showed 27 units at loop 200 of a test game (that player's own vision); the same replay from the observer slot (`observed_player_id = 0`) with fog off showed 229 (both players and every neutral). Full-map review is the observer slot; watching as a player is the other, equally useful thing.
 
@@ -131,7 +132,7 @@ Six phases (§7), each depending on the prior and ending with something runnable
 
 **Phases 0 through 5 are complete**, each verified against live games rather than only fixtures.
 
-**Phase 6 is in progress.** The replay path is done: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. What is left of the phase, planned separately: native debug draws as `_game/debug` overlays, command-intent lines from `Request.action`, keyboard shortcuts, settings (ports, folders, retention), and the installer.
+**Phase 6 is in progress.** The replay path is done: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. Command-intent lines and native debug draws are done too, seen live and in the reopened recording. What is left of the phase, planned separately: keyboard shortcuts, settings (ports, folders, retention), and the installer.
 
 Decisions already taken that the rest of the phase should not re-litigate:
 
@@ -141,4 +142,7 @@ Decisions already taken that the rest of the phase should not re-litigate:
 - **Retention, when it is built, reports and never deletes on its own**: the folder's size plus a manual "delete games older than X" behind the same confirmation as a single delete.
 - `CatalogStore` (`<userData>/catalog.sqlite`) holds settings and nothing else. That is where the settings step belongs. There is deliberately **no `games` table**: under WAL a cache of the game files has no workable staleness key, so `listGames` peeks the folder on every call (the reasoning is in `src/history/peek.ts`).
 - Game files are named in UTC while the catalog shows local time, deliberately: names stay sortable and unambiguous, and the row's tooltip carries the path.
+- **Intent lines and debug draws are derived when asked, never stored.** `GameOverlays` is fed frames one at a time, from the bus while a game is live and from the stored frames when a recording opens, and `src/main/ipc.ts` merges its overlays and channels into the telemetry answers on the way out. Nothing lands in the telemetry tables, so checkpoints, detach and streams never see them. Every recording already held its action frames, so old games get intent lines; debug frames are only stored from this build on.
+- Intent: one channel per ability, `_game/intent/<friendly_name>`, specific abilities folded into their general form. A line lasts while the unit exists and its `orders` still hold it; the orders are the tail of what it was told, which is also how a queued chain drops its finished links. Commands with no target draw nothing and make no channel.
+- Debug draws follow SC2: each draw request replaces the last, one overlay per color on `_game/debug`. Screen-space text is skipped, and JSON in debug text is not read as shapes; the telemetry file is for that. `MapView` pools overlays by channel and position for this.
 - A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.
