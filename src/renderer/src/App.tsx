@@ -839,6 +839,15 @@ export function App(): JSX.Element {
     },
   };
 
+  /** Who has the client. A replay needs it and a session needs it, and SC2
+   * accepts one connection at a time (§4), so the button that would take it
+   * says why it cannot rather than failing after the attempt. */
+  const clientBusy = sessionRunning(session)
+    ? "A live session has the client. Stop it first."
+    : replaying
+      ? "A replay is already playing."
+      : null;
+
   /** The replay panel, and the line that says a replay is being read. Both
    * screens show them, because a replay can be dropped on either. */
   const replayOverlay = (
@@ -902,7 +911,11 @@ export function App(): JSX.Element {
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
             {/* Games from elsewhere: a copy someone sent, or the repo's
                 fixtures. Anything in the games folder is already a row. */}
-            <button onClick={() => void pickReplay()} title="Play a .SC2Replay and record it as a game">
+            <button
+              onClick={() => void pickReplay()}
+              disabled={clientBusy !== null}
+              title={clientBusy ?? "Play a .SC2Replay and record it as a game"}
+            >
               Open Replay...
             </button>
             <button onClick={openRecording}>Open Recording...</button>
@@ -1023,6 +1036,16 @@ export function App(): JSX.Element {
               a folder mid-game imports every earlier run sitting in it, each
               on its own loop axis, into the live recording. */}
           {!live && <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>}
+          {/* Offered here as well as in the catalog: a replay someone sent you
+              is opened from wherever you happen to be. Disabled rather than
+              hidden while the client is taken, so it says why. */}
+          <button
+            onClick={() => void pickReplay()}
+            disabled={clientBusy !== null}
+            title={clientBusy ?? "Play a .SC2Replay and record it as a game"}
+          >
+            Open Replay...
+          </button>
           <button onClick={openRecording}>Open Recording...</button>
           {sessionPanel(true)}
         </span>
