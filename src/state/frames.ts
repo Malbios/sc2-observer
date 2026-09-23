@@ -65,7 +65,7 @@ export interface UnitSummary {
  * decoded instances even for the same logical tag. SC2 tags fit well within
  * Number.MAX_SAFE_INTEGER, so a plain conversion loses nothing.
  */
-function toSafeNumber(value: unknown): number {
+export function toSafeNumber(value: unknown): number {
   if (typeof value === "number") return value;
   if (value && typeof (value as { toNumber?: () => number }).toNumber === "function") {
     return (value as { toNumber: () => number }).toNumber();

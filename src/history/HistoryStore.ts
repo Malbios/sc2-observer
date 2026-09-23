@@ -414,6 +414,16 @@ export class HistoryStore {
     return row ? brotliDecompressSync(row.bytes) : undefined;
   }
 
+  /** Every frame of one kind and direction, in the order it was recorded.
+   * Requests are read this way rather than per loop: what a bot asked for is
+   * a history to replay forward, not a state to look up. */
+  readFrames(kind: string, direction: "request" | "response"): { loop: number; bytes: Uint8Array }[] {
+    const rows = this.stmt(
+      "SELECT loop, bytes FROM frames WHERE kind = ? AND direction = ? ORDER BY loop, rowid"
+    ).all(kind, direction) as { loop: number; bytes: Buffer }[];
+    return rows.map((row) => ({ loop: row.loop, bytes: brotliDecompressSync(row.bytes) }));
+  }
+
   getMaxLoop(): number {
     const row = this.stmt("SELECT MAX(loop) as maxLoop FROM frames WHERE kind = 'observation'").get() as
       | { maxLoop: number | null }
