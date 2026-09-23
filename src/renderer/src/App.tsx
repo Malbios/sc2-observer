@@ -151,6 +151,9 @@ export function App(): JSX.Element {
 
   const replaying = replay !== null && !replay.finished;
   const live = view === "live" && (sessionRunning(session) || replaying);
+  /** The list is on screen when asked for, and also when there is nothing
+   * else to show: a stopped session leaves `view` at "live" with no game. */
+  const showingCatalog = view === "catalog" || (!recording && !live);
   const map = live ? session?.map || replay?.map || "" : recording?.map ?? "";
   const mode = live ? (sessionRunning(session) ? session!.mode : "replay") : recording?.mode ?? "";
   // Live has nothing past the head to scrub to (§6.4), so the track's end is
@@ -463,9 +466,9 @@ export function App(): JSX.Element {
    * game, which is when a new row exists to show.
    */
   useEffect(() => {
-    if (view !== "catalog") return;
+    if (!showingCatalog) return;
     void refreshCatalog();
-  }, [view, session?.gameFile, session?.gamesPlayed, refreshCatalog]);
+  }, [showingCatalog, session?.gameFile, session?.gamesPlayed, refreshCatalog]);
 
   const showCatalog = useCallback(() => {
     setView("catalog");
@@ -888,7 +891,7 @@ export function App(): JSX.Element {
   const returnTo: SourceKind | null =
     lastSource === "live" && sessionRunning(session) ? "live" : recording ? "recording" : sessionRunning(session) ? "live" : null;
 
-  if (view === "catalog" || (!recording && !live)) {
+  if (showingCatalog) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }} {...dropTarget}>
         {replayOverlay}
