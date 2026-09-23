@@ -1,9 +1,9 @@
-import { createReadStream, existsSync, readdirSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { EventBus, type FrameEvent } from "../bus/EventBus";
-import { DockerManager, IMAGE_NAME } from "../docker/DockerManager";
+import { CONTAINER_PORT, DockerManager, IMAGE_NAME } from "../docker/DockerManager";
 import { CatalogStore } from "../history/CatalogStore";
 import { gameFilesFor, replayPathFor } from "../history/gameFiles";
 import { exportGameTo, normalizeTags, writeGameTags } from "../history/manage";
@@ -15,6 +15,9 @@ import { decodeResponse } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
 import { extractUnitTypeInfo } from "../state/unitTypes";
+import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
+import { ReplaySession } from "../replay/ReplaySession";
+import { connectSc2 } from "../protocol/connection";
 import { detachStream } from "../telemetry/detach";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
@@ -26,7 +29,10 @@ import type {
   FrameAtLoopIpc,
   GameActionResultIpc,
   GameCatalogIpc,
+  InspectReplayResultIpc,
   OpenGameResultIpc,
+  OpenReplayResultIpc,
+  ReplayProgressIpc,
   RecordingInfo,
   SessionPhase,
   SessionStatusIpc,
@@ -112,6 +118,17 @@ let preExistingTelemetry: string[] = [];
  * rest of the run. Null until they pick one. */
 let telemetryDir: string | null = null;
 
+// -- the replay driver ------------------------------------------------------
+
+/**
+ * The replay being converted, if any. A replay and a live session both want
+ * the client, and SC2 accepts one connection at a time, so only one of these
+ * two exists at once and each refuses to start while the other holds it.
+ */
+let replayDriver: ReplayDriver | null = null;
+let replaySession: ReplaySession | null = null;
+let replayProgress: ReplayProgressIpc | null = null;
+
 function dockerDir(): string {
   return path.join(app.getAppPath(), "docker");
 }
@@ -158,9 +175,18 @@ function docker(): DockerManager {
   return inspector;
 }
 
+/**
+ * The game being written right now, whichever produces it. A live session and
+ * a replay being converted are the same thing to everything downstream: one
+ * store, filling up, that the viewer follows.
+ */
+function liveStore(): HistoryStore | null {
+  return session?.activeStore ?? replaySession?.activeStore ?? null;
+}
+
 /** The store the queries read from. */
 function db(): HistoryStore | null {
-  const next = activeSource === "live" ? session?.activeStore ?? null : store;
+  const next = activeSource === "live" ? liveStore() : store;
   if (next !== cachedStore) {
     cachedStore = next;
     resetCaches();
@@ -237,8 +263,25 @@ function buildCatalog(): GameCatalogIpc {
   return {
     dir: gamesDir(),
     games: listGames(gamesDir()),
-    liveFilePath: session?.status.gameFile ?? null,
+    liveFilePath: session?.status.gameFile ?? replaySession?.gameFile ?? null,
     openFilePath,
+  };
+}
+
+/** A session that is not running, with room for the reason it is not. The
+ * panel reads `error` and shows it, which is how a refusal reaches the user
+ * without inventing a phase for it. */
+function idleSessionStatus(): SessionStatusIpc {
+  return {
+    phase: session?.status.phase ?? "idle",
+    mode: session?.status.mode ?? "A",
+    map: session?.status.map ?? "",
+    gameFile: null,
+    gamesPlayed: session?.status.gamesPlayed ?? 0,
+    loop: 0,
+    botConnected: false,
+    clientStatus: "none",
+    error: null,
   };
 }
 
@@ -377,6 +420,206 @@ function attachLiveTelemetry(): void {
   bus.emit("dockerLog", { source: "session", line: `watching ${dir} for telemetry` });
 }
 
+/** One place for both replay entry points to refuse: the client is a single
+ * seat, and a live session or a replay already playing is in it. */
+function replayBlocker(): string | null {
+  if (session && session.status.phase !== "stopped" && session.status.phase !== "failed") {
+    return "A live session has the client. Stop it first.";
+  }
+  if (replayDriver && !replayDriver.isFinished) return "A replay is already playing.";
+  return null;
+}
+
+/** Pushes what the replay is doing before it has any loops to report. */
+function noteReplay(note: string): void {
+  if (!replayProgress) return;
+  replayProgress = { ...replayProgress, note };
+  send("spectator:replayProgress", replayProgress);
+}
+
+/**
+ * Reads a replay without playing it: the map, the length, the build and the
+ * players, which is what the "watch as" choice is made from. A replay from
+ * another SC2 build is refused here rather than after the container has been
+ * started and the user has waited.
+ */
+async function inspectReplay(sourcePath: string): Promise<InspectReplayResultIpc> {
+  const filePath = path.resolve(sourcePath);
+  const fileName = path.basename(filePath);
+  const blocked = replayBlocker();
+  if (blocked) return { status: "refused", problem: blocked, filePath, fileName, info: null };
+  if (!existsSync(filePath)) {
+    return { status: "failed", problem: "That replay is no longer on disk.", filePath, fileName, info: null };
+  }
+
+  let replayData: Buffer;
+  try {
+    replayData = readFileSync(filePath);
+  } catch (err) {
+    return { status: "failed", problem: (err as Error).message, filePath, fileName, info: null };
+  }
+
+  // Reading a replay needs the client, so the container comes up here. It
+  // stays up for the play that usually follows.
+  const ready = await docker().ensureClientReady();
+  if (!ready.ok) {
+    return {
+      status: "refused",
+      problem: ready.reason ?? "The client is not available.",
+      filePath,
+      fileName,
+      info: null,
+    };
+  }
+
+  const driver = new ReplayDriver({
+    bus,
+    sessionId: "inspect",
+    connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
+    replayData,
+  });
+  try {
+    const info = await driver.readInfo();
+    return { status: "done", problem: null, filePath, fileName, info };
+  } catch (err) {
+    const refused = err instanceof ReplayRefused;
+    return { status: refused ? "refused" : "failed", problem: (err as Error).message, filePath, fileName, info: null };
+  } finally {
+    driver.close();
+  }
+}
+
+/**
+ * Plays a replay and records it, which is the whole of the replay driver from
+ * the app's side.
+ *
+ * `observedPlayerId` is whose eyes it is watched through: the observer slot
+ * sees the whole map, a player id sees exactly what that player could see
+ * (measured; see ReplayDriver). `subjectPlayerId` is whose result the game
+ * file calls its own, which is a different question and usually the bot's.
+ */
+async function beginReplay(
+  sourcePath: string,
+  observedPlayerId: number,
+  subjectPlayerId: number,
+): Promise<OpenReplayResultIpc> {
+  const filePath = path.resolve(sourcePath);
+  const blocked = replayBlocker();
+  if (blocked) return { status: "refused", problem: blocked, progress: null };
+  if (!existsSync(filePath)) {
+    return { status: "failed", problem: "That replay is no longer on disk.", progress: null };
+  }
+
+  let replayData: Buffer;
+  try {
+    replayData = readFileSync(filePath);
+  } catch (err) {
+    return { status: "failed", problem: (err as Error).message, progress: null };
+  }
+
+  // Something on screen before any of the waiting starts. The container check
+  // and the load take seconds each, and a window showing nothing reads as a
+  // window that did not notice the file.
+  replayProgress = {
+    sourcePath: filePath,
+    sourceName: path.basename(filePath),
+    map: "",
+    note: "starting the client",
+    loop: 0,
+    totalLoops: 0,
+    playing: true,
+    finished: false,
+    error: null,
+    gameFile: null,
+  };
+  send("spectator:replayProgress", replayProgress);
+
+  const ready = await docker().ensureClientReady();
+  if (!ready.ok) {
+    const problem = ready.reason ?? "The client is not available.";
+    finishReplay(problem);
+    return { status: "refused", problem, progress: replayProgress };
+  }
+
+  const driver = new ReplayDriver({
+    bus,
+    sessionId: "replay",
+    connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
+    replayData,
+    observedPlayerId,
+  });
+
+  noteReplay("reading the replay");
+  let info: ReplayInfo;
+  try {
+    info = await driver.readInfo();
+  } catch (err) {
+    finishReplay((err as Error).message);
+    const refused = err instanceof ReplayRefused;
+    return { status: refused ? "refused" : "failed", problem: (err as Error).message, progress: replayProgress };
+  }
+
+  rememberPickerDir(path.dirname(filePath));
+  resetLiveGame();
+  replayDriver = driver;
+  replaySession = new ReplaySession({
+    bus,
+    gamesDir: gamesDir(),
+    sourcePath: filePath,
+    info,
+    observedPlayerId,
+    subjectPlayerId,
+    appVersion: app.getVersion(),
+  });
+  replaySession.attach();
+  replayProgress = {
+    ...replayProgress,
+    map: info.localMapPath || info.mapName,
+    totalLoops: info.durationLoops,
+    note: "loading the replay",
+  };
+  send("spectator:replayProgress", replayProgress);
+  // The queries follow the window, and the window is about to show a replay
+  // filling up exactly as a live game does.
+  activeSource = "live";
+
+  try {
+    await driver.start();
+  } catch (err) {
+    finishReplay((err as Error).message);
+    return { status: "failed", problem: (err as Error).message, progress: replayProgress };
+  }
+  noteReplay("playing");
+
+  // Deliberately not awaited: the replay plays for as long as it plays, and
+  // the renderer follows it through `replayProgress` like any other push.
+  void driver
+    .run()
+    .then(() => finishReplay(null))
+    .catch((err: Error) => finishReplay(err.message));
+
+  bus.emit("dockerLog", {
+    source: "history",
+    line: `playing ${path.basename(filePath)} (${info.durationLoops} loops)`,
+  });
+  return { status: "done", problem: null, progress: replayProgress };
+}
+
+/** Closes the recording once, however the replay ended: its last loop, a
+ * stop, or an error. */
+function finishReplay(error: string | null): void {
+  if (!replayProgress) return;
+  const file = replaySession?.gameFile ?? null;
+  replaySession?.close();
+  replaySession = null;
+  replayProgress = { ...replayProgress, playing: false, finished: true, note: null, error, gameFile: file };
+  send("spectator:replayProgress", replayProgress);
+  bus.emit("dockerLog", {
+    source: "history",
+    line: error ? `the replay stopped: ${error}` : `recorded ${file ?? "nothing"}`,
+  });
+}
+
 /** Everything already in the telemetry folder, for the ignore list above. */
 function telemetryCensus(): string[] {
   const dir = telemetryDir ?? defaultTelemetryDir();
@@ -405,6 +648,8 @@ function listMaps(): string[] {
  * container running is the failure that outlives the app. */
 export async function shutdownSession(): Promise<void> {
   stopTailing();
+  replayDriver?.stop();
+  replaySession?.close();
   if (session) await session.stop();
   inspector?.stopLogStream();
   resetLiveGame();
@@ -513,6 +758,48 @@ function toIpcStreams(): TelemetryStreamIpc[] {
   }));
 }
 
+/**
+ * Reads an NDJSON telemetry file into the open game. Shared by the picker and
+ * by a file dropped on the window, so both get the same duplicate check and
+ * the same summary back.
+ */
+async function ingestTelemetryFile(sourcePath: string): Promise<AttachTelemetryResultIpc | null> {
+  const store = db();
+  if (!store) return null;
+  const filePath = path.resolve(sourcePath);
+  if (!existsSync(filePath)) return null;
+
+  // Importing the same file twice would duplicate every row: two streams,
+  // two overlays drawn on top of each other, every series counted twice.
+  if (store.getStreams().some((stream) => samePath(stream.sourcePath, filePath))) {
+    return { status: "already-attached", streams: toIpcStreams(), ingested: null };
+  }
+
+  const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
+  const ingest = new StreamIngest(store, filePath, fallbackName);
+  const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
+  let lineNo = 0;
+  for await (const line of lines) {
+    ingest.line(line, ++lineNo);
+  }
+  const summary = ingest.finish();
+
+  invalidateTelemetry();
+
+  return {
+    status: "ingested",
+    streams: toIpcStreams(),
+    ingested: {
+      name: summary.name,
+      messageCount: summary.messageCount,
+      rejectedCount: summary.rejectedCount,
+      firstLoop: summary.firstLoop,
+      lastLoop: summary.lastLoop,
+      rejections: summary.rejections,
+    },
+  };
+}
+
 export function registerIpcHandlers(): void {
   // The tailer's rows land in the store; this is what tells the renderer they
   // are there. No payload: it re-asks for the loop it is already showing, so
@@ -523,6 +810,21 @@ export function registerIpcHandlers(): void {
   });
 
   bus.on("frame", onLiveFrame);
+
+  // The replay's own heartbeat. The game file only exists once the first
+  // frame has landed, so it is read here rather than carried by the driver,
+  // which knows nothing about stores.
+  bus.on("replayProgress", (event) => {
+    if (!replayProgress || replayProgress.finished) return;
+    replayProgress = {
+      ...replayProgress,
+      loop: event.loop,
+      totalLoops: event.totalLoops || replayProgress.totalLoops,
+      playing: event.playing,
+      gameFile: replaySession?.gameFile ?? replayProgress.gameFile,
+    };
+    send("spectator:replayProgress", replayProgress);
+  });
   bus.on("dockerLog", (event) => send("spectator:dockerLog", event));
 
   bus.on("sessionState", (state) => {
@@ -726,8 +1028,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:attachTelemetry", async (): Promise<AttachTelemetryResultIpc | null> => {
-    const store = db();
-    if (!store) return null;
+    if (!db()) return null;
     const result = await dialog.showOpenDialog({
       title: "Attach Telemetry",
       defaultPath: pickerDir(),
@@ -735,38 +1036,14 @@ export function registerIpcHandlers(): void {
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-
-    const filePath = path.resolve(result.filePaths[0]!);
-    // Importing the same file twice would duplicate every row: two streams,
-    // two overlays drawn on top of each other, every series counted twice.
-    if (store.getStreams().some((stream) => samePath(stream.sourcePath, filePath))) {
-      return { status: "already-attached", streams: toIpcStreams(), ingested: null };
-    }
-
-    const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
-    const ingest = new StreamIngest(store, filePath, fallbackName);
-    const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
-    let lineNo = 0;
-    for await (const line of lines) {
-      ingest.line(line, ++lineNo);
-    }
-    const summary = ingest.finish();
-
-    invalidateTelemetry();
-
-    return {
-      status: "ingested",
-      streams: toIpcStreams(),
-      ingested: {
-        name: summary.name,
-        messageCount: summary.messageCount,
-        rejectedCount: summary.rejectedCount,
-        firstLoop: summary.firstLoop,
-        lastLoop: summary.lastLoop,
-        rejections: summary.rejections,
-      },
-    };
+    return ingestTelemetryFile(result.filePaths[0]!);
   });
+
+  /** The same import by path, for a file dropped on the window: §3.5's
+   * pairing of a ladder replay with the telemetry from that match. */
+  ipcMain.handle("spectator:attachTelemetryFile", (_event, filePath: string): Promise<AttachTelemetryResultIpc | null> =>
+    ingestTelemetryFile(filePath),
+  );
 
   ipcMain.handle("spectator:getTelemetryStreams", (): TelemetryStreamIpc[] => toIpcStreams());
 
@@ -824,6 +1101,47 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("spectator:getTelemetryWatch", (): TelemetryWatchIpc | null => tailer?.status() ?? null);
 
+  // -- replays (§7's replay driver) -----------------------------------------
+
+  ipcMain.handle("spectator:inspectReplay", (_event, filePath: string): Promise<InspectReplayResultIpc> =>
+    inspectReplay(filePath),
+  );
+
+  ipcMain.handle("spectator:pickReplay", async (): Promise<InspectReplayResultIpc> => {
+    const result = await dialog.showOpenDialog({
+      title: "Open Replay",
+      defaultPath: pickerDir(),
+      filters: [{ name: "StarCraft II replays", extensions: ["SC2Replay"] }],
+      properties: ["openFile"],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { status: "cancelled", problem: null, filePath: "", fileName: "", info: null };
+    }
+    return inspectReplay(result.filePaths[0]!);
+  });
+
+  ipcMain.handle(
+    "spectator:openReplay",
+    (_event, filePath: string, observedPlayerId: number, subjectPlayerId: number): Promise<OpenReplayResultIpc> =>
+      beginReplay(filePath, observedPlayerId, subjectPlayerId),
+  );
+
+  /** Play, pause and stop. Pausing is fine here and nowhere near a bot: a
+   * replay has no lockstep peer to starve (§4). */
+  ipcMain.handle(
+    "spectator:controlReplay",
+    (_event, action: string, speed?: number | "max"): ReplayProgressIpc | null => {
+      if (!replayDriver || !replayProgress) return null;
+      if (speed !== undefined) replayDriver.setSpeed(speed);
+      if (action === "play") replayDriver.play();
+      if (action === "pause") replayDriver.pause();
+      if (action === "stop") replayDriver.stop();
+      return replayProgress;
+    },
+  );
+
+  ipcMain.handle("spectator:getReplayProgress", (): ReplayProgressIpc | null => replayProgress);
+
   // -- the session ---------------------------------------------------------
 
   ipcMain.handle("spectator:listMaps", (): string[] => listMaps());
@@ -852,6 +1170,11 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:startSession", async (_event, options: StartSessionOptionsIpc): Promise<SessionStatusIpc> => {
+    // The other half of the one-owner rule: a replay is using the client, and
+    // starting a session would take the container out from under it.
+    if (replayDriver && !replayDriver.isFinished) {
+      return { ...idleSessionStatus(), error: "A replay is playing. Stop it first." };
+    }
     // A session that is still running is not replaced: starting a second one
     // would bind the same bot port and fight the first for the client.
     if (session && session.status.phase !== "stopped" && session.status.phase !== "failed") {

@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   DockerLogIpc,
+  ReplayProgressIpc,
   FrameAtLoopIpc,
   LiveTerrainIpc,
   SessionStatusIpc,
@@ -28,11 +29,26 @@ const api: SpectatorApi = {
   setGameTags: (filePath: string, tags: string[]) => ipcRenderer.invoke("spectator:setGameTags", filePath, tags),
   detachStream: (streamId: number) => ipcRenderer.invoke("spectator:detachStream", streamId),
 
+  inspectReplay: (filePath: string) => ipcRenderer.invoke("spectator:inspectReplay", filePath),
+  pickReplay: () => ipcRenderer.invoke("spectator:pickReplay"),
+  openReplay: (filePath: string, observedPlayerId: number, subjectPlayerId: number) =>
+    ipcRenderer.invoke("spectator:openReplay", filePath, observedPlayerId, subjectPlayerId),
+  controlReplay: (action: "play" | "pause" | "stop", speed?: number | "max") =>
+    ipcRenderer.invoke("spectator:controlReplay", action, speed),
+  getReplayProgress: () => ipcRenderer.invoke("spectator:getReplayProgress"),
+  onReplayProgress: (listener: (progress: ReplayProgressIpc) => void) =>
+    subscribe("spectator:replayProgress", listener),
+  /** Electron dropped `File.path` in v32; this is the supported replacement,
+   * and it only works in the preload, which is why it is on the bridge at all
+   * rather than being read off the drop event in the renderer. */
+  pathForFile: (file: File) => webUtils.getPathForFile(file),
+
   getTerrain: () => ipcRenderer.invoke("spectator:getTerrain"),
   getUnitTypeInfo: () => ipcRenderer.invoke("spectator:getUnitTypeInfo"),
   getFrameAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getFrameAtLoop", loop),
 
   attachTelemetry: () => ipcRenderer.invoke("spectator:attachTelemetry"),
+  attachTelemetryFile: (filePath: string) => ipcRenderer.invoke("spectator:attachTelemetryFile", filePath),
   getTelemetryStreams: () => ipcRenderer.invoke("spectator:getTelemetryStreams"),
   getChannels: () => ipcRenderer.invoke("spectator:getChannels"),
   getTelemetryAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getTelemetryAtLoop", loop),

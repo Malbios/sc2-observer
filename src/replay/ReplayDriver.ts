@@ -2,6 +2,7 @@ import type { EventBus } from "../bus/EventBus";
 import type { Sc2Connection } from "../protocol/connection";
 import { decodeResponse, playerTypeName, raceName, resultName, type Response } from "../protocol/schema";
 import { SC2_STATUS, statusName } from "../protocol/status";
+import type { ReplayInfoIpc, ReplayPlayerIpc } from "../shared/ipc-types";
 import { FramePublisher } from "../state/FramePublisher";
 
 /**
@@ -55,28 +56,11 @@ export const OBSERVER_SLOT = 0;
  * converting a replay for later viewing wants. */
 export type ReplaySpeed = number | "max";
 
-export interface ReplayPlayer {
-  playerId: number;
-  name: string;
-  race: string;
-  type: string;
-  /** "Victory"/"Defeat"/"Tie", or null when the replay does not say. */
-  result: string | null;
-  apm: number | null;
-  mmr: number | null;
-}
-
-/** `ResponseReplayInfo`, in plain data. */
-export interface ReplayInfo {
-  mapName: string;
-  localMapPath: string;
-  durationLoops: number;
-  durationSeconds: number;
-  gameVersion: string;
-  dataVersion: string;
-  baseBuild: number;
-  players: ReplayPlayer[];
-}
+/** `ResponseReplayInfo`, in plain data. Declared with the other IPC types
+ * because it crosses to the renderer intact: the "watch as" choice is made
+ * from it. */
+export type ReplayPlayer = ReplayPlayerIpc;
+export type ReplayInfo = ReplayInfoIpc;
 
 export interface ReplayDriverOptions {
   bus: EventBus;
@@ -305,6 +289,13 @@ export class ReplayDriver {
 
   setSpeed(speed: ReplaySpeed): void {
     this.speed = speed;
+  }
+
+  /** Lets go of the client without having played anything, which is what an
+   * inspection does while the user is still deciding. */
+  close(): void {
+    this.connection?.close();
+    this.connection = null;
   }
 
   /** Stops early, which leaves a perfectly good partial recording: the game

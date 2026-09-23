@@ -46,6 +46,7 @@ function emptyRow(filePath: string, state: GameFileState, problem: string | null
     sizeBytes: sizeOnDisk(filePath),
     map: null,
     mode: null,
+    source: null,
     startedAt: null,
     endedAt: null,
     result: null,
@@ -109,6 +110,7 @@ export function peekGame(filePath: string): GameSummaryIpc {
     const row = emptyRow(filePath, "ok", null);
     row.map = meta.get("map") ?? null;
     row.mode = meta.get("mode") ?? null;
+    row.source = meta.get("source") ?? null;
     row.startedAt = meta.get("started_at") ?? null;
     row.endedAt = meta.get("ended_at") ?? null;
     row.result = meta.get("result") ?? null;

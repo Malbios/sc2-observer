@@ -104,6 +104,7 @@ function matches(game: GameSummaryIpc, needle: string): boolean {
     game.map ?? "",
     game.result ?? "",
     game.mode ?? "",
+    game.source ?? "",
     ...game.tags,
     ...game.botNames,
   ]
@@ -234,6 +235,20 @@ export function GameCatalog({
                             }}
                           >
                             live
+                          </span>
+                        )}
+                        {game.source === "replay" && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: "#7fb3d5",
+                              border: "1px solid #355169",
+                              borderRadius: 3,
+                              padding: "0 4px",
+                            }}
+                            title="converted from a .SC2Replay; this app did not play it"
+                          >
+                            replay file
                           </span>
                         )}
                         {game.hasReplay && (

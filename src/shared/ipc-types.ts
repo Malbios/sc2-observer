@@ -44,6 +44,10 @@ export interface GameSummaryIpc {
   mode: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  /** Where the game came from: "live" for one this app played, "replay" for
+   * one converted from a `.SC2Replay` (§6.4). A row has to say which, because
+   * everything else about them looks the same. */
+  source: string | null;
   /** The bot's own outcome, or "unknown" for the endings that produce none. */
   result: string | null;
   endReason: string | null;
@@ -105,6 +109,76 @@ export interface DetachStreamResultIpc {
   streams: TelemetryStreamIpc[];
   /** The game's range after the detach: dropping a stream can shorten it. */
   maxLoop: number;
+}
+
+/** One player in a replay, from `ResponseReplayInfo`. Every field here is an
+ * enum on the wire and a name by the time it crosses IPC. */
+export interface ReplayPlayerIpc {
+  playerId: number;
+  name: string;
+  race: string;
+  type: string;
+  /** "Victory"/"Defeat"/"Tie", or null when the replay does not say. */
+  result: string | null;
+  apm: number | null;
+  mmr: number | null;
+}
+
+/** What a replay says about itself before it is played. */
+export interface ReplayInfoIpc {
+  mapName: string;
+  localMapPath: string;
+  durationLoops: number;
+  durationSeconds: number;
+  gameVersion: string;
+  dataVersion: string;
+  baseBuild: number;
+  players: ReplayPlayerIpc[];
+}
+
+/** Reading a replay before playing it, which is what lets the user pick whose
+ * eyes to watch through and what tells them early that a replay is from a
+ * build this client cannot open. */
+export interface InspectReplayResultIpc {
+  status: GameActionStatus;
+  problem: string | null;
+  filePath: string;
+  fileName: string;
+  info: ReplayInfoIpc | null;
+}
+
+/**
+ * A `.SC2Replay` being played through the client and recorded (§7's replay
+ * driver).
+ *
+ * Unlike a session this has a known end: `replay_info` gives the game's length
+ * in loops before the first step, so the UI shows a real fraction. When it
+ * finishes, `gameFile` is an ordinary game and the viewer opens it; SC2 cannot
+ * seek a replay backwards, so the recording is what gets scrubbed.
+ */
+export interface ReplayProgressIpc {
+  sourcePath: string;
+  sourceName: string;
+  map: string;
+  /** What it is doing before any loop has been stepped: starting the
+   * container, reading the replay, loading it. A replay takes a few seconds
+   * to get going and a window with nothing on it reads as a window that has
+   * not noticed the file. */
+  note: string | null;
+  loop: number;
+  totalLoops: number;
+  playing: boolean;
+  finished: boolean;
+  /** Set when the replay stopped because something went wrong. */
+  error: string | null;
+  /** The game file being written, once the first frame has landed. */
+  gameFile: string | null;
+}
+
+export interface OpenReplayResultIpc {
+  status: GameActionStatus;
+  problem: string | null;
+  progress: ReplayProgressIpc | null;
 }
 
 /**
@@ -264,12 +338,29 @@ export interface SpectatorApi {
    * rows, checkpoints and all. */
   detachStream(streamId: number): Promise<DetachStreamResultIpc>;
 
+  /** Plays a `.SC2Replay` through the client, recording it as a game. Refused
+   * while a live session holds the client: SC2 accepts one at a time. */
+  /** Reads a replay without playing it, for the "watch as" choice. */
+  inspectReplay(filePath: string): Promise<InspectReplayResultIpc>;
+  pickReplay(): Promise<InspectReplayResultIpc>;
+  openReplay(filePath: string, observedPlayerId: number, subjectPlayerId: number): Promise<OpenReplayResultIpc>;
+  controlReplay(action: "play" | "pause" | "stop", speed?: number | "max"): Promise<ReplayProgressIpc | null>;
+  getReplayProgress(): Promise<ReplayProgressIpc | null>;
+  onReplayProgress(listener: (progress: ReplayProgressIpc) => void): () => void;
+  /**
+   * The path of a dropped file. Electron stopped exposing `File.path` in v32,
+   * so this is `webUtils.getPathForFile`, which only the preload can call.
+   */
+  pathForFile(file: File): string;
+
   getTerrain(): Promise<TerrainDataIpc | null>;
   getUnitTypeInfo(): Promise<Record<number, UnitTypeInfoIpc>>;
   getFrameAtLoop(loop: number): Promise<FrameAtLoopIpc | null>;
 
   /** Opens a picker, ingests the chosen .ndjson into the open recording. */
   attachTelemetry(): Promise<AttachTelemetryResultIpc | null>;
+  /** The same import by path, for a file dropped on the window. */
+  attachTelemetryFile(filePath: string): Promise<AttachTelemetryResultIpc | null>;
   getTelemetryStreams(): Promise<TelemetryStreamIpc[]>;
   getChannels(): Promise<ChannelIpc[]>;
   getTelemetryAtLoop(loop: number): Promise<TelemetryStateIpc>;
