@@ -100,7 +100,14 @@ const PNG_ICONS = new Set([
   "TwilightCouncil", "WarpGate",
   "Adept", "AdeptPhaseShift", "Archon", "Carrier", "Colossus", "DarkTemplar", "Disruptor", "DisruptorPhased",
   "HighTemplar", "Immortal", "Interceptor", "Mothership", "Observer", "Oracle", "Phoenix", "Probe", "Sentry",
-  "Stalker", "Tempest", "VoidRay", "WarpPrism", "Zealot",
+  "Stalker", "Tempest", "VoidRay", "WarpPrism", "Zealot", "ForceField",
+  // What a Sentry can hallucinate, drawn with the eye badge. See
+  // resolveIconUrl below; the plain Hallucination.png is the badge
+  // alone, for the unit inspector, not a unit type.
+  "AdeptHallucination", "ArchonHallucination", "ColossusHallucination", "DisruptorHallucination",
+  "HighTemplarHallucination", "ImmortalHallucination", "OracleHallucination", "PhoenixHallucination",
+  "ProbeHallucination", "StalkerHallucination", "VoidRayHallucination", "WarpPrismHallucination",
+  "ZealotHallucination",
 ]);
 
 /** Unit types that are another form of one we have art for: burrowed,
@@ -160,24 +167,33 @@ const ICON_ALIASES: Record<string, string> = {
 
 /** Relative, not `/icons/`: the built app loads index.html from disk, where
  * a leading slash means the drive root, and every icon silently failed. */
-function resolveIconUrl(requested: string): string | null {
+function resolveIconUrl(requested: string, hallucination: boolean): string | null {
   const name = ICON_ALIASES[requested] ?? requested;
   for (const [pattern, file] of GENERIC_ICON_PATTERNS) {
     if (pattern.test(name)) return `icons/${file}`;
   }
+  // A hallucination is its real unit's type plus a flag, so its art is
+  // chosen here rather than by type. A type with no hallucination art of its
+  // own keeps its normal icon rather than dropping to a shape.
+  const hallucinated = `${name}Hallucination`;
+  if (hallucination && PNG_ICONS.has(hallucinated)) return `icons/${hallucinated}.png`;
   return PNG_ICONS.has(name) ? `icons/${name}.png` : null;
 }
+
+/** The eye badge on its own, for marking a hallucination outside the map. */
+export const HALLUCINATION_BADGE_URL = "icons/Hallucination.png";
 
 /** Loads the icon for a unit type name (see public/icons/SOURCE.md for
  * provenance of the portraits), caching both hits and misses by name
  * so a type without an icon is only ever attempted once, not retried per
  * unit instance. */
-export function loadIconTexture(name: string): Promise<PIXI.Texture | null> {
-  let promise = cache.get(name);
+export function loadIconTexture(name: string, hallucination = false): Promise<PIXI.Texture | null> {
+  const key = hallucination ? `${name}|hallucination` : name;
+  let promise = cache.get(key);
   if (!promise) {
-    const url = resolveIconUrl(name);
+    const url = resolveIconUrl(name, hallucination);
     promise = url ? loadProcessedTexture(url).catch(() => null) : Promise.resolve(null);
-    cache.set(name, promise);
+    cache.set(key, promise);
   }
   return promise;
 }

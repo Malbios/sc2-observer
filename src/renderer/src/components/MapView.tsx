@@ -45,6 +45,13 @@ interface UnitVisual {
 const LABEL_WORLD_HEIGHT = 1.4;
 const LABEL_FONT_SIZE = 28;
 
+/** A hallucination has its real unit's type but its own art, so the icon
+ * texture cache needs both: the type id in the upper bits, the flag in the
+ * lowest, which keeps the key a number on the hot path. */
+function iconKey(unitType: number, isHallucination: boolean): number {
+  return unitType * 2 + (isHallucination ? 1 : 0);
+}
+
 export interface MapViewHandle {
   recenterOn(worldX: number, worldY: number): void;
 }
@@ -143,7 +150,7 @@ export function MapView({
   // WebGL ran out of resources and the context died (a blank white canvas),
   // and was the main cost behind the reported slowness even before that.
   const unitVisualsRef = useRef<Map<number, UnitVisual>>(new Map());
-  // Keyed by unitType id (not name -- cheaper lookup on the hot path). Absent
+  // Keyed by iconKey() (not name -- cheaper lookup on the hot path). Absent
   // key = not yet requested; loadIconTexture has its own by-name cache, so
   // firing it again while a load is pending is harmless, not a re-fetch.
   const iconTexturesRef = useRef<Map<number, PIXI.Texture | null>>(new Map());
@@ -389,14 +396,14 @@ export function MapView({
       // destructibles, Egg, etc. -- checked against the committed fixture).
       // loadIconTexture caches by name, so calling it again on a later tick
       // while still pending is a no-op, not a re-fetch.
-      if (info?.name && !iconTexturesRef.current.has(unit.unitType)) {
-        const typeId = unit.unitType;
-        loadIconTexture(info.name).then((texture) => {
-          iconTexturesRef.current.set(typeId, texture);
+      const key = iconKey(unit.unitType, unit.isHallucination);
+      if (info?.name && !iconTexturesRef.current.has(key)) {
+        loadIconTexture(info.name, unit.isHallucination).then((texture) => {
+          iconTexturesRef.current.set(key, texture);
           if (texture) setIconVersion((v) => v + 1);
         });
       }
-      const texture = iconTexturesRef.current.get(unit.unitType) ?? null;
+      const texture = iconTexturesRef.current.get(key) ?? null;
 
       let visual = pool.get(unit.tag);
       if (!visual) {

@@ -31,3 +31,8 @@ The Protoss `.png` files (39) followed the same day. Renamed on the way in:
 `psionic_transfer` is the Adept's shade `AdeptPhaseShift`,
 `purification_nova` is the Disruptor's ball `DisruptorPhased`, and `warp_ray`
 (the Void Ray's beta name) is `VoidRay`.
+
+The 13 `<Unit>Hallucination.png` files (the unit with an eye badge) are what a
+Sentry can hallucinate, drawn only when the recording's viewpoint knows the
+unit is one. `Hallucination.png` is the badge alone, for the unit inspector,
+and `ForceField.png` is the Sentry's force field.
