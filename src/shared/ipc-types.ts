@@ -416,6 +416,12 @@ export interface SpectatorApi {
   getSessionState(): Promise<SessionStatusIpc | null>;
   /** A game between two bots: show and record this seat's view. */
   setWatchedSeat(seat: number): Promise<SessionStatusIpc | null>;
+  /** A game between two bots: each player's remembered telemetry folder. */
+  getBvbTelemetryDirs(): Promise<Record<number, string>>;
+  /** Picks and remembers a player's telemetry folder; null if cancelled. */
+  pickBvbTelemetryDir(seat: number): Promise<string | null>;
+  clearBvbTelemetryDir(seat: number): Promise<null>;
+  copyText(text: string): Promise<null>;
   /** Which of a running session and an opened recording the viewer is
    * showing, so main answers queries from that one. */
   setActiveSource(kind: "recording" | "live"): Promise<null>;

@@ -67,6 +67,10 @@ const api: SpectatorApi = {
   stopSession: () => ipcRenderer.invoke("spectator:stopSession"),
   getSessionState: () => ipcRenderer.invoke("spectator:getSessionState"),
   setWatchedSeat: (seat: number) => ipcRenderer.invoke("spectator:setWatchedSeat", seat),
+  getBvbTelemetryDirs: () => ipcRenderer.invoke("spectator:getBvbTelemetryDirs"),
+  pickBvbTelemetryDir: (seat: number) => ipcRenderer.invoke("spectator:pickBvbTelemetryDir", seat),
+  clearBvbTelemetryDir: (seat: number) => ipcRenderer.invoke("spectator:clearBvbTelemetryDir", seat),
+  copyText: (text: string) => ipcRenderer.invoke("spectator:copyText", text),
   setActiveSource: (kind: "recording" | "live") => ipcRenderer.invoke("spectator:setActiveSource", kind),
 
   onSessionState: (listener: (state: SessionStatusIpc) => void) => subscribe("spectator:sessionState", listener),

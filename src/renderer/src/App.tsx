@@ -112,6 +112,8 @@ export function App(): JSX.Element {
   const [session, setSession] = useState<SessionStatusIpc | null>(null);
   const [dockerState, setDockerState] = useState<DockerStateIpc | null>(null);
   const [maps, setMaps] = useState<string[]>([]);
+  /** A game between two bots: each player's telemetry folder, remembered. */
+  const [bvbTelemetryDirs, setBvbTelemetryDirs] = useState<Record<number, string>>({});
   const [logs, setLogs] = useState<DockerLogIpc[]>([]);
   /** Ticks while live, so the idle counters advance on their own (§4.2). */
   const [clock, setClock] = useState(Date.now());
@@ -284,7 +286,7 @@ export function App(): JSX.Element {
   );
 
   const attachTelemetry = useCallback(
-    async () => afterTelemetry(await window.spectator.attachTelemetry()),
+    async (seat: number | null) => afterTelemetry(await window.spectator.attachTelemetry(seat)),
     [afterTelemetry]
   );
 
@@ -354,6 +356,7 @@ export function App(): JSX.Element {
    */
   useEffect(() => {
     void window.spectator.listMaps().then(setMaps);
+    void window.spectator.getBvbTelemetryDirs().then(setBvbTelemetryDirs);
     void window.spectator.getSessionState().then((state) => {
       setSession(state);
       if (sessionRunning(state)) void switchViewRef.current("live");
@@ -821,6 +824,26 @@ export function App(): JSX.Element {
       logs={logs}
       onStart={(options) => void startSession(options)}
       onStop={() => void stopSession()}
+      bvbTelemetryDirs={bvbTelemetryDirs}
+      onPickBvbTelemetryDir={(seat) =>
+        void window.spectator.pickBvbTelemetryDir(seat).then((dir) => {
+          if (dir) setBvbTelemetryDirs((current) => ({ ...current, [seat]: dir }));
+        })
+      }
+      onClearBvbTelemetryDir={(seat) =>
+        void window.spectator.clearBvbTelemetryDir(seat).then(() =>
+          setBvbTelemetryDirs((current) => {
+            const next = { ...current };
+            delete next[seat];
+            return next;
+          })
+        )
+      }
+      onWatchSeat={(seat) =>
+        void window.spectator.setWatchedSeat(seat).then((state) => {
+          if (state) setSession(state);
+        })
+      }
       compact={compact}
     />
   );
@@ -934,6 +957,11 @@ export function App(): JSX.Element {
           onSetTags={(game, tags) => void setGameTags(game, tags)}
           onExport={(game) => void exportGame(game)}
           onDelete={(game) => void deleteGame(game)}
+          onWatchReplay={
+            clientBusy === null
+              ? (game) => void openReplayFile(game.filePath.replace(/\.sqlite$/i, ".SC2Replay"))
+              : null
+          }
         />
       </div>
     );
@@ -1070,6 +1098,7 @@ export function App(): JSX.Element {
             visible={visibleChannels}
             onToggle={handleToggleChannels}
             onAttach={live ? null : attachTelemetry}
+            betweenBots={!live && recording?.mode === "BvB"}
             streams={streams}
             // Detaching underneath a tailer would have it re-create the
             // stream on its next poll, so it is not offered while one is

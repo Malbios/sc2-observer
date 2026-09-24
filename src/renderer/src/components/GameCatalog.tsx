@@ -26,6 +26,10 @@ interface Props {
   onSetTags(game: GameSummaryIpc, tags: string[]): void;
   onExport(game: GameSummaryIpc): void;
   onDelete(game: GameSummaryIpc): void;
+  /** Plays the game's own .SC2Replay through the replay chooser, which is how
+   * a game is seen through other eyes: everything, or either player. Null
+   * while the client is busy with a session or another replay. */
+  onWatchReplay: ((game: GameSummaryIpc) => void) | null;
 }
 
 function formatWhen(iso: string | null): string {
@@ -144,6 +148,7 @@ export function GameCatalog({
   onSetTags,
   onExport,
   onDelete,
+  onWatchReplay,
 }: Props): JSX.Element {
   const [filter, setFilter] = useState("");
   /** The game whose tags are being typed, and the text as typed. Tags are
@@ -298,6 +303,20 @@ export function GameCatalog({
                     <td style={{ ...CELL, color: "#8b93a1", textAlign: "right" }}>{formatSize(game.sizeBytes)}</td>
                     <td style={CELL} onClick={(event) => event.stopPropagation()}>
                       <span style={{ display: "flex", gap: 4 }}>
+                        {game.hasReplay && (
+                          <button
+                            style={ACTION}
+                            onClick={() => onWatchReplay?.(game)}
+                            disabled={!onWatchReplay}
+                            title={
+                              onWatchReplay
+                                ? "Play this game's replay again, seeing everything or through either player's eyes"
+                                : "The client is busy; stop the session or replay first"
+                            }
+                          >
+                            Watch As...
+                          </button>
+                        )}
                         <button style={ACTION} onClick={() => onExport(game)} title="Copy this game and its replay elsewhere">
                           Export
                         </button>

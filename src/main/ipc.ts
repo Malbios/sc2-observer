@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
 import { EventBus, type FrameEvent } from "../bus/EventBus";
 import { CONTAINER_PORT, DockerManager, IMAGE_NAME } from "../docker/DockerManager";
 import { CatalogStore } from "../history/CatalogStore";
@@ -1325,6 +1325,39 @@ export function registerIpcHandlers(): void {
     activeSource = "live";
     await session.start();
     return session.status;
+  });
+
+  // A game between two bots: each player's telemetry folder, remembered in the
+  // catalog's settings so the next session starts with the same ones.
+  const bvbDirKey = (seat: number): string => `bvbTelemetryDir${seat}`;
+  ipcMain.handle("spectator:getBvbTelemetryDirs", (): Record<number, string> => {
+    const dirs: Record<number, string> = {};
+    for (const seat of [1, 2]) {
+      const dir = settings().getSetting(bvbDirKey(seat));
+      if (dir) dirs[seat] = dir;
+    }
+    return dirs;
+  });
+  ipcMain.handle("spectator:pickBvbTelemetryDir", async (_event, seat: number): Promise<string | null> => {
+    const result = await dialog.showOpenDialog({
+      title: `Player ${seat}'s telemetry folder`,
+      defaultPath: settings().getSetting(bvbDirKey(seat)) ?? defaultTelemetryDir(),
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const dir = path.resolve(result.filePaths[0]!);
+    settings().setSetting(bvbDirKey(seat), dir);
+    return dir;
+  });
+  ipcMain.handle("spectator:clearBvbTelemetryDir", (_event, seat: number): null => {
+    settings().clearSetting(bvbDirKey(seat));
+    return null;
+  });
+
+  /** For the join lines a user copies into their bot's launch command. */
+  ipcMain.handle("spectator:copyText", (_event, text: string): null => {
+    clipboard.writeText(text);
+    return null;
   });
 
   // A game between two bots: whose view to show and record. It applies now if

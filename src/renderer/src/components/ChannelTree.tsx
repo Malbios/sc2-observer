@@ -27,7 +27,10 @@ interface Props {
   /** Null while a session is running: the game being played takes the file
    * its own bot is writing, and importing any other one writes another
    * game's loops into this recording for good. */
-  onAttach: (() => void) | null;
+  onAttach: ((seat: number | null) => void) | null;
+  /** A game between two bots: each player takes their own file, and a file
+   * has to say whose it is (its channels are filed under that player). */
+  betweenBots: boolean;
   /** The game's telemetry file (§6.3 records one row per file; a game holds
    * one, an older game may hold more). Shown so a mis-attached file is
    * identifiable: name, where it came from, and the loops it covers. The
@@ -156,7 +159,7 @@ function TreeRow({
   );
 }
 
-export function ChannelTree({ channels, visible, onToggle, onAttach, streams, onDetach, notice }: Props): JSX.Element {
+export function ChannelTree({ channels, visible, onToggle, onAttach, betweenBots, streams, onDetach, notice }: Props): JSX.Element {
   const tree = useMemo(() => buildTree(channels), [channels]);
   const [confirming, setConfirming] = useState<number | null>(null);
   const allPaths = useMemo(() => channels.map((channel) => channel.ch), [channels]);
@@ -198,7 +201,10 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streams, on
           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
               {streams.map((stream) => (
                 <div key={stream.id} style={{ borderLeft: "2px solid #2b323d", paddingLeft: 6, lineHeight: 1.5 }}>
-                  <div style={{ color: "#e7e9ec" }}>{stream.name}</div>
+                  <div style={{ color: "#e7e9ec" }}>
+                    {stream.seat !== null && <span style={{ color: "#8b93a1" }}>Player {stream.seat}: </span>}
+                    {stream.name}
+                  </div>
                   <div title={stream.sourcePath} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {stream.sourcePath.split(/[\\/]/).pop()}
                   </div>
@@ -237,11 +243,20 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streams, on
         </div>
       )}
 
-      {onAttach && streams.length === 0 && (
-        <button onClick={onAttach} style={{ marginTop: 12, fontSize: 12 }}>
+      {onAttach && !betweenBots && streams.length === 0 && (
+        <button onClick={() => onAttach(null)} style={{ marginTop: 12, fontSize: 12 }}>
           Attach Telemetry...
         </button>
       )}
+      {onAttach &&
+        betweenBots &&
+        [1, 2]
+          .filter((seat) => !streams.some((stream) => stream.seat === seat))
+          .map((seat) => (
+            <button key={seat} onClick={() => onAttach(seat)} style={{ marginTop: 8, fontSize: 12 }}>
+              Attach Player {seat}'s Telemetry...
+            </button>
+          ))}
       {notice && <div style={{ marginTop: 6, fontSize: 11, color: "#8b93a1", lineHeight: 1.4 }}>{notice}</div>}
     </div>
   );
