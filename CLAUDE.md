@@ -32,7 +32,12 @@ node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
 node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw] [--race Protoss --hallucinate]
 node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
 node dist/cli/probe-replay.js --file game.SC2Replay
+node dist/cli/probe-twoplayer.js --map TorchesAIE.SC2Map [--api-ports 5001,5002] [--start-port 5100] [--loops 2000] [--games 2]
 ```
+
+`testbot` also joins ladder-style, as AI Arena starts a bot, with
+`--LadderServer 127.0.0.1 --GamePort <port> --StartPort <port>`, which is how
+`probe-twoplayer` gets two bots into one game.
 
 `session` is the headless equivalent of the app's live session: it owns the
 container, records a file per game, saves replays and creates the next game.
@@ -127,6 +132,12 @@ Replay facts, measured by `node dist/cli/probe-replay.js` rather than read off t
 A hallucination is its real unit's type plus `is_hallucination`, and that flag already answers "does this viewpoint know". Measured with `testbot --race Protoss --hallucinate`: the creator's live view, the observer slot and a replay watched as the creator flagged all three hallucinations, and the opponent's replay saw one unflagged. The case where the opponent detects one is not measured yet.
 
 Live-path facts already established, so they do not need re-deriving: `surrender` (via `debug.end_game`) is the only fast end that yields a real `player_result`; `leave` transitions `in_game -> launched` cleanly but produces no `player_result`, so `record` hangs; a bot that **disconnects leaves SC2 in `in_game` forever with no status transition**, so a finished session must be detected from the bot socket closing, not from game status; recovery is `leave_game` on a fresh connection, after which `create_game` works with no container restart.
+
+Two-player facts (2026-09-24, `node dist/cli/probe-twoplayer.js` with two test bots joining ladder-style), for bot-vs-bot:
+- **The two clients must share localhost.** Bots never set `host_ip`, and even with it set, two containers on a Docker network hung in `join_game` for good. What works is one container running two SC2 processes (A), or two containers where the second joins the first's network namespace (B). A and B ran at the same speed, about 11 to 15 s per 2000 loops at step 8, and the same total memory, about 2.2 GiB.
+- **Both clients have to `leave_game` after every game.** Without it, the next game's `create_game` crashed the host client with a segfault. With it, three games in a row worked on both layouts.
+- **A dead client hangs the other side forever.** The survivor's bot never sees an error. The survivor itself recovers with `leave_game`, which takes it from `ended` to `launched`, and the dead client needs its container restarted.
+- **Each layout can hide a dead client.** In A, only the process started last is the container's main process: when the other one crashed, the container still said `Up`. In B, restarting the first container leaves the second `running` but unreachable until it is restarted too. So in both, the working recovery is to restart everything. That makes **A the recommendation**, provided its entrypoint stops the whole container as soon as either client exits, so a dead client shows up as a stopped container.
 
 ## Build order and current phase
 
