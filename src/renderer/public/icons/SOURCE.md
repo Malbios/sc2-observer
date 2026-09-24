@@ -1,6 +1,6 @@
 # Where these icons came from
 
-The 40 `.webp` unit and building portraits in this folder were copied from
+The 4 remaining `.webp` unit portraits in this folder were copied from
 [`stephanzlatarev/vscode-starcraft`](https://github.com/stephanzlatarev/vscode-starcraft)
 (`icons/` in that repository), the VS Code extension this project studied as
 prior art.
@@ -31,3 +31,10 @@ The Terran `.png` files (42) followed on 2026-09-24, processed the same way.
 Their source names differ from the API's in places: `surveillance_station` is
 `OrbitalCommand`, `sensor_dome` is `SensorTower`, `hellion_battle_mode` (the
 Hellbat) is `HellionTank`, and `liberator_aa_mode` is plain `Liberator`.
+
+The Protoss `.png` files (39) followed the same day. Renamed on the way in:
+`robotics_support_bay` is `RoboticsBay`, `templar_archives` is
+`TemplarArchive` (singular in the API), `stasis_ward` is `OracleStasisTrap`,
+`psionic_transfer` is the Adept's shade `AdeptPhaseShift`,
+`purification_nova` is the Disruptor's ball `DisruptorPhased`, and `warp_ray`
+(the Void Ray's beta name) is `VoidRay`.

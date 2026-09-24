@@ -114,6 +114,12 @@ const PNG_ICONS = new Set([
   "Starport", "StarportFlying", "SupplyDepot", "SupplyDepotLowered", "TechLab",
   "Banshee", "Battlecruiser", "Cyclone", "Ghost", "Hellion", "HellionTank", "Liberator", "Marauder", "Marine",
   "Medivac", "MULE", "Raven", "Reaper", "SCV", "SiegeTank", "Thor", "VikingFighter", "WidowMine",
+  "Assimilator", "CyberneticsCore", "DarkShrine", "FleetBeacon", "Forge", "Gateway", "Nexus", "PhotonCannon",
+  "Pylon", "RoboticsFacility", "RoboticsBay", "ShieldBattery", "Stargate", "OracleStasisTrap", "TemplarArchive",
+  "TwilightCouncil", "WarpGate",
+  "Adept", "AdeptPhaseShift", "Archon", "Carrier", "Colossus", "DarkTemplar", "Disruptor", "DisruptorPhased",
+  "HighTemplar", "Immortal", "Interceptor", "Mothership", "Observer", "Oracle", "Phoenix", "Probe", "Sentry",
+  "Stalker", "Tempest", "VoidRay", "WarpPrism", "Zealot",
 ]);
 
 /** Unit types that are another form of one we have art for: burrowed,
@@ -159,6 +165,10 @@ const ICON_ALIASES: Record<string, string> = {
   WidowMineBurrowed: "WidowMine",
   ThorAP: "Thor",
   RefineryRich: "Refinery",
+  WarpPrismPhasing: "WarpPrism",
+  ObserverSiegeMode: "Observer",
+  PylonOvercharged: "Pylon",
+  AssimilatorRich: "Assimilator",
   // Stand-ins until these modes get art of their own.
   SiegeTankSieged: "SiegeTank",
   VikingAssault: "VikingFighter",
