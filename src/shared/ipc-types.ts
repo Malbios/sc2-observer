@@ -1,3 +1,4 @@
+import type { AiOpponent } from "./ai-options";
 import type {
   ChannelIpc,
   EventFilterIpc,
@@ -213,6 +214,9 @@ export interface SessionStatusIpc {
   clientStatus: string;
   /** Set only when the phase is "failed". */
   error: string | null;
+  /** Something worth knowing that does not stop the session, such as a map
+   * that left out some of the AIs asked for. */
+  warning: string | null;
   /** A game between two bots ("BvB") only, else null: one entry per seat. */
   seats: SeatStatusIpc[] | null;
   /** BvB: the seat whose view the current game shows and records. */
@@ -240,8 +244,8 @@ export interface SeatStatusIpc {
 export interface StartSessionOptionsIpc {
   map: string;
   mode: string;
-  opponentRace?: number;
-  opponentDifficulty?: number;
+  /** Mode A: the built-in AIs, one to three. One easy Zerg when absent. */
+  opponents?: AiOpponent[];
   /** BvB: whose view to show and record, 1 by default. */
   watchSeat?: number;
   /** BvB: each seat's telemetry folder, by seat number. */

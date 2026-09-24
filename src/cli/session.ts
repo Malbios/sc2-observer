@@ -15,6 +15,7 @@ import { join, resolve } from "node:path";
 import { EventBus } from "../bus/EventBus";
 import { GameMode } from "../proxy/GameProxy";
 import { SessionController } from "../session/SessionController";
+import { AI_BUILDS, AI_DIFFICULTIES, AI_RACES, DEFAULT_AI, optionValue, type AiOpponent } from "../shared/ai-options";
 import { parseArgs } from "./args";
 
 const REPO_ROOT = join(__dirname, "..", "..");
@@ -29,6 +30,33 @@ function appVersion(): string | undefined {
   }
 }
 
+/**
+ * `--ai Zerg/Hard/Rush,Protoss/Medium` gives one to three built-in AIs by
+ * name: race, then difficulty, then an optional build. `--race N` and
+ * `--difficulty N` remain the one-AI shorthand, by the proto's numbers.
+ */
+function parseOpponents(args: Record<string, string>): AiOpponent[] | undefined {
+  if (args.ai) {
+    return args.ai.split(",").map((spec) => {
+      const [race = "", difficulty = "Easy", build = "RandomBuild"] = spec.split("/");
+      const opponent = {
+        race: optionValue(AI_RACES, race),
+        difficulty: optionValue(AI_DIFFICULTIES, difficulty),
+        build: optionValue(AI_BUILDS, build),
+      };
+      if (opponent.race === null || opponent.difficulty === null || opponent.build === null) {
+        console.error(`[session] cannot read --ai "${spec}": expected race/difficulty/build, e.g. Zerg/Hard/Rush`);
+        process.exit(1);
+      }
+      return opponent as AiOpponent;
+    });
+  }
+  if (args.race || args.difficulty) {
+    return [{ ...DEFAULT_AI, race: args.race ? Number(args.race) : DEFAULT_AI.race, difficulty: args.difficulty ? Number(args.difficulty) : DEFAULT_AI.difficulty }];
+  }
+  return undefined;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const map = args.map;
@@ -36,7 +64,7 @@ async function main(): Promise<void> {
   if (!map) {
     console.error(
       "Usage: session --map <MapName.SC2Map> [--mode A|B|BvB] [--games-dir DIR] [--maps-dir DIR]\n" +
-        "                 [--sc2-port P] [--bot-port P] [--race N] [--difficulty N] [--watch 1|2]",
+        "                 [--sc2-port P] [--bot-port P] [--ai Zerg/Hard/Rush,Protoss/Medium] [--watch 1|2]",
     );
     process.exit(1);
   }
@@ -49,8 +77,7 @@ async function main(): Promise<void> {
     gamesDir: args["games-dir"] ? resolve(args["games-dir"]) : join(REPO_ROOT, "games"),
     map,
     mode: (args.mode as GameMode) ?? "A",
-    opponentRace: args.race ? Number(args.race) : undefined,
-    opponentDifficulty: args.difficulty ? Number(args.difficulty) : undefined,
+    opponents: parseOpponents(args),
     hostPort: args["sc2-port"] ? Number(args["sc2-port"]) : undefined,
     botPort: args["bot-port"] ? Number(args["bot-port"]) : undefined,
     watchSeat: args.watch === "2" ? 2 : 1,

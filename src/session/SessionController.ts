@@ -14,6 +14,7 @@ import { gameFileName, replayPathFor, uniqueGamePath } from "../history/gameFile
 import { HistoryStore } from "../history/HistoryStore";
 import { GameMode, GameProxy, PlayerResult, Seat } from "../proxy/GameProxy";
 import { SC2_STATUS, statusName } from "../protocol/status";
+import { DEFAULT_AI, describeOpponent, type AiOpponent } from "../shared/ai-options";
 import type { SeatStatusIpc, SessionPhase, SessionStatusIpc } from "../shared/ipc-types";
 
 /**
@@ -41,6 +42,10 @@ export interface GameHost {
   readonly lastResult: PlayerResult[] | null;
   readonly botPlayerId: number | null;
   readonly botName: string | null;
+  /** Players the running game reports (from its game_info), and players the
+   * proxy asked for, so a map that dropped AIs can be noticed. */
+  readonly playersInGame: number | null;
+  readonly playersRequested: number;
   start(): Promise<void>;
   stop(): void;
   createGame(): Promise<void>;
@@ -76,8 +81,8 @@ export interface SessionControllerOptions {
   gamesDir: string;
   map: string;
   mode?: GameMode;
-  opponentRace?: number;
-  opponentDifficulty?: number;
+  /** Mode A: the built-in AIs to play against, one easy Zerg when absent. */
+  opponents?: AiOpponent[];
   hostPort?: number;
   botPort?: number;
   /** BvB: whose view the first game shows and records. */
@@ -135,6 +140,10 @@ export class SessionController {
   private gamesPlayed = 0;
   private clientStatus: number | null = null;
   private error: string | null = null;
+  /** Something the user should know that does not stop the session: a map
+   * that left out some of the AIs asked for. Per game. */
+  private warning: string | null = null;
+  private readonly opponents: AiOpponent[];
   private stopping = false;
   /** Resolvers waiting for the bot to let go of the client. */
   private botGoneWaiters: (() => void)[] = [];
@@ -148,6 +157,7 @@ export class SessionController {
     this.now = options.now ?? (() => new Date());
     this.appVersion = options.appVersion ?? null;
 
+    this.opponents = options.opponents && options.opponents.length > 0 ? options.opponents : [DEFAULT_AI];
     this.watchSeat = options.watchSeat ?? 1;
     this.nextWatchSeat = this.watchSeat;
 
@@ -186,8 +196,7 @@ export class SessionController {
           bus: options.bus,
           mapPath: options.map,
           mode: this.mode,
-          opponentRace: options.opponentRace,
-          opponentDifficulty: options.opponentDifficulty,
+          opponents: this.opponents,
           botPort: options.botPort,
           sc2Port: this.client.hostPort,
         });
@@ -247,6 +256,7 @@ export class SessionController {
       botConnected: this.watched.botConnected,
       clientStatus: statusName(this.clientStatus),
       error: this.error,
+      warning: this.warning,
       seats,
       watchSeat: this.bvb ? this.watchSeat : null,
       nextWatchSeat: this.bvb && this.nextWatchSeat !== this.watchSeat ? this.nextWatchSeat : null,
@@ -301,6 +311,9 @@ export class SessionController {
       const state = this.seatOf(event.sessionId);
       if (!state || state !== this.watched) return;
       this.ensureStore().recordFrame(event);
+      // The proxy reads the player count off this same response just after
+      // publishing it, so the check waits for that to have happened.
+      if (event.kind === "gameInfo") queueMicrotask(() => this.checkPlayers());
     };
     const onStatus = (event: ClientStatusEvent): void => {
       const state = this.seatOf(event.sessionId);
@@ -367,12 +380,40 @@ export class SessionController {
     // now means nothing has to guess later.
     store.setMeta("source", "live");
     if (this.bvb) store.setMeta("watched_seat", String(this.watchSeat));
+    // Who the bot played, by name. Player ids follow the order they were set
+    // up in: the bot is 1, then each AI.
+    if (this.mode === "A") {
+      store.setMeta(
+        "opponents",
+        JSON.stringify(this.opponents.map((ai, index) => ({ player_id: index + 2, ...describeOpponent(ai) })))
+      );
+    }
     if (this.appVersion) store.setMeta("app_version", this.appVersion);
     this.store = store;
     this.gameFile = path;
     this.log(`recording to ${path}`);
     this.announce();
     return store;
+  }
+
+  /**
+   * A map with fewer start locations than players drops the extra AIs, and
+   * SC2 says nothing about it (measured on 4.10). The game's own game_info is
+   * the only evidence, so it is compared here with what was asked for, and a
+   * shortfall is said out loud and written into the game file.
+   */
+  private checkPlayers(): void {
+    if (this.mode !== "A") return;
+    const found = this.game.playersInGame;
+    const asked = this.game.playersRequested;
+    if (found === null || found >= asked) return;
+    const missing = asked - found;
+    this.warning =
+      `This map has room for ${found} players, so ${missing} of the AIs asked for ${missing === 1 ? "was" : "were"} left out. ` +
+      "Pick a map with more start locations, such as Flat64.";
+    this.log(this.warning);
+    this.store?.setMeta("warning", this.warning);
+    this.announce();
   }
 
   private nextGamePath(at: Date): string {
@@ -543,6 +584,7 @@ export class SessionController {
 
   private async beginNextGame(): Promise<void> {
     for (const state of this.seats) state.host.resetForNewGame();
+    this.warning = null;
     try {
       await this.game.createGame();
     } catch (err) {

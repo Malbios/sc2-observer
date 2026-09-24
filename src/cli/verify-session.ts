@@ -20,6 +20,7 @@ import { EventBus } from "../bus/EventBus";
 import { SC2_STATUS } from "../protocol/status";
 import { gameFileName, replayPathFor } from "../history/gameFiles";
 import { ClientHost, GameHost, SessionController } from "../session/SessionController";
+import type { AiOpponent } from "../shared/ai-options";
 import type { SessionPhase } from "../shared/ipc-types";
 
 let failures = 0;
@@ -77,6 +78,8 @@ class FakeGame implements GameHost {
   lastResult: { player_id: number; result: string }[] | null = null;
   botPlayerId: number | null = null;
   botName: string | null = null;
+  playersInGame: number | null = null;
+  playersRequested = 2;
   leaveCalls = 0;
   startCalls = 0;
   stopCalls = 0;
@@ -124,6 +127,7 @@ class FakeGame implements GameHost {
     this.lastResult = null;
     this.botPlayerId = null;
     this.botName = null;
+    this.playersInGame = null;
   }
 }
 
@@ -142,7 +146,7 @@ interface Harness {
   files(): string[];
 }
 
-function harness(mode: "A" | "B" = "A"): Harness {
+function harness(mode: "A" | "B" = "A", opponents?: AiOpponent[]): Harness {
   const bus = new EventBus();
   const client = new FakeClient();
   const game = new FakeGame();
@@ -165,6 +169,7 @@ function harness(mode: "A" | "B" = "A"): Harness {
     gamesDir,
     map: "TorchesAIE.SC2Map",
     mode,
+    opponents,
     client,
     game,
     now,
@@ -605,6 +610,50 @@ async function checkBotVsBotStopWhileLeaving(): Promise<void> {
   check("with no error", h.controller.status.error, null);
 }
 
+/**
+ * Two AIs asked for, on a map that drops one. SC2 says nothing about it, so
+ * the game's own player count is what the session goes on: it warns, and
+ * writes the warning into the game file. The game file also names the AIs.
+ */
+async function checkSeveralAis(): Promise<void> {
+  const h = harness("A", [
+    { race: 1, difficulty: 7, build: 2 },
+    { race: 3, difficulty: 2, build: 6 },
+  ]);
+  h.game.playersRequested = 3;
+  await h.controller.start();
+  h.botJoins();
+  h.frame(1);
+  const emitGameInfo = (): void => {
+    h.bus.emit("frame", { sessionId: "s", loop: 1, kind: "gameInfo", direction: "response", bytes: new Uint8Array([0x08, 1]) });
+  };
+
+  // A map that took everyone: no warning.
+  h.game.playersInGame = 3;
+  emitGameInfo();
+  await settle();
+  check("a map with room for everyone gives no warning", h.controller.status.warning, null);
+
+  // A map that dropped one.
+  h.game.playersInGame = 2;
+  emitGameInfo();
+  await settle();
+  check("a map that left an AI out says so", /room for 2 players, so 1 of the AIs asked for was left out/.test(h.controller.status.warning ?? ""), true);
+  const gameFile = h.controller.status.gameFile!;
+
+  h.ends("result", 5);
+  h.botLeaves();
+  await settle();
+  check("the next game starts without the last one's warning", h.controller.status.warning, null);
+  const meta = metaOf(gameFile);
+  check("the game file keeps the warning", /left out/.test(meta.warning ?? ""), true);
+  check("and names the AIs, by name", JSON.parse(meta.opponents!), [
+    { player_id: 2, race: "Terran", difficulty: "VeryHard", build: "Rush" },
+    { player_id: 3, race: "Protoss", difficulty: "Easy", build: "Air" },
+  ]);
+  await h.controller.stop();
+}
+
 async function main(): Promise<void> {
   checkNaming();
   await checkStartup();
@@ -617,6 +666,7 @@ async function main(): Promise<void> {
   await checkBotVsBot();
   await checkBotVsBotDeadClient();
   await checkBotVsBotStopWhileLeaving();
+  await checkSeveralAis();
 
   console.log(failures === 0 ? "\nall session checks passed" : `\n${failures} session check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);

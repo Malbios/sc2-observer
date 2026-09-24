@@ -4,6 +4,7 @@ import { decodeRequest, decodeResponse, encodeRequest, resultName } from "../pro
 import { isTerminalStatus, SC2_STATUS } from "../protocol/status";
 import { classifyRequest } from "../state/frames";
 import { FramePublisher } from "../state/FramePublisher";
+import { DEFAULT_AI, type AiOpponent } from "../shared/ai-options";
 
 /**
  * §1: the user picks this before a session; it is never detected from traffic.
@@ -29,9 +30,9 @@ export interface GameProxyOptions {
   bus: EventBus;
   mapPath: string;
   mode?: GameMode;
-  /** Built-in AI opponent, Mode A only. Race and difficulty from sc2api.proto. */
-  opponentRace?: number;
-  opponentDifficulty?: number;
+  /** Built-in AI opponents, Mode A only: race, difficulty and build each, by
+   * sc2api.proto's numbers. One easy Zerg when absent. */
+  opponents?: AiOpponent[];
   /** BvB only: which bot this proxy serves. Only seat 1 creates the game. */
   seat?: Seat;
   botHost?: string;
@@ -45,17 +46,17 @@ export interface GameProxyOptions {
  * slots for a game between two bots. Exported so it can be checked without a
  * client.
  */
-export function createGameRequest(
-  mode: GameMode,
-  mapPath: string,
-  opponentRace: number,
-  opponentDifficulty: number
-): Record<string, unknown> {
-  const opponent = mode === "BvB" ? { type: 1 /* Participant */ } : { type: 2 /* Computer */, race: opponentRace, difficulty: opponentDifficulty };
+export function createGameRequest(mode: GameMode, mapPath: string, opponents: AiOpponent[]): Record<string, unknown> {
+  // A map with fewer start locations than players drops the extra AIs without
+  // an error (measured on 4.10); the session notices from game_info instead.
+  const others =
+    mode === "BvB"
+      ? [{ type: 1 /* Participant */ }]
+      : opponents.map((ai) => ({ type: 2 /* Computer */, race: ai.race, difficulty: ai.difficulty, ai_build: ai.build }));
   return {
     create_game: {
       local_map: { map_path: mapPath },
-      player_setup: [{ type: 1 /* Participant */ }, opponent],
+      player_setup: [{ type: 1 /* Participant */ }, ...others],
       realtime: false,
     },
   };
@@ -83,8 +84,7 @@ export class GameProxy {
   private readonly bus: EventBus;
   private readonly mapPath: string;
   private readonly mode: GameMode;
-  private readonly opponentRace: number;
-  private readonly opponentDifficulty: number;
+  private readonly opponents: AiOpponent[];
   private readonly seat: Seat;
   private readonly botHost: string;
   private readonly botPort: number;
@@ -105,14 +105,14 @@ export class GameProxy {
   private playerResult: PlayerResult[] | null = null;
   private joinedPlayerId: number | null = null;
   private joinedName: string | null = null;
+  private gamePlayers: number | null = null;
 
   constructor(options: GameProxyOptions) {
     this.sessionId = options.sessionId;
     this.bus = options.bus;
     this.mapPath = options.mapPath;
     this.mode = options.mode ?? "A";
-    this.opponentRace = options.opponentRace ?? 2; // Zerg
-    this.opponentDifficulty = options.opponentDifficulty ?? 2; // Easy
+    this.opponents = options.opponents && options.opponents.length > 0 ? options.opponents : [DEFAULT_AI];
     this.seat = options.seat ?? 1;
     this.botHost = options.botHost ?? "127.0.0.1";
     this.botPort = options.botPort ?? 5000;
@@ -217,7 +217,7 @@ export class GameProxy {
    * games (verified in Phase 0 and again by the end-game probe).
    */
   async createGame(): Promise<void> {
-    await this.ownRequest("createGame", createGameRequest(this.mode, this.mapPath, this.opponentRace, this.opponentDifficulty));
+    await this.ownRequest("createGame", createGameRequest(this.mode, this.mapPath, this.opponents));
   }
 
   /** Whether this proxy creates its games: Mode A, and seat 1 of a game
@@ -276,6 +276,18 @@ export class GameProxy {
     this.playerResult = null;
     this.joinedPlayerId = null;
     this.joinedName = null;
+    this.gamePlayers = null;
+  }
+
+  /** The number of players the running game reports, once its `game_info`
+   * has passed through; null before. */
+  get playersInGame(): number | null {
+    return this.gamePlayers;
+  }
+
+  /** How many players this proxy asks for when it creates a game. */
+  get playersRequested(): number {
+    return this.mode === "A" ? 1 + this.opponents.length : 2;
   }
 
   /**
@@ -321,6 +333,12 @@ export class GameProxy {
     if (join && Object.prototype.hasOwnProperty.call(join, "player_id")) {
       this.joinedPlayerId = Number(join["player_id"]);
     }
+
+    // How many players the game really has. A map with too few start
+    // locations drops the extra AIs without an error, and this is the only
+    // place that shows it.
+    const players = (decoded.game_info as { player_info?: unknown[] } | undefined)?.player_info;
+    if (Array.isArray(players) && players.length > 0) this.gamePlayers = players.length;
 
     const playerResult = decoded.observation?.player_result;
     if (Array.isArray(playerResult) && playerResult.length > 0) {

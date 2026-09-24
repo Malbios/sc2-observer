@@ -310,6 +310,7 @@ function idleSessionStatus(): SessionStatusIpc {
     seats: null,
     watchSeat: null,
     nextWatchSeat: null,
+    warning: null,
     error: null,
   };
 }
@@ -1317,8 +1318,7 @@ export function registerIpcHandlers(): void {
       gamesDir: gamesDir(),
       map: options.map,
       mode: (options.mode as GameMode) ?? "A",
-      opponentRace: options.opponentRace,
-      opponentDifficulty: options.opponentDifficulty,
+      opponents: options.opponents,
       watchSeat: options.watchSeat === 2 ? 2 : 1,
       appVersion: app.getVersion(),
     });

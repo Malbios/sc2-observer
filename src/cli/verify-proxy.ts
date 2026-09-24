@@ -237,10 +237,48 @@ function main(): void {
       (request["create_game"] as { player_setup: unknown }).player_setup;
     check(
       "against the built-in AI, the second slot is the computer",
-      setupOf(createGameRequest("A", "Test.SC2Map", 3, 5)),
-      [{ type: 1 }, { type: 2, race: 3, difficulty: 5 }]
+      setupOf(createGameRequest("A", "Test.SC2Map", [{ race: 3, difficulty: 5, build: 2 }])),
+      [{ type: 1 }, { type: 2, race: 3, difficulty: 5, ai_build: 2 }]
     );
-    check("between two bots, both slots are bots", setupOf(createGameRequest("BvB", "Test.SC2Map", 3, 5)), [{ type: 1 }, { type: 1 }]);
+    check(
+      "several AIs get a slot each, with their own race, difficulty and build",
+      setupOf(
+        createGameRequest("A", "Flat64.SC2Map", [
+          { race: 1, difficulty: 7, build: 6 },
+          { race: 3, difficulty: 2, build: 1 },
+          { race: 4, difficulty: 10, build: 5 },
+        ])
+      ),
+      [
+        { type: 1 },
+        { type: 2, race: 1, difficulty: 7, ai_build: 6 },
+        { type: 2, race: 3, difficulty: 2, ai_build: 1 },
+        { type: 2, race: 4, difficulty: 10, ai_build: 5 },
+      ]
+    );
+    check("between two bots, both slots are bots", setupOf(createGameRequest("BvB", "Test.SC2Map", [])), [{ type: 1 }, { type: 1 }]);
+
+    // With no AIs chosen, today's opponent: an easy Zerg.
+    const plain = new GameProxy({ sessionId: "a", bus: new EventBus(), mapPath: "x" });
+    check("a proxy with no AIs chosen asks for one", plain.playersRequested, 2);
+    const three = new GameProxy({
+      sessionId: "a3",
+      bus: new EventBus(),
+      mapPath: "x",
+      opponents: [
+        { race: 1, difficulty: 2, build: 1 },
+        { race: 2, difficulty: 2, build: 1 },
+        { race: 3, difficulty: 2, build: 1 },
+      ],
+    });
+    check("three AIs make four players", three.playersRequested, 4);
+
+    // A map with two start locations drops the other AIs; game_info says so.
+    check("no player count before game_info", three.playersInGame, null);
+    three.publishResponse(encodeResponse({ status: SC2_STATUS.inGame, game_info: { map_name: "Test", player_info: [{ player_id: 1 }, { player_id: 2 }] } }));
+    check("game_info tells how many players the game really has", three.playersInGame, 2);
+    three.resetForNewGame();
+    check("and the next game starts without a count", three.playersInGame, null);
 
     const bus = new EventBus();
     const seat1 = new GameProxy({ sessionId: "p1", bus, mapPath: "Test.SC2Map", mode: "BvB", seat: 1 });
