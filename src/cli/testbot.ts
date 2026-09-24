@@ -46,6 +46,15 @@ const USAGE = `Usage: testbot [options]
                          or through a proxy started in Mode B, which forwards it
                          instead of sending one of its own)
   --connect-timeout <ms>  how long to retry the initial connect (default 60000)
+
+Ladder-style join, for a game with two bots (as AI Arena starts a bot):
+  --LadderServer <host> --GamePort <port> --StartPort <port>
+                        connect to ws://<host>:<port>/sc2api instead of --url and
+                        join with the ladder convention's ports: server
+                        [StartPort+2, +3], client [StartPort+4, +5]. The game
+                        must already exist; the bot never creates it.
+  --host-ip <ip>        set host_ip in the join (python-sc2 never does; only for
+                        testing clients that do not share localhost)
 `;
 
 const RACES: Record<string, number> = { norace: 0, terran: 1, zerg: 2, protoss: 3, random: 4 };
@@ -212,7 +221,21 @@ async function main(): Promise<void> {
     return;
   }
 
-  const url = args.url || "ws://127.0.0.1:5000/sc2api";
+  // A ladder bot is told where its client is and which ports the game uses,
+  // and derives the rest by the convention python-sc2 documents at
+  // main.py:610 ("Most ladder bots generate their server and client ports as
+  // [s+2, s+3], [s+4, s+5]"). Both bots in a game send the same ports.
+  const ladderUrl = args.LadderServer && args.GamePort ? `ws://${args.LadderServer}:${args.GamePort}/sc2api` : null;
+  const startPort = args.StartPort ? Number(args.StartPort) : null;
+  const ladderPorts =
+    startPort === null
+      ? {}
+      : {
+          server_ports: { game_port: startPort + 2, base_port: startPort + 3 },
+          client_ports: [{ game_port: startPort + 4, base_port: startPort + 5 }],
+        };
+  const hostIp = args["host-ip"] || null;
+  const url = ladderUrl ?? (args.url || "ws://127.0.0.1:5000/sc2api");
   const race = parseRace(args.race);
   const name = args.name || "testbot";
   const stepSize = args.step ? Number(args.step) : 8;
@@ -243,8 +266,8 @@ async function main(): Promise<void> {
     });
   }
 
-  // Same fields python-sc2 sends (sc2/client.py join_game). No server_ports /
-  // client_ports: those are only for bot-vs-bot, which §8 puts out of scope.
+  // Same fields python-sc2 sends (sc2/client.py join_game). Ports only for a
+  // ladder-style join: a game against the built-in AI must not have them.
   const joined = await conn.request({
     join_game: {
       race,
@@ -258,6 +281,8 @@ async function main(): Promise<void> {
         raw_affects_selection: false,
         raw_crop_to_playable_area: false,
       },
+      ...ladderPorts,
+      ...(hostIp ? { host_ip: hostIp } : {}),
     },
   });
   // Presence, not truthiness. ResponseJoinGame.error is a proto2 optional
