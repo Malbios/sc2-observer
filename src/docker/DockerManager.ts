@@ -27,11 +27,25 @@ import type { EventBus } from "../bus/EventBus";
 export const SC2_VERSION = "4.10";
 export const SC2_BUILD = "75689";
 
-export const IMAGE_NAME = `sc2-observer:${SC2_VERSION}-${SC2_BUILD}`;
+/**
+ * Bumped whenever the image changes in a way the version does not show, such
+ * as entrypoint.sh. `imageExists` only asks whether the tag is there, so
+ * without this a machine with the old image would keep its old entrypoint
+ * silently. r2: one or two clients per container.
+ */
+export const IMAGE_REVISION = "r2";
+
+export const IMAGE_NAME = `sc2-observer:${SC2_VERSION}-${SC2_BUILD}-${IMAGE_REVISION}`;
 export const CONTAINER_NAME = "sc2-observer";
 
 /** SC2 listens here inside the container; entrypoint.sh passes `-port 5001`. */
 export const CONTAINER_PORT = 5001;
+
+/** The second client, when the container runs two (SC2_CLIENTS=2), for a game
+ * between two bots. Published on the same port number on the host. */
+export const SECOND_CLIENT_PORT = 5002;
+
+export type ClientCount = 1 | 2;
 
 /** Published to loopback only. The game API is unauthenticated, so binding it
  * to any external interface would put a remote-control socket on the network. */
@@ -48,6 +62,8 @@ export interface DockerManagerOptions {
   /** Host maps folder, mounted so the client can find the map to create. */
   mapsDir: string;
   hostPort?: number;
+  /** Two for a game between two bots; one otherwise. */
+  clients?: ClientCount;
 }
 
 export interface DockerAvailability {
@@ -81,7 +97,11 @@ export function buildImageArgs(dockerfileDir: string): string[] {
  * VS Code extension (which strips a colon out of its own URI form); the
  * drive-letter form is what Phase 0 proved works.
  */
-export function runContainerArgs(mapsDir: string, hostPort: number): string[] {
+export function runContainerArgs(mapsDir: string, hostPort: number, clients: ClientCount = 1): string[] {
+  const second =
+    clients === 2
+      ? ["-e", "SC2_CLIENTS=2", "-p", `${HOST_BIND}:${SECOND_CLIENT_PORT}:${SECOND_CLIENT_PORT}`]
+      : [];
   return [
     "run",
     "-d",
@@ -89,6 +109,7 @@ export function runContainerArgs(mapsDir: string, hostPort: number): string[] {
     CONTAINER_NAME,
     "-p",
     `${HOST_BIND}:${hostPort}:${CONTAINER_PORT}`,
+    ...second,
     "-v",
     `${mapsDir}:${MAPS_MOUNT}`,
     IMAGE_NAME,
@@ -146,6 +167,7 @@ export class DockerManager {
   private readonly dockerfileDir: string;
   private readonly mapsDir: string;
   readonly hostPort: number;
+  readonly clients: ClientCount;
   private logStream: { stop(): void } | null = null;
 
   constructor(options: DockerManagerOptions) {
@@ -153,10 +175,16 @@ export class DockerManager {
     this.dockerfileDir = options.dockerfileDir;
     this.mapsDir = options.mapsDir;
     this.hostPort = options.hostPort ?? CONTAINER_PORT;
+    this.clients = options.clients ?? 1;
   }
 
   get clientUrl(): string {
     return `ws://${HOST_BIND}:${this.hostPort}/sc2api`;
+  }
+
+  /** Every client this container runs; all of them must answer to be ready. */
+  get clientUrls(): string[] {
+    return this.clients === 2 ? [this.clientUrl, `ws://${HOST_BIND}:${SECOND_CLIENT_PORT}/sc2api`] : [this.clientUrl];
   }
 
   private log(source: "manager" | "build" | "container", line: string): void {
@@ -243,12 +271,13 @@ export class DockerManager {
   }
 
   async startContainer(): Promise<boolean> {
-    const result = await this.run(runContainerArgs(this.mapsDir, this.hostPort));
+    const result = await this.run(runContainerArgs(this.mapsDir, this.hostPort, this.clients));
     if (result.code !== 0) {
       this.log("manager", `docker run failed: ${result.stderr.trim()}`);
       return false;
     }
-    this.log("manager", `container ${CONTAINER_NAME} started on ${HOST_BIND}:${this.hostPort}`);
+    const ports = this.clients === 2 ? `${this.hostPort} and ${SECOND_CLIENT_PORT}` : `${this.hostPort}`;
+    this.log("manager", `container ${CONTAINER_NAME} started on ${HOST_BIND}:${ports}`);
     return true;
   }
 
@@ -289,7 +318,7 @@ export class DockerManager {
     const deadline = Date.now() + timeoutMs;
     let announced = false;
     for (;;) {
-      const reachable = await this.probeOnce();
+      const reachable = (await Promise.all(this.clientUrls.map((url) => this.probeOnce(url)))).every(Boolean);
       if (reachable) return true;
       if (Date.now() > deadline) {
         this.log("manager", `SC2 did not accept a connection within ${timeoutMs}ms`);
@@ -303,9 +332,9 @@ export class DockerManager {
     }
   }
 
-  private probeOnce(): Promise<boolean> {
+  private probeOnce(url: string): Promise<boolean> {
     return new Promise((resolve) => {
-      const ws = new WebSocket(this.clientUrl);
+      const ws = new WebSocket(url);
       const settle = (ready: boolean): void => {
         ws.removeAllListeners();
         try {

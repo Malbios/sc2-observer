@@ -24,6 +24,6 @@ ENV SC2_BUILD=${SC2_BUILD}
 COPY entrypoint.sh /root/entrypoint.sh
 RUN chmod +x /root/entrypoint.sh
 
-EXPOSE 5001
+EXPOSE 5001 5002
 
 ENTRYPOINT ["/root/entrypoint.sh"]

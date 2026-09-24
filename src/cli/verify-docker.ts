@@ -19,6 +19,8 @@ import {
   CONTAINER_PORT,
   HOST_BIND,
   IMAGE_NAME,
+  IMAGE_REVISION,
+  SECOND_CLIENT_PORT,
   SC2_BUILD,
   SC2_VERSION,
 } from "../docker/DockerManager";
@@ -33,7 +35,7 @@ function check(label: string, actual: unknown, expected: unknown): void {
 
 function main(): void {
   // -- the image tag carries the version ----------------------------------
-  check("the image tag pins the SC2 version", IMAGE_NAME, `sc2-observer:${SC2_VERSION}-${SC2_BUILD}`);
+  check("the image tag pins the SC2 version and the image revision", IMAGE_NAME, `sc2-observer:${SC2_VERSION}-${SC2_BUILD}-${IMAGE_REVISION}`);
 
   const build = buildImageArgs("C:/dev/sc2-observer/docker");
   check("build tags the versioned image", build.includes(IMAGE_NAME), true);
@@ -60,6 +62,18 @@ function main(): void {
   const spaced = runContainerArgs("C:\\Users\\a b\\maps", 5001);
   check("a path with spaces survives as one argument", spaced[spaced.indexOf("-v") + 1], "C:\\Users\\a b\\maps:/root/StarCraftII/Maps");
   check("run names the container", run[run.indexOf("--name") + 1], CONTAINER_NAME);
+
+  // -- one client by default, two for a game between two bots --------------
+  check("one client sets no client count", run.includes("SC2_CLIENTS=2"), false);
+  check("one client publishes one port", run.filter((arg) => arg === "-p").length, 1);
+  const two = runContainerArgs("C:\\maps", 5001, 2);
+  check("two clients ask the entrypoint for two", two[two.indexOf("-e") + 1], "SC2_CLIENTS=2");
+  const published = two.flatMap((arg, i) => (arg === "-p" ? [two[i + 1]] : []));
+  check("two clients publish both ports, on loopback", published, [
+    `${HOST_BIND}:5001:${CONTAINER_PORT}`,
+    `${HOST_BIND}:${SECOND_CLIENT_PORT}:${SECOND_CLIENT_PORT}`,
+  ]);
+  check("the image is still the last argument", two[two.length - 1], IMAGE_NAME);
 
   // -- status parsing ------------------------------------------------------
   check("running is reusable", parseContainerStatus("running\n", 0), "running");
