@@ -35,8 +35,8 @@ async function main(): Promise<void> {
 
   if (!map) {
     console.error(
-      "Usage: session --map <MapName.SC2Map> [--mode A|B] [--games-dir DIR] [--maps-dir DIR]\n" +
-        "                 [--sc2-port P] [--bot-port P] [--race N] [--difficulty N]",
+      "Usage: session --map <MapName.SC2Map> [--mode A|B|BvB] [--games-dir DIR] [--maps-dir DIR]\n" +
+        "                 [--sc2-port P] [--bot-port P] [--race N] [--difficulty N] [--watch 1|2]",
     );
     process.exit(1);
   }
@@ -53,6 +53,7 @@ async function main(): Promise<void> {
     opponentDifficulty: args.difficulty ? Number(args.difficulty) : undefined,
     hostPort: args["sc2-port"] ? Number(args["sc2-port"]) : undefined,
     botPort: args["bot-port"] ? Number(args["bot-port"]) : undefined,
+    watchSeat: args.watch === "2" ? 2 : 1,
     appVersion: appVersion(),
   });
 
@@ -65,10 +66,10 @@ async function main(): Promise<void> {
     }
   });
   bus.on("sessionState", (state) => {
-    console.log(
-      `[state] ${state.phase} game=${state.gamesPlayed} loop=${state.loop} ` +
-        `bot=${state.botConnected ? "connected" : "gone"} client=${state.clientStatus}`,
-    );
+    const bots = state.seats
+      ? state.seats.map((seat) => `p${seat.seat}=${seat.botConnected ? "connected" : "gone"}`).join(" ")
+      : `bot=${state.botConnected ? "connected" : "gone"}`;
+    console.log(`[state] ${state.phase} game=${state.gamesPlayed} loop=${state.loop} ${bots} client=${state.clientStatus}`);
   });
 
   let stopping = false;
@@ -89,7 +90,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log("[session] running. Start your bot against 127.0.0.1:5000. Ctrl+C to stop.");
+  const seats = controller.status.seats;
+  if (seats) {
+    console.log("[session] running. Start each bot ladder-style. Ctrl+C to stop.");
+    for (const seat of seats) {
+      console.log(`[session]   player ${seat.seat}: --LadderServer ${seat.ladderServer} --GamePort ${seat.gamePort} --StartPort ${seat.startPort}`);
+    }
+  } else {
+    console.log(`[session] running. Start your bot against 127.0.0.1:${args["bot-port"] ?? 5000}. Ctrl+C to stop.`);
+  }
 }
 
 main().catch((err) => {

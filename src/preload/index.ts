@@ -65,6 +65,7 @@ const api: SpectatorApi = {
   startSession: (options: StartSessionOptionsIpc) => ipcRenderer.invoke("spectator:startSession", options),
   stopSession: () => ipcRenderer.invoke("spectator:stopSession"),
   getSessionState: () => ipcRenderer.invoke("spectator:getSessionState"),
+  setWatchedSeat: (seat: number) => ipcRenderer.invoke("spectator:setWatchedSeat", seat),
   setActiveSource: (kind: "recording" | "live") => ipcRenderer.invoke("spectator:setActiveSource", kind),
 
   onSessionState: (listener: (state: SessionStatusIpc) => void) => subscribe("spectator:sessionState", listener),

@@ -55,13 +55,29 @@ class FakeClient implements ClientHost {
   async stopContainer(): Promise<void> {
     this.stopCalls++;
   }
+
+  /** What `docker inspect` would say after a game; "exited" stands for a
+   * client that died and took the container with it. */
+  container: "running" | "exited" | "missing" = "running";
+
+  async containerStatus(): Promise<"running" | "exited" | "missing"> {
+    return this.container;
+  }
 }
 
 class FakeGame implements GameHost {
+  /** Shared between the seats of one session, so the test can see the order
+   * of the calls that need a client to themselves across both proxies. */
+  constructor(
+    readonly sessionId = "s",
+    private readonly calls: string[] = []
+  ) {}
   botConnected = false;
   currentLoop = 0;
   lastResult: { player_id: number; result: string }[] | null = null;
   botPlayerId: number | null = null;
+  botName: string | null = null;
+  leaveCalls = 0;
   startCalls = 0;
   stopCalls = 0;
   createCalls = 0;
@@ -83,13 +99,22 @@ class FakeGame implements GameHost {
 
   async createGame(): Promise<void> {
     this.createCalls++;
+    this.calls.push(`${this.sessionId}:create`);
     if (this.botConnected) this.exclusiveCallsWhileBotAttached++;
   }
 
   async saveReplay(): Promise<Uint8Array | null> {
     this.replayCalls++;
+    this.calls.push(`${this.sessionId}:replay`);
     if (this.botConnected) this.exclusiveCallsWhileBotAttached++;
     return this.replay;
+  }
+
+  async leaveGame(): Promise<string | null> {
+    this.leaveCalls++;
+    this.calls.push(`${this.sessionId}:leave`);
+    if (this.botConnected) this.exclusiveCallsWhileBotAttached++;
+    return null;
   }
 
   resetForNewGame(): void {
@@ -98,6 +123,7 @@ class FakeGame implements GameHost {
     // result is the bug this method exists for.
     this.lastResult = null;
     this.botPlayerId = null;
+    this.botName = null;
   }
 }
 
@@ -392,6 +418,168 @@ async function checkModeBNextGame(): Promise<void> {
   await h.controller.stop();
 }
 
+// -- a game between two bots ------------------------------------------------
+
+interface SeatDriver {
+  game: FakeGame;
+  frame(loop: number): void;
+  joins(): void;
+  leaves(): void;
+  ends(reason: "result" | "status" | "botClosed", loop: number): void;
+}
+
+function botVsBot(): {
+  bus: EventBus;
+  client: FakeClient;
+  controller: SessionController;
+  calls: string[];
+  seats: [SeatDriver, SeatDriver];
+  files(): string[];
+} {
+  const bus = new EventBus();
+  const client = new FakeClient();
+  const calls: string[] = [];
+  const one = new FakeGame("p1", calls);
+  const two = new FakeGame("p2", calls);
+  const gamesDir = mkdtempSync(join(tmpdir(), "spectator-bvb-"));
+  let seconds = 0;
+  const controller = new SessionController({
+    bus,
+    dockerfileDir: "unused",
+    mapsDir: "unused",
+    gamesDir,
+    map: "TorchesAIE.SC2Map",
+    mode: "BvB",
+    client,
+    seatGames: [one, two],
+    now: () => new Date(Date.UTC(2026, 0, 1, 0, 0, seconds++)),
+  });
+  const driver = (game: FakeGame): SeatDriver => ({
+    game,
+    frame(loop: number): void {
+      game.currentLoop = loop;
+      bus.emit("frame", { sessionId: game.sessionId, loop, kind: "observation", direction: "response", bytes: new Uint8Array([0x08, loop & 0x7f]) });
+    },
+    joins(): void {
+      game.botConnected = true;
+      bus.emit("botConnection", { sessionId: game.sessionId, connected: true, loop: game.currentLoop });
+    },
+    leaves(): void {
+      game.botConnected = false;
+      bus.emit("botConnection", { sessionId: game.sessionId, connected: false, loop: game.currentLoop });
+    },
+    ends(reason, loop): void {
+      bus.emit("gameEnded", { sessionId: game.sessionId, loop, reason });
+    },
+  });
+  return {
+    bus,
+    client,
+    controller,
+    calls,
+    seats: [driver(one), driver(two)],
+    files: () => readdirSync(gamesDir).sort().map((name) => join(gamesDir, name)),
+  };
+}
+
+async function checkBotVsBot(): Promise<void> {
+  const h = botVsBot();
+  const [p1, p2] = h.seats;
+  await h.controller.start();
+  check("both proxies are started", [p1.game.startCalls, p2.game.startCalls], [1, 1]);
+  check("the game is created and waits for both bots", h.controller.status.phase, "gameCreated");
+  check(
+    "each seat is told how to start its bot",
+    h.controller.status.seats?.map((seat) => [seat.seat, seat.ladderServer, seat.gamePort, seat.startPort]),
+    [
+      [1, "127.0.0.1", 5000, 5100],
+      [2, "127.0.0.1", 5010, 5100],
+    ]
+  );
+  check("player 1 is watched by default", h.controller.status.watchSeat, 1);
+
+  // Each proxy sees its own bot's view. Only the watched one is recorded.
+  p1.joins();
+  p2.joins();
+  p2.frame(1);
+  check("the unwatched seat's frames open no file", h.files().length, 0);
+  p1.frame(1);
+  p1.frame(9);
+  p2.frame(9);
+  p1.frame(17);
+  const [first] = h.files().filter((f) => f.endsWith(".sqlite"));
+  check("the watched seat's frames open the game file", first !== undefined, true);
+
+  // Asking for player 2 mid-game waits for the next game: one file, one view.
+  h.controller.setWatchedSeat(2);
+  check("a switch mid-game waits for the next game", [h.controller.status.watchSeat, h.controller.status.nextWatchSeat], [1, 2]);
+
+  p1.game.botPlayerId = 1;
+  p1.game.botName = "MyBot";
+  p2.game.botPlayerId = 2;
+  p2.game.botName = "OtherBot";
+  p1.game.lastResult = [
+    { player_id: 1, result: "Defeat" },
+    { player_id: 2, result: "Victory" },
+  ];
+  p1.ends("result", 17);
+  p2.ends("result", 17);
+  p1.leaves();
+  await settle();
+  check("one bot gone is not enough", h.controller.status.phase, "ended");
+  check("no replay while the other bot still holds its client", p1.game.replayCalls, 0);
+
+  p2.leaves();
+  await settle();
+  check("the replay is saved, both clients leave, then the next game", h.calls, ["p1:replay", "p1:leave", "p2:leave", "p1:create"]);
+  check("nothing that needs a client ran while a bot held it", p1.game.exclusiveCallsWhileBotAttached + p2.game.exclusiveCallsWhileBotAttached, 0);
+  check("the next game is waiting for both bots", h.controller.status.phase, "gameCreated");
+  check("and it watches player 2", h.controller.status.watchSeat, 2);
+
+  // Counted once the file is closed, which is when the store has written it.
+  check("the watched seat's frames are recorded, and only those", frameCount(first!), 3);
+  const meta = metaOf(first!);
+  check("the file says it was a game between two bots", [meta.mode, meta.watched_seat], ["BvB", "1"]);
+  check("the result is the watched player's", [meta.bot_player_id, meta.result], ["1", "Defeat"]);
+  check("and it says which bot was which", JSON.parse(meta.players!), [
+    { seat: 1, player_id: 1, name: "MyBot", result: "Defeat" },
+    { seat: 2, player_id: 2, name: "OtherBot", result: "Victory" },
+  ]);
+
+  // The second game records player 2's view.
+  p1.joins();
+  p2.joins();
+  p1.frame(3);
+  p2.frame(3);
+  const second = h.files().filter((f) => f.endsWith(".sqlite") && f !== first);
+  check("the next game gets its own file", second.length, 1);
+  await h.controller.stop();
+  check("which holds player 2's view", [frameCount(second[0]!), metaOf(second[0]!).watched_seat], [1, "2"]);
+  check("stopping stops both proxies", [p1.game.stopCalls, p2.game.stopCalls], [1, 1]);
+}
+
+/** A dead client stops the container (entrypoint.sh). The other bot's game
+ * would hang forever, so the session says so and stops instead of creating a
+ * next game on a client that is not there. */
+async function checkBotVsBotDeadClient(): Promise<void> {
+  const h = botVsBot();
+  const [p1, p2] = h.seats;
+  await h.controller.start();
+  p1.joins();
+  p2.joins();
+  p1.frame(1);
+  h.client.container = "exited";
+  p1.ends("botClosed", 1);
+  p1.leaves();
+  p2.leaves();
+  await settle();
+  check("a stopped container fails the session", h.controller.status.phase, "failed");
+  check("with a message that says what to do", /Start the session again/.test(h.controller.status.error ?? ""), true);
+  check("and no next game is created", p1.game.createCalls, 0);
+  check("the game that was cut short is still closed", typeof metaOf(h.files().find((f) => f.endsWith(".sqlite"))!).ended_at, "string");
+  await h.controller.stop();
+}
+
 async function main(): Promise<void> {
   checkNaming();
   await checkStartup();
@@ -401,6 +589,8 @@ async function main(): Promise<void> {
   await checkNoReplay();
   await checkStopWhileWaiting();
   await checkModeBNextGame();
+  await checkBotVsBot();
+  await checkBotVsBotDeadClient();
 
   console.log(failures === 0 ? "\nall session checks passed" : `\n${failures} session check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);

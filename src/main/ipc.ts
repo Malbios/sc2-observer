@@ -283,6 +283,11 @@ function buildCatalog(): GameCatalogIpc {
   };
 }
 
+/** Whether a session in this phase still owns the client and its frames. */
+function sessionRunning(phase: SessionPhase): boolean {
+  return phase !== "idle" && phase !== "stopped" && phase !== "failed";
+}
+
 /** A session that is not running, with room for the reason it is not. The
  * panel reads `error` and shows it, which is how a refusal reaches the user
  * without inventing a phase for it. */
@@ -296,6 +301,9 @@ function idleSessionStatus(): SessionStatusIpc {
     loop: 0,
     botConnected: false,
     clientStatus: "none",
+    seats: null,
+    watchSeat: null,
+    nextWatchSeat: null,
     error: null,
   };
 }
@@ -386,6 +394,13 @@ function pushLiveFrame(): void {
  * means, and the recording still has every one of them.
  */
 function onLiveFrame(event: FrameEvent): void {
+  // A game between two bots has a proxy per bot, each seeing its own bot's
+  // view. The live view shows the one being recorded, so what is on screen
+  // is what the file will hold. Only while that session runs: a replay after
+  // it has its own frames and no seats.
+  const watched = session && sessionRunning(session.status.phase) ? session.watchedSessionId : null;
+  if (watched !== null && event.sessionId !== watched) return;
+
   // A new channel (the first Attack order, say) has to reach the tree. The
   // lines themselves need no push: the renderer asks for every loop it shows.
   if (liveOverlays.addFrame(event) && activeSource === "live") {
@@ -1261,10 +1276,19 @@ export function registerIpcHandlers(): void {
       mode: (options.mode as GameMode) ?? "A",
       opponentRace: options.opponentRace,
       opponentDifficulty: options.opponentDifficulty,
+      watchSeat: options.watchSeat === 2 ? 2 : 1,
       appVersion: app.getVersion(),
     });
     activeSource = "live";
     await session.start();
+    return session.status;
+  });
+
+  // A game between two bots: whose view to show and record. It applies now if
+  // nothing of the current game is recorded yet, else from the next game.
+  ipcMain.handle("spectator:setWatchedSeat", (_event, seat: number): SessionStatusIpc | null => {
+    if (!session) return null;
+    session.setWatchedSeat(seat === 2 ? 2 : 1);
     return session.status;
   });
 

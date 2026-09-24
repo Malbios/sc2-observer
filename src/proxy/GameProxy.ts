@@ -77,7 +77,9 @@ export function createGameRequest(
  * clears the per-game state between them.
  */
 export class GameProxy {
-  private readonly sessionId: string;
+  /** Carried on every bus event, which is how a session with two proxies
+   * tells their frames apart. */
+  readonly sessionId: string;
   private readonly bus: EventBus;
   private readonly mapPath: string;
   private readonly mode: GameMode;

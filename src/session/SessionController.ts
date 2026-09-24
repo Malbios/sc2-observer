@@ -9,12 +9,12 @@ import {
   GameEndedEvent,
   GameEndReason,
 } from "../bus/EventBus";
-import { DockerManager } from "../docker/DockerManager";
+import { DockerManager, SECOND_CLIENT_PORT, type ContainerStatus } from "../docker/DockerManager";
 import { gameFileName, replayPathFor, uniqueGamePath } from "../history/gameFiles";
 import { HistoryStore } from "../history/HistoryStore";
-import { GameMode, GameProxy, PlayerResult } from "../proxy/GameProxy";
+import { GameMode, GameProxy, PlayerResult, Seat } from "../proxy/GameProxy";
 import { SC2_STATUS, statusName } from "../protocol/status";
-import type { SessionPhase, SessionStatusIpc } from "../shared/ipc-types";
+import type { SeatStatusIpc, SessionPhase, SessionStatusIpc } from "../shared/ipc-types";
 
 /**
  * The parts of the Docker manager a session needs. Declared as an interface so
@@ -25,21 +25,45 @@ export interface ClientHost {
   readonly hostPort: number;
   ensureClientReady(options?: { replaceRunning?: boolean }): Promise<{ ok: boolean; reason: string | null }>;
   stopContainer(): Promise<void>;
+  /** Whether the container is still up, asked after a game between two bots:
+   * it stops when either client dies (entrypoint.sh). */
+  containerStatus(): Promise<ContainerStatus>;
 }
 
 /** The parts of the proxy a session needs, for the same reason. */
 export interface GameHost {
+  /** On every bus event the proxy emits, so two proxies can be told apart. */
+  readonly sessionId: string;
   readonly botConnected: boolean;
   readonly currentLoop: number;
   /** The outcome, if the ending produced one. Read at the end of a game
    * rather than delivered with `gameEnded`; see `GameProxy.lastResult`. */
   readonly lastResult: PlayerResult[] | null;
   readonly botPlayerId: number | null;
+  readonly botName: string | null;
   start(): Promise<void>;
   stop(): void;
   createGame(): Promise<void>;
   saveReplay(): Promise<Uint8Array | null>;
+  leaveGame(): Promise<string | null>;
   resetForNewGame(): void;
+}
+
+/**
+ * A game between two bots: what each bot is started with, ladder-style
+ * (`--LadderServer --GamePort --StartPort`, as AI Arena passes them). Each
+ * seat has its own proxy port in front of its own client, and both share the
+ * start port the game's internal ports are counted from (5102 to 5105, inside
+ * the container only).
+ */
+export const BVB_LADDER_SERVER = "127.0.0.1";
+export const BVB_BOT_PORTS: Record<Seat, number> = { 1: 5000, 2: 5010 };
+export const BVB_START_PORT = 5100;
+
+interface SeatState {
+  seat: Seat;
+  host: GameHost;
+  botConnected: boolean;
 }
 
 export interface SessionControllerOptions {
@@ -56,9 +80,13 @@ export interface SessionControllerOptions {
   opponentDifficulty?: number;
   hostPort?: number;
   botPort?: number;
+  /** BvB: whose view the first game shows and records. */
+  watchSeat?: Seat;
   /** Injected in tests; a real manager and proxy are built when absent. */
   client?: ClientHost;
   game?: GameHost;
+  /** BvB, in tests: the two seats' proxies, seat 1 first. */
+  seatGames?: [GameHost, GameHost];
   /** A clock, so file names are predictable in tests. */
   now?: () => Date;
   /** Stamped into each game's `meta` (§6.3), so a file that will not open can
@@ -89,7 +117,14 @@ export class SessionController {
   private readonly now: () => Date;
   private readonly appVersion: string | null;
   private readonly client: ClientHost;
-  private readonly game: GameHost;
+  /** One seat per bot: one for Mode A and B, two for a game between two
+   * bots. Seat 1's proxy creates the games and saves the replays. */
+  private readonly seats: SeatState[];
+  /** BvB: the seat the current game shows and records, and the one the next
+   * game will. A game file holds one bot's view, so a change waits for the
+   * next game unless nothing has been recorded yet. */
+  private watchSeat: Seat;
+  private nextWatchSeat: Seat;
   /** Why the game that is finishing ended, held between the signal and the
    * write because `finishGame` runs after waiting for the bot to let go. */
   private endReason: GameEndReason | null = null;
@@ -98,7 +133,6 @@ export class SessionController {
   private store: HistoryStore | null = null;
   private gameFile: string | null = null;
   private gamesPlayed = 0;
-  private botConnected = false;
   private clientStatus: number | null = null;
   private error: string | null = null;
   private stopping = false;
@@ -114,6 +148,9 @@ export class SessionController {
     this.now = options.now ?? (() => new Date());
     this.appVersion = options.appVersion ?? null;
 
+    this.watchSeat = options.watchSeat ?? 1;
+    this.nextWatchSeat = this.watchSeat;
+
     this.client =
       options.client ??
       new DockerManager({
@@ -121,34 +158,112 @@ export class SessionController {
         dockerfileDir: options.dockerfileDir,
         mapsDir: options.mapsDir,
         hostPort: options.hostPort,
+        clients: this.bvb ? 2 : 1,
       });
 
-    this.game =
-      options.game ??
-      new GameProxy({
-        sessionId: `session-${Date.now()}`,
-        bus: options.bus,
-        mapPath: options.map,
-        mode: this.mode,
-        opponentRace: options.opponentRace,
-        opponentDifficulty: options.opponentDifficulty,
-        botPort: options.botPort,
-        sc2Port: this.client.hostPort,
-      });
+    const sessionId = `session-${Date.now()}`;
+    if (this.bvb) {
+      const proxyFor = (seat: Seat): GameHost =>
+        new GameProxy({
+          sessionId: `${sessionId}-p${seat}`,
+          bus: options.bus,
+          mapPath: options.map,
+          mode: "BvB",
+          seat,
+          botPort: BVB_BOT_PORTS[seat],
+          sc2Port: seat === 1 ? this.client.hostPort : SECOND_CLIENT_PORT,
+        });
+      const [one, two] = options.seatGames ?? [proxyFor(1), proxyFor(2)];
+      this.seats = [
+        { seat: 1, host: one, botConnected: false },
+        { seat: 2, host: two, botConnected: false },
+      ];
+    } else {
+      const host =
+        options.game ??
+        new GameProxy({
+          sessionId,
+          bus: options.bus,
+          mapPath: options.map,
+          mode: this.mode,
+          opponentRace: options.opponentRace,
+          opponentDifficulty: options.opponentDifficulty,
+          botPort: options.botPort,
+          sc2Port: this.client.hostPort,
+        });
+      this.seats = [{ seat: 1, host, botConnected: false }];
+    }
+  }
+
+  private get bvb(): boolean {
+    return this.mode === "BvB";
+  }
+
+  /** Seat 1: the proxy that creates each game and saves its replay. */
+  private get game(): GameHost {
+    return this.seats[0]!.host;
+  }
+
+  /** The seat whose view is recorded; the only seat outside a BvB game. */
+  private get watched(): SeatState {
+    return this.seats.find((state) => state.seat === this.watchSeat) ?? this.seats[0]!;
+  }
+
+  /**
+   * Which seat an event came from. A session with one proxy takes every event
+   * as its own, as it always has. With two, an event from a proxy this session
+   * does not own is ignored.
+   */
+  private seatOf(sessionId: string): SeatState | null {
+    if (!this.bvb) return this.seats[0]!;
+    return this.seats.find((state) => state.host.sessionId === sessionId) ?? null;
+  }
+
+  /** BvB: the session id of the watched seat's proxy, so the live view shows
+   * the same bot the recording holds. Null otherwise: take every frame. */
+  get watchedSessionId(): string | null {
+    return this.bvb ? this.watched.host.sessionId : null;
   }
 
   get status(): SessionStatusIpc {
+    const seats: SeatStatusIpc[] | null = this.bvb
+      ? this.seats.map((state) => ({
+          seat: state.seat,
+          ladderServer: BVB_LADDER_SERVER,
+          gamePort: BVB_BOT_PORTS[state.seat],
+          startPort: BVB_START_PORT,
+          botConnected: state.botConnected,
+          playerId: state.host.botPlayerId,
+          name: state.host.botName,
+        }))
+      : null;
     return {
       phase: this.phase,
       mode: this.mode,
       map: this.map,
       gameFile: this.gameFile,
       gamesPlayed: this.gamesPlayed,
-      loop: this.game.currentLoop,
-      botConnected: this.botConnected,
+      loop: this.watched.host.currentLoop,
+      botConnected: this.watched.botConnected,
       clientStatus: statusName(this.clientStatus),
       error: this.error,
+      seats,
+      watchSeat: this.bvb ? this.watchSeat : null,
+      nextWatchSeat: this.bvb && this.nextWatchSeat !== this.watchSeat ? this.nextWatchSeat : null,
     };
+  }
+
+  /**
+   * BvB: whose view to show and record. A game file holds one bot's view, so
+   * this takes effect now only if nothing of the current game has been
+   * recorded yet, and otherwise from the next game.
+   */
+  setWatchedSeat(seat: Seat): void {
+    if (!this.bvb) return;
+    this.nextWatchSeat = seat;
+    if (!this.store) this.watchSeat = seat;
+    this.log(this.watchSeat === seat ? `watching player ${seat}` : `player ${seat} will be watched from the next game`);
+    this.announce();
   }
 
   /** The store the current game is being written to, for the IPC layer's
@@ -179,20 +294,33 @@ export class SessionController {
    * frames get lost at exactly the moment a game starts.
    */
   private attach(): void {
+    // In a game between two bots each proxy sees its own bot's view, fog and
+    // all. Recording both would interleave two views into one file, so only
+    // the watched seat's frames are kept.
     const onFrame = (event: FrameEvent): void => {
+      const state = this.seatOf(event.sessionId);
+      if (!state || state !== this.watched) return;
       this.ensureStore().recordFrame(event);
     };
     const onStatus = (event: ClientStatusEvent): void => {
+      const state = this.seatOf(event.sessionId);
+      if (!state || state !== this.watched) return;
       this.clientStatus = event.status;
       if (event.status === SC2_STATUS.inGame && this.phase !== "ended") this.setPhase("inGame");
       else this.announce();
     };
     const onBot = (event: BotConnectionEvent): void => {
-      this.botConnected = event.connected;
-      if (!event.connected) this.releaseBotWaiters();
+      const state = this.seatOf(event.sessionId);
+      if (!state) return;
+      state.botConnected = event.connected;
+      if (!event.connected && this.seats.every((seat) => !seat.botConnected)) this.releaseBotWaiters();
       this.announce();
     };
+    // The first seat to report the end ends the game for the session; the
+    // other's report is swallowed by the phase guard. The next game still
+    // waits for every bot to let go.
     const onEnded = (event: GameEndedEvent): void => {
+      if (!this.seatOf(event.sessionId)) return;
       void this.onGameEnded(event.reason, event.loop);
     };
 
@@ -238,6 +366,7 @@ export class SessionController {
     // `source = replay`. Phase 6 writes those; saying which kind this one is
     // now means nothing has to guess later.
     store.setMeta("source", "live");
+    if (this.bvb) store.setMeta("watched_seat", String(this.watchSeat));
     if (this.appVersion) store.setMeta("app_version", this.appVersion);
     this.store = store;
     this.gameFile = path;
@@ -271,12 +400,15 @@ export class SessionController {
     this.setPhase("clientReady");
 
     try {
-      await this.game.start();
+      // Seat 1 first: its start creates the game seat 2's bot will join.
+      for (const state of this.seats) await state.host.start();
     } catch (err) {
       return this.fail(`The proxy could not start: ${(err as Error).message}`);
     }
-    if (this.mode === "A") this.setPhase("gameCreated");
-    this.log(this.mode === "A" ? "game created; waiting for the bot" : "waiting for the bot to create a game");
+    if (this.mode === "A" || this.bvb) this.setPhase("gameCreated");
+    this.log(
+      this.bvb ? "game created; waiting for both bots" : this.mode === "A" ? "game created; waiting for the bot" : "waiting for the bot to create a game"
+    );
     return true;
   }
 
@@ -305,7 +437,21 @@ export class SessionController {
     await this.finishGame();
     if (this.stopping) return;
 
-    if (this.mode === "A") {
+    if (this.bvb) {
+      // Both clients have to leave the finished game, or the next create_game
+      // crashes the host client. A dead client stops the whole container
+      // (entrypoint.sh), which is how that case is told apart here.
+      for (const state of this.seats) {
+        const problem = await state.host.leaveGame();
+        if (problem) this.log(`player ${state.seat}'s client did not leave the game: ${problem}`);
+      }
+      if ((await this.client.containerStatus()) !== "running") {
+        this.fail("An SC2 client stopped, and the container with it. Start the session again.");
+        return;
+      }
+      this.watchSeat = this.nextWatchSeat;
+      await this.beginNextGame();
+    } else if (this.mode === "A") {
       await this.beginNextGame();
     } else {
       // Mode B's next game is the bot's to create. Reset now so its first
@@ -331,14 +477,29 @@ export class SessionController {
   private writeOutcome(store: HistoryStore): void {
     if (this.endReason) store.setMeta("end_reason", this.endReason);
 
-    const results = this.game.lastResult;
+    // Either seat's proxy may have seen the result; the watched one first.
+    const watched = this.watched.host;
+    const results = watched.lastResult ?? this.seats.map((state) => state.host.lastResult).find((r) => r && r.length > 0) ?? null;
+
+    if (this.bvb) {
+      // Which bot was which, for the catalog and for the row's tooltip. The
+      // same shape a converted replay writes.
+      const players = this.seats.map((state) => ({
+        seat: state.seat,
+        player_id: state.host.botPlayerId,
+        name: state.host.botName,
+        result: results?.find((entry) => entry.player_id === state.host.botPlayerId)?.result ?? "unknown",
+      }));
+      store.setMeta("players", JSON.stringify(players));
+    }
+
     if (!results || results.length === 0) {
       store.setMeta("result", "unknown");
       return;
     }
 
     store.setMeta("player_result", JSON.stringify(results));
-    const botPlayerId = this.game.botPlayerId;
+    const botPlayerId = watched.botPlayerId;
     if (botPlayerId !== null) store.setMeta("bot_player_id", String(botPlayerId));
 
     const ours = botPlayerId === null ? undefined : results.find((entry) => entry.player_id === botPlayerId);
@@ -377,7 +538,7 @@ export class SessionController {
   }
 
   private async beginNextGame(): Promise<void> {
-    this.game.resetForNewGame();
+    for (const state of this.seats) state.host.resetForNewGame();
     try {
       await this.game.createGame();
     } catch (err) {
@@ -385,7 +546,7 @@ export class SessionController {
       return;
     }
     this.setPhase("gameCreated");
-    this.log("next game created; waiting for the bot");
+    this.log(this.bvb ? "next game created; waiting for both bots" : "next game created; waiting for the bot");
   }
 
   /**
@@ -395,8 +556,8 @@ export class SessionController {
    * the user to stop the session, and says which it is waiting for.
    */
   private waitForBotGone(): Promise<void> {
-    if (!this.botConnected) return Promise.resolve();
-    this.log("waiting for the bot to disconnect before saving the replay");
+    if (this.seats.every((state) => !state.botConnected)) return Promise.resolve();
+    this.log(this.bvb ? "waiting for both bots to disconnect before saving the replay" : "waiting for the bot to disconnect before saving the replay");
     return new Promise((resolve) => this.botGoneWaiters.push(resolve));
   }
 
@@ -416,7 +577,7 @@ export class SessionController {
     this.stopping = true;
     this.releaseBotWaiters();
     this.detach();
-    this.game.stop();
+    for (const state of this.seats) state.host.stop();
 
     if (this.store) {
       // A game abandoned by stopping the session is still a finished file, and
@@ -432,7 +593,7 @@ export class SessionController {
     }
 
     await this.client.stopContainer();
-    this.botConnected = false;
+    for (const state of this.seats) state.botConnected = false;
     this.setPhase("stopped");
   }
 }

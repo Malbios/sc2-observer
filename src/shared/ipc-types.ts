@@ -213,6 +213,26 @@ export interface SessionStatusIpc {
   clientStatus: string;
   /** Set only when the phase is "failed". */
   error: string | null;
+  /** A game between two bots ("BvB") only, else null: one entry per seat. */
+  seats: SeatStatusIpc[] | null;
+  /** BvB: the seat whose view the current game shows and records. */
+  watchSeat: number | null;
+  /** BvB: the seat the next game will show, when it differs. */
+  nextWatchSeat: number | null;
+}
+
+/** One bot's place in a game between two bots, with what the user needs to
+ * start that bot ladder-style. */
+export interface SeatStatusIpc {
+  seat: number;
+  /** `--LadderServer`, `--GamePort` and `--StartPort` for this bot. */
+  ladderServer: string;
+  gamePort: number;
+  startPort: number;
+  botConnected: boolean;
+  playerId: number | null;
+  /** The name the bot joined under, if it gave one. */
+  name: string | null;
 }
 
 /** What the UI has to pick before a session can start. Mode is the user's
@@ -222,6 +242,10 @@ export interface StartSessionOptionsIpc {
   mode: string;
   opponentRace?: number;
   opponentDifficulty?: number;
+  /** BvB: whose view to show and record, 1 by default. */
+  watchSeat?: number;
+  /** BvB: each seat's telemetry folder, by seat number. */
+  telemetryDirs?: Record<number, string>;
 }
 
 /** What the Docker panel shows when nothing is running yet, so the user can
@@ -389,6 +413,8 @@ export interface SpectatorApi {
   stopSession(): Promise<SessionStatusIpc | null>;
   /** Null when no session has been started in this run of the app. */
   getSessionState(): Promise<SessionStatusIpc | null>;
+  /** A game between two bots: show and record this seat's view. */
+  setWatchedSeat(seat: number): Promise<SessionStatusIpc | null>;
   /** Which of a running session and an opened recording the viewer is
    * showing, so main answers queries from that one. */
   setActiveSource(kind: "recording" | "live"): Promise<null>;
