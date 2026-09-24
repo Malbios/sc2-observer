@@ -1,6 +1,6 @@
 # Where these icons came from
 
-The 43 `.webp` unit and building portraits in this folder were copied from
+The 40 `.webp` unit and building portraits in this folder were copied from
 [`stephanzlatarev/vscode-starcraft`](https://github.com/stephanzlatarev/vscode-starcraft)
 (`icons/` in that repository), the VS Code extension this project studied as
 prior art.

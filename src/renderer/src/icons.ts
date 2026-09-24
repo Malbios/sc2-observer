@@ -159,6 +159,10 @@ const ICON_ALIASES: Record<string, string> = {
   WidowMineBurrowed: "WidowMine",
   ThorAP: "Thor",
   RefineryRich: "Refinery",
+  // Stand-ins until these modes get art of their own.
+  SiegeTankSieged: "SiegeTank",
+  VikingAssault: "VikingFighter",
+  LiberatorAG: "Liberator",
 };
 
 /** Relative, not `/icons/`: the built app loads index.html from disk, where
