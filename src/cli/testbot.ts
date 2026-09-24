@@ -36,6 +36,10 @@ const USAGE = `Usage: testbot [options]
                         the other attack-moves straight to the enemy start
   --debug-draw          draw a line, a box, a sphere and text with SC2's debug
                         API every step, in four colors
+  --hallucinate         (with --race Protoss) spawn a Sentry with the debug API,
+                        cast Phoenix, Zealot and Stalker hallucinations and send
+                        them at the enemy start, so each viewpoint's
+                        is_hallucination can be read off the recordings
   --telemetry <dir>     write a §3 NDJSON telemetry file into this directory
   --create-game <map>   create the game first, e.g. TorchesAIE.SC2Map
                         (this is Mode B: use it straight against the container,
@@ -59,6 +63,12 @@ const ATTACK = 3674;
 const WORKER_TYPES = new Set([45, 104, 84]);
 /** When the workers are ordered, late enough for the first steps to settle. */
 const COMMAND_AT_LOOP = 64;
+/** Sentry, and the hallucination abilities for Phoenix, Zealot and Stalker. */
+const SENTRY = 77;
+const HALLUCINATIONS = [154, 164, 158];
+/** DebugGameState.tech_tree and DebugSetUnitValue.UnitValue.Energy. */
+const DEBUG_TECH_TREE = 10;
+const DEBUG_ENERGY = 1;
 
 const CONNECT_RETRY_MS = 500;
 
@@ -211,6 +221,7 @@ async function main(): Promise<void> {
   const chatEvery = args.chat ? Number(args.chat) : 0;
   const sendCommands = "command" in args;
   const debugDraw = "debug-draw" in args;
+  const hallucinate = "hallucinate" in args;
   const telemetryDir = args.telemetry || null;
   const createMap = args["create-game"] || null;
   const connectTimeout = args["connect-timeout"] ? Number(args["connect-timeout"]) : 60_000;
@@ -271,6 +282,7 @@ async function main(): Promise<void> {
   let telemetry: TestTelemetryWriter | null = null;
   let mapInfo: TelemetryMapInfo | null = null;
   let commanded = false;
+  let hallucinationStage: "spawn" | "energize" | "cast" | "send" | "done" = "spawn";
   let loop = 0;
   let step = 0;
   let naturalEnd = false;
@@ -337,6 +349,53 @@ async function main(): Promise<void> {
         console.log(`[testbot] loop ${loop}: worker ${first} moves to the centre then attacks, ${second} attacks.`);
       } else {
         console.log(`[testbot] loop ${loop}: fewer than two workers, no commands sent.`);
+      }
+    }
+
+    // One stage per step, because each one needs the previous one's result
+    // in the next observation: the Sentry has to exist before it gets energy,
+    // and the hallucinations have to exist before they can be sent anywhere.
+    // The tech tree cheat takes research out of the question.
+    if (hallucinate && loop >= COMMAND_AT_LOOP && hallucinationStage !== "done") {
+      if (hallucinationStage === "spawn") {
+        await conn.request({
+          debug: {
+            debug: [
+              { game_state: DEBUG_TECH_TREE },
+              { create_unit: { unit_type: SENTRY, owner: playerId, pos: mapInfo.ourStart, quantity: 1 } },
+            ],
+          },
+        });
+        console.log(`[testbot] loop ${loop}: spawned a Sentry.`);
+        hallucinationStage = "energize";
+      } else if (hallucinationStage === "energize") {
+        // Like every debug command, this lands on the next step, so casting
+        // in the same step is refused with NotEnoughEnergy.
+        const sentry = ownUnits.find((unit) => unit.unitType === SENTRY);
+        if (sentry) {
+          await conn.request({ debug: { debug: [{ unit_value: { unit_value: DEBUG_ENERGY, value: 200, unit_tag: sentry.tag } }] } });
+          hallucinationStage = "cast";
+        }
+      } else if (hallucinationStage === "cast") {
+        const sentry = ownUnits.find((unit) => unit.unitType === SENTRY);
+        if (sentry) {
+          const cast = await conn.request({
+            action: {
+              actions: HALLUCINATIONS.map((ability) => ({ action_raw: { unit_command: { ability_id: ability, unit_tags: [sentry.tag] } } })),
+            },
+          });
+          console.log(`[testbot] loop ${loop}: cast hallucinations, results ${JSON.stringify(cast.action?.result ?? [])}.`);
+          hallucinationStage = "send";
+        }
+      } else {
+        const raw: any[] = inner.raw_data?.units ?? [];
+        const tags = raw.filter((u) => u.owner === playerId && u.is_hallucination === true).map((u) => u.tag);
+        if (tags.length > 0) {
+          const enemy = { x: mapInfo.enemyStart.x, y: mapInfo.enemyStart.y };
+          await conn.request({ action: { actions: [{ action_raw: { unit_command: { ability_id: ATTACK, unit_tags: tags, target_world_space_pos: enemy } } }] } });
+          console.log(`[testbot] loop ${loop}: sent ${tags.length} hallucinations at the enemy start.`);
+          hallucinationStage = "done";
+        }
       }
     }
 
