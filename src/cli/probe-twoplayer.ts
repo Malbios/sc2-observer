@@ -19,7 +19,7 @@ import { parseArgs } from "./args";
  * being measured.
  *
  * Run with a client already listening on each API port:
- *   node dist/cli/probe-twoplayer.js --map TorchesAIE.SC2Map
+ *   node dist/cli/probe-twoplayer.js --map TorchesAIE_v4.SC2Map
  *        [--api-ports 5001,5002] [--start-port 5100] [--loops 2000]
  *        [--games 2] [--host-ip <ip>] [--api-host 127.0.0.1] [--fresh-sockets]
  *

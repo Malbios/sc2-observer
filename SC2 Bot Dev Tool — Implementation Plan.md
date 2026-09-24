@@ -115,7 +115,7 @@ Breakpoint behaviour follows for free: a halted bot stops writing; the file stop
 
 ### 3.5 Correlating a telemetry stream with a game
 
-The telemetry file carries no game id (the bot need not know one). Locally, a new file appearing while a game is live attaches to that game; one appearing before a game starts attaches to the next game whose first observation follows the file's creation. A game holds one telemetry file per player: a second file for the same player is refused until the first is removed, so a file can never be attached twice. With one bot seat per game that is one file per game; when two bots share a game, each seat gets its own telemetry folder and its own stream, named from `hello.name`. On import, the user pairs a file with a replay explicitly, and the app checks that the file's loop range fits the replay's duration. Mis-attachment is recoverable in the history UI by re-linking a stream to a game. This is deliberately loose because the alternative (the app tells the bot a game id) is exactly the coordination the brief forbids.
+The telemetry file carries no game id (the bot need not know one). Locally, a new file appearing while a game is live attaches to that game; one appearing before a game starts attaches to the next game whose first observation follows the file's creation. A game holds one telemetry file per player: a second file for the same player is refused until the first is removed, so a file can never be attached twice. With one bot seat per game that is one file per game; when two bots share a game, each seat gets its own telemetry folder and its own stream, named from `hello.name`, and its channels are filed under `P1/` or `P2/` so two bots using the same channel names stay apart. On import, the user pairs a file with a replay explicitly, and the app checks that the file's loop range fits the replay's duration. Mis-attachment is recoverable in the history UI by re-linking a stream to a game. This is deliberately loose because the alternative (the app tells the bot a game id) is exactly the coordination the brief forbids.
 
 ### 3.6 Rendering arbitrary telemetry without foreknowledge
 
@@ -301,7 +301,7 @@ The live path itself (proxy, session controller, telemetry tailer) cannot be cov
 - The bot's own architecture, layers, race, or module naming. The app sees channel strings and nothing else.
 - Any pause, resume, breakpoint, or stepping protocol between app and bot. The proxy forwards; it never holds a frame.
 - Launching or restarting the bot process. An optional "run this command" button may come after v1; it is not part of the design.
-- Bot-vs-bot games. The proxy accepts one bot; two would need two proxies and a second game slot.
+- ~~Bot-vs-bot games.~~ Amended 2026-09-24: supported as mode BvB. Two SC2 clients share one container, with one proxy per bot. The user starts both bots ladder-style (`--LadderServer`, `--GamePort`, `--StartPort`), and the app still never launches a bot. See CLAUDE.md for how it works.
 - The cross-game comparison UI. The data model supports it (§6.5); the view is a later effort.
 - Unit icons, sprites, or any Blizzard art assets for v1: units are drawn as shapes coloured by owner, labelled by type name on click/hover. This is a first-draft simplification, not a permanent ceiling — icon rendering can follow later once the rest of the viewer is solid.
 - macOS and Linux packaging.

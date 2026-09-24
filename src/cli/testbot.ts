@@ -41,7 +41,7 @@ const USAGE = `Usage: testbot [options]
                         them at the enemy start, so each viewpoint's
                         is_hallucination can be read off the recordings
   --telemetry <dir>     write a §3 NDJSON telemetry file into this directory
-  --create-game <map>   create the game first, e.g. TorchesAIE.SC2Map
+  --create-game <map>   create the game first, e.g. TorchesAIE_v4.SC2Map
                         (this is Mode B: use it straight against the container,
                          or through a proxy started in Mode B, which forwards it
                          instead of sending one of its own)

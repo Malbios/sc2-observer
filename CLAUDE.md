@@ -25,14 +25,14 @@ second `--` is added (`npm run testbot -- -- --end surrender`), which is more
 trouble than it is worth.
 
 ```
-node dist/cli/session.js --map TorchesAIE.SC2Map [--mode A|B] [--games-dir DIR]
-node dist/cli/record.js --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 5001]
+node dist/cli/session.js --map TorchesAIE_v4.SC2Map [--mode A|B|BvB] [--watch 1|2] [--games-dir DIR]
+node dist/cli/record.js --map TorchesAIE_v4.SC2Map --out game.sqlite [--sc2-port 5001]
 node dist/cli/dump.js game.sqlite --loop 5000
-node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
+node dist/cli/import-telemetry.js game.sqlite --file run.ndjson [--seat 1|2]
 node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw] [--race Protoss --hallucinate]
 node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
 node dist/cli/probe-replay.js --file game.SC2Replay
-node dist/cli/probe-twoplayer.js --map TorchesAIE.SC2Map [--api-ports 5001,5002] [--start-port 5100] [--loops 2000] [--games 2]
+node dist/cli/probe-twoplayer.js --map TorchesAIE_v4.SC2Map [--api-ports 5001,5002] [--start-port 5100] [--loops 2000] [--games 2]
 ```
 
 `testbot` also joins ladder-style, as AI Arena starts a bot, with
@@ -162,4 +162,13 @@ Decisions already taken that should not be re-litigated:
 - **Intent lines and debug draws are derived when asked, never stored.** `GameOverlays` is fed frames one at a time, from the bus while a game is live and from the stored frames when a recording opens, and `src/main/ipc.ts` merges its overlays and channels into the telemetry answers on the way out. Nothing lands in the telemetry tables, so checkpoints, detach and streams never see them. Every recording already held its action frames, so old games get intent lines; debug frames are only stored from this build on.
 - Intent: one channel per ability, `_game/intent/<friendly_name>`, specific abilities folded into their general form. A line lasts while the unit exists and its `orders` still hold it; the orders are the tail of what it was told, which is also how a queued chain drops its finished links. Commands with no target draw nothing and make no channel.
 - Debug draws follow SC2: each draw request replaces the last, one overlay per color on `_game/debug`. Screen-space text is skipped, and JSON in debug text is not read as shapes; the telemetry file is for that. `MapView` pools overlays by channel and position for this.
+- **Bot vs bot (mode `BvB`).** The user starts both bots ladder-style; the app never launches one. It runs one container with two SC2 clients (`SC2_CLIENTS=2`, API ports 5001 and 5002; the container stops as soon as either client exits), and one `GameProxy` per seat:
+  - Seat 1's proxy creates the game with two bot slots.
+  - Each bot joins with `--LadderServer 127.0.0.1 --StartPort 5100` and `--GamePort` 5000 (player 1) or 5010 (player 2). The session status carries these as `seats`.
+  - Only the watched seat's frames are recorded and shown live, because each proxy sees its own bot's fogged view. A change of watched seat applies from the next game.
+  - After a game, the replay is saved and **both clients `leave_game`** before the next `create_game`.
+  - A stopped container fails the session instead of waiting on a hung game.
+  - Each file's `players` meta says which bot was which.
+  - Full-map review is not recorded live: it is "Watch As..." on the game, which plays its `.SC2Replay` from the observer slot.
+- **Telemetry is one file per player.** In a bot-vs-bot game each player has their own folder and stream (`streams.seat`, schema v3), and **every channel is filed under `P1/` or `P2/` at ingest**, so two bots writing the same channel names cannot overwrite each other. Such a game refuses a file whose player is not given. One-bot games have no seat and no prefix.
 - A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.

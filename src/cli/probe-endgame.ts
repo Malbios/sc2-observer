@@ -21,7 +21,7 @@ import { parseArgs } from "./args";
  * the client's behaviour being measured and the proxy would only add a party
  * that could be blamed for the result.
  *
- * Run with: node dist/cli/probe-endgame.js [--url ws://127.0.0.1:5001/sc2api] --map TorchesAIE.SC2Map
+ * Run with: node dist/cli/probe-endgame.js [--url ws://127.0.0.1:5001/sc2api] --map TorchesAIE_v4.SC2Map
  */
 
 /** Status in sc2api.proto. Named here only so the log is readable; this is a
@@ -115,7 +115,7 @@ function replayBytes(response: Response): number {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const url = args.url || "ws://127.0.0.1:5001/sc2api";
-  const map = args.map || "TorchesAIE.SC2Map";
+  const map = args.map || "TorchesAIE_v4.SC2Map";
 
   console.log(`[probe] connecting to ${url}`);
   const ws = await connect(url, 60_000);
