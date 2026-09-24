@@ -21,12 +21,15 @@ import { parseArgs } from "./args";
  * Run with a client already listening on each API port:
  *   node dist/cli/probe-twoplayer.js --map TorchesAIE.SC2Map
  *        [--api-ports 5001,5002] [--start-port 5100] [--loops 2000]
- *        [--games 2] [--host-ip <ip>] [--api-host 127.0.0.1]
+ *        [--games 2] [--host-ip <ip>] [--api-host 127.0.0.1] [--fresh-sockets]
+ *
+ * --fresh-sockets holds no connection: the game is created on one that is
+ * then closed, and each bot gets a new one when it arrives, as GameProxy does.
  */
 
 const USAGE =
   "Usage: probe-twoplayer --map <MapName.SC2Map> [--api-ports 5001,5002] [--start-port 5100] " +
-  "[--loops 2000] [--games 2] [--host-ip <ip>] [--api-host 127.0.0.1]";
+  "[--loops 2000] [--games 2] [--host-ip <ip>] [--api-host 127.0.0.1] [--fresh-sockets]";
 
 /** Where the bots connect: one local port per client, in front of it. */
 const RELAY_BASE_PORT = 6001;
@@ -86,6 +89,29 @@ function relay(port: number, upstream: WebSocket): WebSocketServer {
   return server;
 }
 
+/**
+ * The same pipe, shaped the way GameProxy does it: no connection is held in
+ * advance, and each bot gets a fresh one to its client when it arrives. The
+ * bot's frames are buffered until that connection is open.
+ */
+function freshRelay(port: number, upstreamUrl: string): WebSocketServer {
+  const server = new WebSocketServer({ host: "127.0.0.1", port, path: "/sc2api" });
+  server.on("connection", (bot) => {
+    const pending: Buffer[] = [];
+    let upstream: WebSocket | null = null;
+    bot.on("message", (data: Buffer) => (upstream ? upstream.send(data) : pending.push(data)));
+    bot.on("close", () => upstream?.close());
+    void connect(upstreamUrl).then((ws) => {
+      upstream = ws;
+      ws.on("message", (data: Buffer) => {
+        if (bot.readyState === WebSocket.OPEN) bot.send(data);
+      });
+      for (const data of pending.splice(0)) ws.send(data);
+    });
+  });
+  return server;
+}
+
 interface BotRun {
   label: string;
   exitCode: number | null;
@@ -136,10 +162,12 @@ async function playOneGame(
   apiPorts: [number, number],
   startPort: number,
   loops: number,
-  hostIp: string | null
+  hostIp: string | null,
+  fresh: boolean
 ): Promise<boolean> {
-  console.log(`\n[probe] game ${game}: connecting to both clients`);
-  const upstreams = await Promise.all(apiPorts.map((port) => connect(`ws://${apiHost}:${port}/sc2api`)));
+  console.log(`\n[probe] game ${game}: connecting to both clients${fresh ? " (fresh sockets, as GameProxy does)" : ""}`);
+  const urls = apiPorts.map((port) => `ws://${apiHost}:${port}/sc2api`);
+  const upstreams = await Promise.all(urls.map((url) => connect(url)));
 
   const created = await request(upstreams[0]!, {
     create_game: {
@@ -157,7 +185,15 @@ async function playOneGame(
   }
   console.log(`[probe] game ${game}: created on client 1 (${apiHost}:${apiPorts[0]})`);
 
-  const relays = upstreams.map((ws, i) => relay(RELAY_BASE_PORT + i, ws));
+  // Fresh: drop every connection now, including the one that created the
+  // game, and let each bot's arrival open its own.
+  if (fresh) {
+    upstreams.forEach((ws) => ws.close());
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const relays = fresh
+    ? urls.map((url, i) => freshRelay(RELAY_BASE_PORT + i, url))
+    : upstreams.map((ws, i) => relay(RELAY_BASE_PORT + i, ws));
   const common = ["--LadderServer", "127.0.0.1", "--StartPort", String(startPort), ...(hostIp ? ["--host-ip", hostIp] : [])];
   // One bot surrenders at the loop limit; the other plays on until the game
   // tells it the result, which is how a real opponent would learn it.
@@ -180,7 +216,8 @@ async function playOneGame(
   await Promise.all(relays.map((server) => new Promise((resolve) => server.close(resolve))));
   // A finished game leaves both clients in `ended`. Without leaving it, the
   // next game's create_game crashed the host client (seen in layout A).
-  for (const [i, ws] of upstreams.entries()) {
+  const leavers = fresh ? await Promise.all(urls.map((url) => connect(url))) : upstreams;
+  for (const [i, ws] of leavers.entries()) {
     try {
       const left = await request(ws, { leave_game: {} });
       console.log(`[probe] client ${i + 1} left the game: status ${left.status}, errors ${JSON.stringify(left.error ?? [])}`);
@@ -188,7 +225,7 @@ async function playOneGame(
       console.log(`[probe] client ${i + 1} leave_game failed: ${(err as Error).message}`);
     }
   }
-  upstreams.forEach((ws) => ws.close());
+  leavers.forEach((ws) => ws.close());
   return runs.every((run) => run.exitCode === 0 && run.playerId !== null);
 }
 
@@ -205,12 +242,13 @@ async function main(): Promise<void> {
   const loops = Number(args.loops || 2000);
   const games = Number(args.games || 2);
   const hostIp = args["host-ip"] || null;
+  const fresh = "fresh-sockets" in args;
 
   let passed = 0;
   for (let game = 1; game <= games; game++) {
     // Wait for the previous game's sockets to be released by the clients.
     if (game > 1) await new Promise((resolve) => setTimeout(resolve, 2000));
-    if (await playOneGame(game, args.map, apiHost, apiPorts, startPort, loops, hostIp)) passed++;
+    if (await playOneGame(game, args.map, apiHost, apiPorts, startPort, loops, hostIp, fresh)) passed++;
   }
   console.log(`\n[probe] ${passed} of ${games} game(s) completed with both bots joined`);
   process.exit(passed === games ? 0 : 1);
