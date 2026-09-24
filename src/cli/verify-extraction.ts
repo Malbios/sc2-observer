@@ -53,7 +53,7 @@ function main(): void {
 function runChecks(fixturePath: string): void {
   const store = new HistoryStore(fixturePath);
 
-  check("fixture migrated to the current schema", store.getMeta("schema_version"), "2");
+  check("fixture migrated to the current schema", store.getMeta("schema_version"), "3");
   check("migration left the frames intact", store.getMaxLoop() > 0, true);
   check("a migrated v1 file has no telemetry", store.getStreams().length, 0);
 

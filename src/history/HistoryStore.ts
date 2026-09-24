@@ -18,7 +18,7 @@ import type {
 /** The schema this build writes and understands. Exported so the catalog can
  * say "this file is newer than me" without opening it through the store,
  * which would try to migrate it. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 const BATCH_SIZE = 50;
 /** §6.4 asks for "one transaction per second (or per 50 events)". */
 const FLUSH_INTERVAL_MS = 1000;
@@ -117,6 +117,11 @@ const MIGRATIONS: ((db: Database.Database) => void)[] = [
       );
     `);
   },
+  // v3: which player a telemetry file belongs to, in a game between two bots.
+  // NULL is the one bot of every other game, which is every file before this.
+  (db) => {
+    db.exec(`ALTER TABLE streams ADD COLUMN seat INTEGER`);
+  },
 ];
 
 export interface StreamInfo {
@@ -125,6 +130,9 @@ export interface StreamInfo {
   emitter: string | null;
   meta: Record<string, unknown> | null;
   channels: ChannelDeclaration[] | null;
+  /** The player this file belongs to in a game between two bots; null in
+   * every other game. */
+  seat?: number | null;
 }
 
 export interface StreamRow extends StreamInfo {
@@ -271,7 +279,7 @@ export class HistoryStore {
   createStream(info: StreamInfo): number {
     const result = this
       .stmt(
-        "INSERT INTO streams (name, source_path, emitter, meta, channels, attached_at) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO streams (name, source_path, emitter, meta, channels, attached_at, seat) VALUES (?, ?, ?, ?, ?, ?, ?)"
       )
       .run(
         info.name,
@@ -279,7 +287,8 @@ export class HistoryStore {
         info.emitter,
         info.meta ? JSON.stringify(info.meta) : null,
         info.channels ? JSON.stringify(info.channels) : null,
-        new Date().toISOString()
+        new Date().toISOString(),
+        info.seat ?? null
       );
     return Number(result.lastInsertRowid);
   }
@@ -442,6 +451,7 @@ export class HistoryStore {
       emitter: row["emitter"],
       meta: row["meta"] ? JSON.parse(row["meta"]) : null,
       channels: row["channels"] ? JSON.parse(row["channels"]) : null,
+      seat: row["seat"] ?? null,
       firstLoop: row["first_loop"],
       lastLoop: row["last_loop"],
       attachedAt: row["attached_at"],

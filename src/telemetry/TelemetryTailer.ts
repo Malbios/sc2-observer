@@ -96,7 +96,9 @@ export class TelemetryTailer {
     private readonly store: HistoryStore,
     private readonly bus: EventBus,
     readonly dir: string,
-    ignorePaths: readonly string[] = []
+    ignorePaths: readonly string[] = [],
+    /** The player whose folder this is, in a game between two bots. */
+    readonly seat: number | null = null
   ) {
     for (const filePath of ignorePaths) this.skipped.add(this.key(filePath));
   }
@@ -207,7 +209,7 @@ export class TelemetryTailer {
     if (!file) {
       // The game's one file is either this one or already somewhere else:
       // adopting a second would put two runs' telemetry into one game.
-      if (telemetryRefusal(this.store) !== null) {
+      if (telemetryRefusal(this.store, this.seat) !== null) {
         this.skipped.add(key);
         return false;
       }
@@ -217,7 +219,7 @@ export class TelemetryTailer {
         partial: "",
         decoder: new StringDecoder("utf8"),
         lineNo: 0,
-        ingest: new StreamIngest(this.store, filePath, path.basename(filePath).replace(/\.ndjson$/i, "")),
+        ingest: new StreamIngest(this.store, filePath, path.basename(filePath).replace(/\.ndjson$/i, ""), this.seat),
       };
       this.file = file;
     }

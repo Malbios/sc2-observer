@@ -153,6 +153,42 @@ function runChecks(scratch: string): void {
   store.close();
 
   checkAutoAttachIgnoreList(scratch);
+  checkSeatTailers(scratch);
+}
+
+/**
+ * A game between two bots tails one folder per player into the same game.
+ * Each tailer adopts its own player's file and files it under that player,
+ * so the two can write at the same time without taking each other's slot.
+ */
+function checkSeatTailers(scratch: string): void {
+  const store = new HistoryStore(path.join(scratch, "bvb.sqlite"));
+  store.setMeta("mode", "BvB");
+  const bus = new EventBus();
+  const dirs = [path.join(scratch, "bot1"), path.join(scratch, "bot2")];
+  for (const dir of dirs) mkdirSync(dir, { recursive: true });
+  const tailers = dirs.map((dir, i) => new TelemetryTailer(store, bus, dir, [], i + 1));
+
+  writeFileSync(path.join(dirs[0]!, "a.ndjson"), eventLine(10, "from bot 1"));
+  writeFileSync(path.join(dirs[1]!, "b.ndjson"), eventLine(12, "from bot 2"));
+  for (const tailer of tailers) tailer.poll();
+  // This suite's check compares with ===, so lists are compared as text.
+  check("each player's folder gives that player a file", store.getStreams().map((stream) => stream.seat).join(","), "1,2");
+  check("and files its channels under that player", store.readEvents({}).map((event) => event.ch).sort().join(","), "P1/test/log,P2/test/log");
+
+  // A second file in player 1's folder is not a second file for player 1.
+  writeFileSync(path.join(dirs[0]!, "late.ndjson"), eventLine(20, "a later run"));
+  for (const tailer of tailers) tailer.poll();
+  check("a player still has one file", store.getStreams().length, 2);
+
+  // A tailer with no player in a game between two bots cannot tell whose a
+  // file is, so it takes none.
+  const unassigned = new TelemetryTailer(store, bus, dirs[1]!, []);
+  unassigned.poll();
+  check("a tailer with no player takes nothing in such a game", unassigned.status().files.length, 0);
+  unassigned.stop();
+  for (const tailer of tailers) tailer.stop();
+  store.close();
 }
 
 /**

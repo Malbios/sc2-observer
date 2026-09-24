@@ -15,7 +15,8 @@ import { parseArgs } from "./args";
  * telemetry file into an existing game".
  */
 
-const USAGE = `Usage: import-telemetry <game.sqlite> --file <telemetry.ndjson>`;
+const USAGE = `Usage: import-telemetry <game.sqlite> --file <telemetry.ndjson> [--seat 1|2]
+  --seat is required for a game between two bots: whose file this is.`;
 
 async function main(): Promise<void> {
   const [gamePath] = process.argv.slice(2);
@@ -28,14 +29,17 @@ async function main(): Promise<void> {
   }
 
   const store = new HistoryStore(gamePath);
-  const problem = telemetryRefusal(store);
+  // In a game between two bots, whose file this is: its channels are filed
+  // under that player.
+  const seat = args.seat ? Number(args.seat) : null;
+  const problem = telemetryRefusal(store, seat);
   if (problem) {
     store.close();
     console.error(`[import] ${gamePath}: ${problem}`);
     process.exit(1);
   }
   const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
-  const ingest = new StreamIngest(store, path.resolve(filePath), fallbackName);
+  const ingest = new StreamIngest(store, path.resolve(filePath), fallbackName, seat);
 
   // Line at a time rather than readFileSync+split: a bot emitting a grid every
   // step can produce a file far larger than it is comfortable to hold twice.

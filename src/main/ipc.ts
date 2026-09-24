@@ -61,8 +61,10 @@ import type {
 const bus = new EventBus();
 
 let store: HistoryStore | null = null;
-let tailer: TelemetryTailer | null = null;
-/** The store the tailer writes into, which is not always the one on screen: a
+/** One per watched folder: one, or one per player in a game between two
+ * bots. All of them write into the same game. */
+let tailers: TelemetryTailer[] = [];
+/** The store the tailers write into, which is not always the one on screen: a
  * session's tailer follows its game while the user looks at a recording. */
 let tailerStore: HistoryStore | null = null;
 let terrainCache: TerrainData | null = null;
@@ -128,10 +130,14 @@ let lastPhase: SessionPhase | null = null;
  * file that shows up after this list was made is this game's, and no clock is
  * involved in deciding that.
  */
-let preExistingTelemetry: string[] = [];
+let preExistingTelemetry = new Map<string, string[]>();
 /** A folder the user picked by hand, which then outranks the default for the
  * rest of the run. Null until they pick one. */
 let telemetryDir: string | null = null;
+/** A game between two bots: each player's telemetry folder, from the session's
+ * start options. Each seat is tailed on its own, so two bots writing at once
+ * each land under their own player. */
+let seatTelemetryDirs: Record<number, string> | null = null;
 
 // -- the replay driver ------------------------------------------------------
 
@@ -452,14 +458,26 @@ function attachLiveTelemetry(): void {
   const gameStore = session?.activeStore;
   if (!gameStore) return;
   stopTailing();
-  // A folder the user picked by hand outlives the game it was picked during:
-  // it is where their bot writes, and reverting to the default for the next
-  // game would silently stop following it.
-  const dir = telemetryDir ?? defaultTelemetryDir();
-  tailer = new TelemetryTailer(gameStore, bus, dir, preExistingTelemetry);
+  for (const { dir, seat } of liveTelemetryFolders()) {
+    const next = new TelemetryTailer(gameStore, bus, dir, preExistingTelemetry.get(dir) ?? [], seat);
+    tailers.push(next);
+    next.start();
+    bus.emit("dockerLog", { source: "session", line: `watching ${dir} for ${seat === null ? "" : `player ${seat}'s `}telemetry` });
+  }
   tailerStore = gameStore;
-  tailer.start();
-  bus.emit("dockerLog", { source: "session", line: `watching ${dir} for telemetry` });
+}
+
+/**
+ * The folders a live game takes telemetry from. One bot: the folder picked by
+ * hand, which outlives the game it was picked during because it is where the
+ * bot writes, else the default. Two bots: each player's own folder, if one
+ * was given; a player with none has no live telemetry.
+ */
+function liveTelemetryFolders(): { dir: string; seat: number | null }[] {
+  if (session?.status.mode === "BvB") {
+    return Object.entries(seatTelemetryDirs ?? {}).map(([seat, dir]) => ({ dir, seat: Number(seat) }));
+  }
+  return [{ dir: telemetryDir ?? defaultTelemetryDir(), seat: null }];
 }
 
 /** One place for both replay entry points to refuse: the client is a single
@@ -662,9 +680,8 @@ function finishReplay(error: string | null): void {
   });
 }
 
-/** Everything already in the telemetry folder, for the ignore list above. */
-function telemetryCensus(): string[] {
-  const dir = telemetryDir ?? defaultTelemetryDir();
+/** Everything already in a telemetry folder, for the ignore list above. */
+function telemetryCensus(dir: string = telemetryDir ?? defaultTelemetryDir()): string[] {
   try {
     return readdirSync(dir)
       .filter((name) => name.toLowerCase().endsWith(".ndjson"))
@@ -708,9 +725,21 @@ function invalidateTelemetry(): void {
 }
 
 function stopTailing(): void {
-  tailer?.stop();
-  tailer = null;
+  for (const each of tailers) each.stop();
+  tailers = [];
   tailerStore = null;
+}
+
+/** What the header shows about the folders being watched, all of them at
+ * once: a game between two bots watches one per player. */
+function watchStatus(): TelemetryWatchIpc | null {
+  if (tailers.length === 0) return null;
+  const statuses = tailers.map((each) => each.status());
+  return {
+    dir: statuses.map((status) => status.dir).join(", "),
+    files: statuses.flatMap((status) => status.files),
+    skippedCount: statuses.reduce((sum, status) => sum + status.skippedCount, 0),
+  };
 }
 
 /** The folder the watch picker opens on: the repo's `telemetry/`, which is
@@ -834,15 +863,17 @@ function toIpcStreams(): TelemetryStreamIpc[] {
     attachedAt: stream.attachedAt,
     messageCount: stream.messageCount,
     rejectedCount: stream.rejectedCount,
+    seat: stream.seat ?? null,
   }));
 }
 
 /**
  * Reads an NDJSON telemetry file into the open game. Shared by the picker and
- * by a file dropped on the window, so both get the same duplicate check and
- * the same summary back.
+ * by a file dropped on the window, so both get the same refusal and the same
+ * summary back. `seat` is the player the file belongs to in a game between
+ * two bots, and null otherwise.
  */
-async function ingestTelemetryFile(sourcePath: string): Promise<AttachTelemetryResultIpc | null> {
+async function ingestTelemetryFile(sourcePath: string, seat: number | null = null): Promise<AttachTelemetryResultIpc | null> {
   const store = db();
   if (!store) return null;
   const filePath = path.resolve(sourcePath);
@@ -854,13 +885,13 @@ async function ingestTelemetryFile(sourcePath: string): Promise<AttachTelemetryR
   const problem =
     tailerStore === store
       ? "Telemetry is still being read into this game. Stop watching it first."
-      : telemetryRefusal(store);
+      : telemetryRefusal(store, seat);
   if (problem) {
     return { status: "refused", problem, streams: toIpcStreams(), ingested: null };
   }
 
   const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
-  const ingest = new StreamIngest(store, filePath, fallbackName);
+  const ingest = new StreamIngest(store, filePath, fallbackName, seat);
   const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
   let lineNo = 0;
   for await (const line of lines) {
@@ -920,7 +951,9 @@ export function registerIpcHandlers(): void {
       lastPhase = state.phase;
       // The moment the session starts waiting for a bot is the last moment
       // the folder holds only older runs' files.
-      if (state.phase === "gameCreated" || state.phase === "clientReady") preExistingTelemetry = telemetryCensus();
+      if (state.phase === "gameCreated" || state.phase === "clientReady") {
+        preExistingTelemetry = new Map(liveTelemetryFolders().map(({ dir }) => [dir, telemetryCensus(dir)]));
+      }
     }
     if (state.gameFile !== liveGameFile) {
       liveGameFile = state.gameFile;
@@ -1111,7 +1144,7 @@ export function registerIpcHandlers(): void {
     return { loop: actualLoop, units: extractUnits(response) };
   });
 
-  ipcMain.handle("spectator:attachTelemetry", async (): Promise<AttachTelemetryResultIpc | null> => {
+  ipcMain.handle("spectator:attachTelemetry", async (_event, seat?: number | null): Promise<AttachTelemetryResultIpc | null> => {
     if (!db()) return null;
     const result = await dialog.showOpenDialog({
       title: "Attach Telemetry",
@@ -1120,13 +1153,14 @@ export function registerIpcHandlers(): void {
       properties: ["openFile"],
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return ingestTelemetryFile(result.filePaths[0]!);
+    return ingestTelemetryFile(result.filePaths[0]!, seat ?? null);
   });
 
   /** The same import by path, for a file dropped on the window: §3.5's
    * pairing of a ladder replay with the telemetry from that match. */
-  ipcMain.handle("spectator:attachTelemetryFile", (_event, filePath: string): Promise<AttachTelemetryResultIpc | null> =>
-    ingestTelemetryFile(filePath),
+  ipcMain.handle(
+    "spectator:attachTelemetryFile",
+    (_event, filePath: string, seat?: number | null): Promise<AttachTelemetryResultIpc | null> => ingestTelemetryFile(filePath, seat ?? null),
   );
 
   ipcMain.handle("spectator:getTelemetryStreams", (): TelemetryStreamIpc[] => toIpcStreams());
@@ -1168,11 +1202,12 @@ export function registerIpcHandlers(): void {
     // in the folder is earlier runs, and an existing file goes in with
     // Attach Telemetry instead. It is only offered while no session is
     // running, because the live game has auto-attach for that.
-    tailer = new TelemetryTailer(store, bus, telemetryDir, telemetryCensus());
+    const watcher = new TelemetryTailer(store, bus, telemetryDir, telemetryCensus());
+    tailers = [watcher];
     tailerStore = store;
-    tailer.start();
+    watcher.start();
     // start() polls once, so anything already in the folder is in by now.
-    return tailer.status();
+    return watchStatus();
   });
 
   ipcMain.handle("spectator:stopWatchingTelemetry", (): null => {
@@ -1183,7 +1218,7 @@ export function registerIpcHandlers(): void {
     return null;
   });
 
-  ipcMain.handle("spectator:getTelemetryWatch", (): TelemetryWatchIpc | null => tailer?.status() ?? null);
+  ipcMain.handle("spectator:getTelemetryWatch", (): TelemetryWatchIpc | null => watchStatus());
 
   // -- replays (§7's replay driver) -----------------------------------------
 
@@ -1267,6 +1302,14 @@ export function registerIpcHandlers(): void {
     if (session) await session.stop();
 
     resetLiveGame();
+    // Player 1's folder falls back to the usual one; player 2 has live
+    // telemetry only if given a folder, so two bots never share one.
+    seatTelemetryDirs = null;
+    if (options.mode === "BvB") {
+      seatTelemetryDirs = { 1: options.telemetryDirs?.[1] ?? telemetryDir ?? defaultTelemetryDir() };
+      const second = options.telemetryDirs?.[2];
+      if (second) seatTelemetryDirs[2] = second;
+    }
     session = new SessionController({
       bus,
       dockerfileDir: dockerDir(),

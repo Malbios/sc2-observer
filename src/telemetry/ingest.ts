@@ -41,11 +41,25 @@ export class StreamIngest {
   private sawEnd = false;
   private readonly rejections: { line: number; reason: string }[] = [];
 
+  /**
+   * `seat` is the player the file belongs to in a game between two bots, and
+   * null in every other game. With a seat, every channel is filed under
+   * `P<seat>/`: two bots may well both write "plan" or "econ", and everything
+   * downstream (the model, series, events, checkpoints, the channel tree) keys
+   * on the channel string alone, so without the prefix the two would silently
+   * overwrite and interleave each other. Doing it here, before anything is
+   * stored or applied, is what keeps all of those consistent.
+   */
   constructor(
     private readonly store: HistoryStore,
     private readonly sourcePath: string,
-    private readonly fallbackName: string
+    private readonly fallbackName: string,
+    private readonly seat: number | null = null
   ) {}
+
+  private get prefix(): string {
+    return this.seat === null ? "" : `P${this.seat}/`;
+  }
 
   /** `lineNo` is 1-based and is used both for rejection reporting and as the
    * `seq` fallback when a message omits one (§3.2 makes seq optional). */
@@ -75,8 +89,10 @@ export class StreamIngest {
     const streamId = this.streamId ?? this.openStream(null);
     this.checkpointThrough(message.loop);
 
-    this.store.recordTelemetry(streamId, message as ChannelMessage, lineNo);
-    this.model.apply(message as ChannelMessage);
+    const channelMessage = message as ChannelMessage;
+    const filed = this.prefix ? { ...channelMessage, ch: this.prefix + channelMessage.ch } : channelMessage;
+    this.store.recordTelemetry(streamId, filed, lineNo);
+    this.model.apply(filed);
 
     this.messageCount++;
     if (this.firstLoop === null) this.firstLoop = message.loop;
@@ -96,7 +112,10 @@ export class StreamIngest {
       sourcePath: this.sourcePath,
       emitter: hello?.emitter ?? null,
       meta: hello?.meta ?? null,
-      channels: hello?.channels ?? null,
+      // Declared channels are matched to written ones by name, so they are
+      // filed under the same prefix.
+      channels: hello?.channels ? hello.channels.map((declared) => ({ ...declared, ch: this.prefix + declared.ch })) : null,
+      seat: this.seat,
     });
     // A second file joining the game invalidates every checkpoint written so
     // far: each one holds the state of one stream while claiming to hold the

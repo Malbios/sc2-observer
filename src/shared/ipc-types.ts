@@ -384,10 +384,11 @@ export interface SpectatorApi {
   getUnitTypeInfo(): Promise<Record<number, UnitTypeInfoIpc>>;
   getFrameAtLoop(loop: number): Promise<FrameAtLoopIpc | null>;
 
-  /** Opens a picker, ingests the chosen .ndjson into the open recording. */
-  attachTelemetry(): Promise<AttachTelemetryResultIpc | null>;
+  /** Opens a picker, ingests the chosen .ndjson into the open recording.
+   * `seat` says whose file it is in a game between two bots. */
+  attachTelemetry(seat?: number | null): Promise<AttachTelemetryResultIpc | null>;
   /** The same import by path, for a file dropped on the window. */
-  attachTelemetryFile(filePath: string): Promise<AttachTelemetryResultIpc | null>;
+  attachTelemetryFile(filePath: string, seat?: number | null): Promise<AttachTelemetryResultIpc | null>;
   getTelemetryStreams(): Promise<TelemetryStreamIpc[]>;
   getChannels(): Promise<ChannelIpc[]>;
   getTelemetryAtLoop(loop: number): Promise<TelemetryStateIpc>;

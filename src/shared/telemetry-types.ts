@@ -210,6 +210,9 @@ export interface TelemetryStreamIpc {
   attachedAt: string;
   messageCount: number;
   rejectedCount: number;
+  /** The player this file belongs to in a game between two bots; its
+   * channels are under `P<seat>/`. Null in every other game. */
+  seat: number | null;
 }
 
 /** A channel as the tree should show it: declared hints where the bot gave

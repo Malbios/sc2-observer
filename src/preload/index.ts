@@ -47,8 +47,9 @@ const api: SpectatorApi = {
   getUnitTypeInfo: () => ipcRenderer.invoke("spectator:getUnitTypeInfo"),
   getFrameAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getFrameAtLoop", loop),
 
-  attachTelemetry: () => ipcRenderer.invoke("spectator:attachTelemetry"),
-  attachTelemetryFile: (filePath: string) => ipcRenderer.invoke("spectator:attachTelemetryFile", filePath),
+  attachTelemetry: (seat?: number | null) => ipcRenderer.invoke("spectator:attachTelemetry", seat ?? null),
+  attachTelemetryFile: (filePath: string, seat?: number | null) =>
+    ipcRenderer.invoke("spectator:attachTelemetryFile", filePath, seat ?? null),
   getTelemetryStreams: () => ipcRenderer.invoke("spectator:getTelemetryStreams"),
   getChannels: () => ipcRenderer.invoke("spectator:getChannels"),
   getTelemetryAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getTelemetryAtLoop", loop),

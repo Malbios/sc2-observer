@@ -69,6 +69,7 @@ function main(): void {
     checkTwoStreams(scratch);
     checkDetach(scratch);
     checkAttachRule(scratch);
+    checkSeats(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -91,6 +92,61 @@ function checkAttachRule(scratch: string): void {
   detachStream(store, streamId!);
   check("removing it makes room again", telemetryRefusal(store), null);
   store.close();
+}
+
+/** A bot's file written the way two bots plausibly both write theirs: the
+ * same channel names, which is the whole point of filing them per player. */
+function feedPlain(ingest: StreamIngest, name: string, x: number): void {
+  let lineNo = 0;
+  ingest.line(line({ kind: "hello", data: { name, channels: [{ ch: "plan", label: "Plan" }] } }), ++lineNo);
+  ingest.line(line({ kind: "overlay", loop: 10, ch: "plan", data: [{ type: "point", pos: [x, x] }] }), ++lineNo);
+  for (let loop = 0; loop <= 1000; loop += 50) {
+    ingest.line(line({ kind: "series", loop, ch: "econ/minerals", data: loop + x }), ++lineNo);
+  }
+  ingest.line(line({ kind: "event", loop: 20, ch: "log", data: { msg: `${name} started` } }), ++lineNo);
+}
+
+/**
+ * Two bots in one game both write "plan", "econ/minerals" and "log". Keyed
+ * on the channel alone, the second bot's overlay would replace the first's
+ * and their series would zig-zag into one line. Each is filed under its
+ * player instead.
+ */
+function checkSeats(scratch: string): void {
+  const store = new HistoryStore(path.join(scratch, "seats.sqlite"));
+  store.setMeta("mode", "BvB");
+  check("a game between two bots needs to know whose file it is", typeof telemetryRefusal(store, null), "string");
+  check("player 1 may attach", telemetryRefusal(store, 1), null);
+
+  const one = new StreamIngest(store, "C:/bot1/telemetry/a.ndjson", "a", 1);
+  feedPlain(one, "MyBot", 1);
+  one.finish();
+  check("player 1 has a file, so a second for player 1 is refused", typeof telemetryRefusal(store, 1), "string");
+  check("player 2 may still attach", telemetryRefusal(store, 2), null);
+
+  const two = new StreamIngest(store, "C:/bot2/telemetry/b.ndjson", "b", 2);
+  feedPlain(two, "OtherBot", 2);
+  two.finish();
+
+  check("both overlays are there, each under its player", overlaysAt(store, 600), ["P1/plan", "P2/plan"]);
+  check("and at the very start too, after the checkpoints were rebuilt", overlaysAt(store, 10), ["P1/plan", "P2/plan"]);
+  const series = store.getSeriesNames().map((entry) => `${entry.ch}:${entry.name}`).sort();
+  check("the two bots' series stay two series", series, ["P1/econ/minerals:minerals", "P2/econ/minerals:minerals"]);
+  const p2 = store.readSeries("P2/econ/minerals", "minerals");
+  check("each series holds only its own bot's values", [p2.values.length, p2.values[0]], [21, 2]);
+  check("events say whose they are", store.readEvents({}).map((event) => event.ch).sort(), ["P1/log", "P2/log"]);
+  check("declared channels are filed the same way", store.getStreams().map((stream) => stream.channels?.[0]?.ch), ["P1/plan", "P2/plan"]);
+  check("each file knows its player", store.getStreams().map((stream) => stream.seat), [1, 2]);
+  store.close();
+
+  // Every other game is unchanged: no player, no prefix.
+  const single = new HistoryStore(path.join(scratch, "single.sqlite"));
+  const alone = new StreamIngest(single, "C:/bot/telemetry/c.ndjson", "c");
+  feedPlain(alone, "MyBot", 1);
+  alone.finish();
+  check("a one-bot game keeps its channel names", overlaysAt(single, 600), ["plan"]);
+  check("and its file has no player", single.getStreams()[0]?.seat, null);
+  single.close();
 }
 
 /** The common case, and the fast path: one file checkpoints as it is written
