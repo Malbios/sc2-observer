@@ -1,6 +1,6 @@
 # Where these icons came from
 
-The 85 `.webp` unit and building portraits in this folder were copied from
+The 43 `.webp` unit and building portraits in this folder were copied from
 [`stephanzlatarev/vscode-starcraft`](https://github.com/stephanzlatarev/vscode-starcraft)
 (`icons/` in that repository), the VS Code extension this project studied as
 prior art.
@@ -26,3 +26,8 @@ set. They are named after the unit type names the SC2 API reports (so
 `LurkerMP`, `SwarmHostMP` and `NydusCanal`, not the display names), and were
 downscaled from 1254px to 512px, which is still twice the size the viewer
 ever uses.
+
+The Terran `.png` files (42) followed on 2026-09-24, processed the same way.
+Their source names differ from the API's in places: `surveillance_station` is
+`OrbitalCommand`, `sensor_dome` is `SensorTower`, `hellion_battle_mode` (the
+Hellbat) is `HellionTank`, and `liberator_aa_mode` is plain `Liberator`.

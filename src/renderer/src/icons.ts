@@ -108,6 +108,12 @@ const PNG_ICONS = new Set([
   "Baneling", "Changeling", "Corruptor", "Drone", "Egg", "Hydralisk", "Infestor", "Larva", "LocustMP",
   "LocustMPFlying", "LurkerMP", "Mutalisk", "Overlord", "OverlordTransport", "Overseer", "Queen",
   "Ravager", "Roach", "SwarmHostMP", "Viper", "Zergling", "Ultralisk", "BroodLord", "Broodling",
+  "Armory", "AutoTurret", "Barracks", "BarracksFlying", "Bunker", "CommandCenter", "CommandCenterFlying",
+  "EngineeringBay", "Factory", "FactoryFlying", "FusionCore", "GhostAcademy", "MissileTurret",
+  "OrbitalCommand", "OrbitalCommandFlying", "PlanetaryFortress", "Reactor", "Refinery", "SensorTower",
+  "Starport", "StarportFlying", "SupplyDepot", "SupplyDepotLowered", "TechLab",
+  "Banshee", "Battlecruiser", "Cyclone", "Ghost", "Hellion", "HellionTank", "Liberator", "Marauder", "Marine",
+  "Medivac", "MULE", "Raven", "Reaper", "SCV", "SiegeTank", "Thor", "VikingFighter", "WidowMine",
 ]);
 
 /** Unit types that are another form of one we have art for: burrowed,
@@ -143,6 +149,16 @@ const ICON_ALIASES: Record<string, string> = {
   OverlordCocoon: "Egg",
   TransportOverlordCocoon: "Egg",
   LurkerMPEgg: "Egg",
+  // Add-ons are named after the building they are attached to.
+  BarracksTechLab: "TechLab",
+  FactoryTechLab: "TechLab",
+  StarportTechLab: "TechLab",
+  BarracksReactor: "Reactor",
+  FactoryReactor: "Reactor",
+  StarportReactor: "Reactor",
+  WidowMineBurrowed: "WidowMine",
+  ThorAP: "Thor",
+  RefineryRich: "Refinery",
 };
 
 /** Relative, not `/icons/`: the built app loads index.html from disk, where
