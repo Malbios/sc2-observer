@@ -13,7 +13,7 @@
 import { EventBus, type ClientStatusEvent, type FrameEvent, type GameEndedEvent } from "../bus/EventBus";
 import { encodeRequest, encodeResponse } from "../protocol/schema";
 import { SC2_STATUS } from "../protocol/status";
-import { GameProxy } from "../proxy/GameProxy";
+import { createGameRequest, GameProxy } from "../proxy/GameProxy";
 
 let failures = 0;
 
@@ -229,6 +229,33 @@ function main(): void {
 
     proxy.publishRequest(encodeRequest({ step: { count: 8 } }));
     check("a step is still not recorded", frames.length, 1);
+  }
+
+  // -- a game between two bots --------------------------------------------
+  {
+    const setupOf = (request: Record<string, unknown>): unknown =>
+      (request["create_game"] as { player_setup: unknown }).player_setup;
+    check(
+      "against the built-in AI, the second slot is the computer",
+      setupOf(createGameRequest("A", "Test.SC2Map", 3, 5)),
+      [{ type: 1 }, { type: 2, race: 3, difficulty: 5 }]
+    );
+    check("between two bots, both slots are bots", setupOf(createGameRequest("BvB", "Test.SC2Map", 3, 5)), [{ type: 1 }, { type: 1 }]);
+
+    const bus = new EventBus();
+    const seat1 = new GameProxy({ sessionId: "p1", bus, mapPath: "Test.SC2Map", mode: "BvB", seat: 1 });
+    const seat2 = new GameProxy({ sessionId: "p2", bus, mapPath: "Test.SC2Map", mode: "BvB", seat: 2 });
+    check("seat 1 creates the game", seat1.createsGames, true);
+    check("seat 2 joins it instead", seat2.createsGames, false);
+    check("Mode B never creates one", new GameProxy({ sessionId: "b", bus, mapPath: "x", mode: "B" }).createsGames, false);
+
+    // The bot's own name, from the join it sends, so the game can say which
+    // bot was which.
+    check("no name before the bot joins", seat2.botName, null);
+    seat2.publishRequest(encodeRequest({ join_game: { race: 2, player_name: "OtherBot", options: { raw: true } } }));
+    check("the join names the bot", seat2.botName, "OtherBot");
+    seat2.resetForNewGame();
+    check("the next game forgets it", seat2.botName, null);
   }
 
   if (failures > 0) {

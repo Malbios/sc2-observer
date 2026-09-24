@@ -8,9 +8,14 @@ import { FramePublisher } from "../state/FramePublisher";
 /**
  * §1: the user picks this before a session; it is never detected from traffic.
  * A = the app creates the game and the bot only joins. B = the bot creates the
- * game itself (python-sc2's default) and the app only forwards.
+ * game itself (python-sc2's default) and the app only forwards. BvB = two
+ * bots, each on its own client and its own proxy: seat 1's proxy creates the
+ * game with two bot slots, and both bots join ladder-style.
  */
-export type GameMode = "A" | "B";
+export type GameMode = "A" | "B" | "BvB";
+
+/** A bot's place in a game between two bots. Seat 1 is player 1's client. */
+export type Seat = 1 | 2;
 
 /** One entry of `ResponseObservation.player_result`, normalized: the result is
  * the enum's name, e.g. "Victory", never the number the wire carries. */
@@ -27,10 +32,33 @@ export interface GameProxyOptions {
   /** Built-in AI opponent, Mode A only. Race and difficulty from sc2api.proto. */
   opponentRace?: number;
   opponentDifficulty?: number;
+  /** BvB only: which bot this proxy serves. Only seat 1 creates the game. */
+  seat?: Seat;
   botHost?: string;
   botPort?: number;
   sc2Host?: string;
   sc2Port?: number;
+}
+
+/**
+ * The game a proxy creates: the bot against the built-in AI, or two bot
+ * slots for a game between two bots. Exported so it can be checked without a
+ * client.
+ */
+export function createGameRequest(
+  mode: GameMode,
+  mapPath: string,
+  opponentRace: number,
+  opponentDifficulty: number
+): Record<string, unknown> {
+  const opponent = mode === "BvB" ? { type: 1 /* Participant */ } : { type: 2 /* Computer */, race: opponentRace, difficulty: opponentDifficulty };
+  return {
+    create_game: {
+      local_map: { map_path: mapPath },
+      player_setup: [{ type: 1 /* Participant */ }, opponent],
+      realtime: false,
+    },
+  };
 }
 
 /**
@@ -55,6 +83,7 @@ export class GameProxy {
   private readonly mode: GameMode;
   private readonly opponentRace: number;
   private readonly opponentDifficulty: number;
+  private readonly seat: Seat;
   private readonly botHost: string;
   private readonly botPort: number;
   private readonly sc2Host: string;
@@ -73,6 +102,7 @@ export class GameProxy {
    * getter below for why it is not on `gameEnded`. */
   private playerResult: PlayerResult[] | null = null;
   private joinedPlayerId: number | null = null;
+  private joinedName: string | null = null;
 
   constructor(options: GameProxyOptions) {
     this.sessionId = options.sessionId;
@@ -81,6 +111,7 @@ export class GameProxy {
     this.mode = options.mode ?? "A";
     this.opponentRace = options.opponentRace ?? 2; // Zerg
     this.opponentDifficulty = options.opponentDifficulty ?? 2; // Easy
+    this.seat = options.seat ?? 1;
     this.botHost = options.botHost ?? "127.0.0.1";
     this.botPort = options.botPort ?? 5000;
     this.sc2Host = options.sc2Host ?? "127.0.0.1";
@@ -184,16 +215,30 @@ export class GameProxy {
    * games (verified in Phase 0 and again by the end-game probe).
    */
   async createGame(): Promise<void> {
-    await this.ownRequest("createGame", {
-      create_game: {
-        local_map: { map_path: this.mapPath },
-        player_setup: [
-          { type: 1 /* Participant */ },
-          { type: 2 /* Computer */, race: this.opponentRace, difficulty: this.opponentDifficulty },
-        ],
-        realtime: false,
-      },
-    });
+    await this.ownRequest("createGame", createGameRequest(this.mode, this.mapPath, this.opponentRace, this.opponentDifficulty));
+  }
+
+  /** Whether this proxy creates its games: Mode A, and seat 1 of a game
+   * between two bots. Seat 2's client joins the game seat 1's created. */
+  get createsGames(): boolean {
+    return this.mode === "A" || (this.mode === "BvB" && this.seat === 1);
+  }
+
+  /**
+   * Takes the client out of a finished game. A game between two bots needs
+   * this on both clients before the next one: without it the next
+   * `create_game` crashed the host client (CLAUDE.md, "Two-player facts").
+   * Sent on the proxy's own socket, so only once the bot has gone, which is
+   * also what keeps it off the bot's traffic. Returns the error text instead
+   * of throwing: a client already out of the game refuses, which is fine.
+   */
+  async leaveGame(): Promise<string | null> {
+    try {
+      await this.ownRequest("leaveGame", { leave_game: {} });
+      return null;
+    } catch (err) {
+      return (err as Error).message;
+    }
   }
 
   /**
@@ -228,6 +273,7 @@ export class GameProxy {
     // exists for, one field along.
     this.playerResult = null;
     this.joinedPlayerId = null;
+    this.joinedName = null;
   }
 
   /**
@@ -308,14 +354,26 @@ export class GameProxy {
     const decoded = decodeRequest(bytes);
     const kind = classifyRequest(decoded);
     if (kind) this.frames.emit(kind, bytes, "request");
+    // The name a bot gives itself, read off a request that is forwarded
+    // unchanged. It is how a game between two bots says which was which.
+    const join = decoded.join_game as Record<string, unknown> | undefined;
+    if (join && typeof join["player_name"] === "string" && join["player_name"] !== "") {
+      this.joinedName = join["player_name"];
+    }
+  }
+
+  /** The name the bot joined under, if it sent one. */
+  get botName(): string | null {
+    return this.joinedName;
   }
 
   async start(): Promise<void> {
     await this.waitForSc2Ready();
     // Mode B's bot sends its own createGame, which is forwarded like any other
     // frame; sending one here first would take the client out of `launched`
-    // and make the bot's request fail.
-    if (this.mode === "A") await this.createGame();
+    // and make the bot's request fail. Seat 2 of a game between two bots joins
+    // the game seat 1 created, on another client.
+    if (this.createsGames) await this.createGame();
 
     this.server = new WebSocketServer({ host: this.botHost, port: this.botPort });
 
