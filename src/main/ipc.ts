@@ -19,6 +19,7 @@ import { extractUnitTypeInfo } from "../state/unitTypes";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
 import { ReplaySession } from "../replay/ReplaySession";
 import { connectSc2 } from "../protocol/connection";
+import { telemetryRefusal } from "../telemetry/attachRule";
 import { detachStream } from "../telemetry/detach";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
@@ -209,8 +210,8 @@ function db(): HistoryStore | null {
 }
 
 /** Windows paths are case-insensitive, so two spellings of the same file are
- * the same file. Used wherever a path decides something: whether a telemetry
- * file is already attached, whether a game is the one being played. */
+ * the same file. Used wherever a path decides something, such as whether a
+ * game is the one being played. */
 function samePath(a: string, b: string): boolean {
   const left = path.resolve(a);
   const right = path.resolve(b);
@@ -832,10 +833,15 @@ async function ingestTelemetryFile(sourcePath: string): Promise<AttachTelemetryR
   const filePath = path.resolve(sourcePath);
   if (!existsSync(filePath)) return null;
 
-  // Importing the same file twice would duplicate every row: two streams,
-  // two overlays drawn on top of each other, every series counted twice.
-  if (store.getStreams().some((stream) => samePath(stream.sourcePath, filePath))) {
-    return { status: "already-attached", streams: toIpcStreams(), ingested: null };
+  // A file dropped on the window is not gated on the game being live the way
+  // the button is, so the tailer's game needs its own refusal: its file may
+  // not have written a line yet, and then the store alone looks empty.
+  const problem =
+    tailerStore === store
+      ? "Telemetry is still being read into this game. Stop watching it first."
+      : telemetryRefusal(store);
+  if (problem) {
+    return { status: "refused", problem, streams: toIpcStreams(), ingested: null };
   }
 
   const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
@@ -851,6 +857,7 @@ async function ingestTelemetryFile(sourcePath: string): Promise<AttachTelemetryR
 
   return {
     status: "ingested",
+    problem: null,
     streams: toIpcStreams(),
     ingested: {
       name: summary.name,
@@ -1141,12 +1148,12 @@ export function registerIpcHandlers(): void {
 
     stopTailing();
     telemetryDir = path.resolve(result.filePaths[0]!);
-    // Picking a folder means "import what is in it", which is why this takes
-    // everything. It is only offered while no session is running: pointing it
-    // at a folder mid-game imported three earlier runs into the live game,
-    // each on its own loop axis, which is what a live game gets auto-attach
-    // and its ignore list for.
-    tailer = new TelemetryTailer(store, bus, telemetryDir);
+    // A game holds one telemetry file, so watching means "the next file
+    // written here", the same as a live game's auto-attach: what is already
+    // in the folder is earlier runs, and an existing file goes in with
+    // Attach Telemetry instead. It is only offered while no session is
+    // running, because the live game has auto-attach for that.
+    tailer = new TelemetryTailer(store, bus, telemetryDir, telemetryCensus());
     tailerStore = store;
     tailer.start();
     // start() polls once, so anything already in the folder is in by now.

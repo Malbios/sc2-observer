@@ -288,9 +288,10 @@ export interface UnitTypeInfoIpc {
 /** What `attachTelemetry` reports back about the file it just ingested, so the
  * UI can say "540 lines, 3 rejected" rather than silently dropping them. */
 export interface AttachTelemetryResultIpc {
-  /** `already-attached` means nothing was imported: this file is in this
-   * recording, and importing it again would duplicate every row. */
-  status: "ingested" | "already-attached";
+  /** `refused` means nothing was imported, and `problem` says why: a game
+   * holds one telemetry file, so the current one has to be removed first. */
+  status: "ingested" | "refused";
+  problem: string | null;
   streams: TelemetryStreamIpc[];
   ingested: {
     name: string;
@@ -302,8 +303,8 @@ export interface AttachTelemetryResultIpc {
   } | null;
 }
 
-/** What the header shows about a watched folder: which files the tailer has
- * picked up and how much it has taken from each. */
+/** What the header shows about a watched folder: the file the tailer has
+ * adopted, if any, and how much it has taken from it. */
 export interface TelemetryWatchIpc {
   dir: string;
   files: {
@@ -313,8 +314,9 @@ export interface TelemetryWatchIpc {
     rejectedCount: number;
     lastLoop: number | null;
   }[];
-  /** Files in the folder the tailer is deliberately not reading, because they
-   * are already streams in this recording or were truncated underneath it. */
+  /** Files in the folder the tailer is deliberately not reading: earlier runs
+   * that were there before watching began, files found while the game already
+   * had telemetry, or a file truncated underneath it. */
   skippedCount: number;
 }
 

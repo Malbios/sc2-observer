@@ -28,15 +28,16 @@ interface Props {
    * its own bot is writing, and importing any other one writes another
    * game's loops into this recording for good. */
   onAttach: (() => void) | null;
-  /** The telemetry files in this game (§6.3 records one row per file). The
-   * list is what makes a mis-attached file identifiable: name, where it came
-   * from, and the loops it covers. */
+  /** The game's telemetry file (§6.3 records one row per file; a game holds
+   * one, an older game may hold more). Shown so a mis-attached file is
+   * identifiable: name, where it came from, and the loops it covers. The
+   * attach button only appears when there is none. */
   streams: TelemetryStreamIpc[];
   /** §3.5's recovery. Null when detaching is not available: a tailer is
    * appending to this game, and removing a stream underneath it would have it
    * re-created on the next poll. */
   onDetach: ((streamId: number) => void) | null;
-  /** Result of the last attach, so a rejected line or a duplicate file is
+  /** Result of the last attach, so a rejected line or a refused file is
    * visible in the UI rather than only in the console. */
   notice: string | null;
 }
@@ -157,7 +158,6 @@ function TreeRow({
 
 export function ChannelTree({ channels, visible, onToggle, onAttach, streams, onDetach, notice }: Props): JSX.Element {
   const tree = useMemo(() => buildTree(channels), [channels]);
-  const [showStreams, setShowStreams] = useState(false);
   const [confirming, setConfirming] = useState<number | null>(null);
   const allPaths = useMemo(() => channels.map((channel) => channel.ch), [channels]);
   const allShown = allPaths.length > 0 && allPaths.every((path) => visible.has(path));
@@ -192,14 +192,10 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streams, on
 
       {streams.length > 0 && (
         <div style={{ marginTop: 12, fontSize: 11, color: "#8b93a1" }}>
-          <button
-            onClick={() => setShowStreams((shown) => !shown)}
-            style={{ background: "none", border: "none", color: "#8b93a1", cursor: "pointer", padding: 0, fontSize: 11 }}
-          >
-            {showStreams ? "▾" : "▸"} {streams.length} stream{streams.length === 1 ? "" : "s"}
-          </button>
-          {showStreams && (
-            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* One file per game (attachRule.ts). An older game can hold more,
+              and each stays listed with its own remove button. */}
+          <div>Telemetry file</div>
+          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
               {streams.map((stream) => (
                 <div key={stream.id} style={{ borderLeft: "2px solid #2b323d", paddingLeft: 6, lineHeight: 1.5 }}>
                   <div style={{ color: "#e7e9ec" }}>{stream.name}</div>
@@ -232,17 +228,16 @@ export function ChannelTree({ channels, visible, onToggle, onAttach, streams, on
                         onClick={() => setConfirming(stream.id)}
                         title="Take this file's messages back out of this game"
                       >
-                        Detach
+                        Remove telemetry
                       </button>
                     ))}
                 </div>
               ))}
-            </div>
-          )}
+          </div>
         </div>
       )}
 
-      {onAttach && (
+      {onAttach && streams.length === 0 && (
         <button onClick={onAttach} style={{ marginTop: 12, fontSize: 12 }}>
           Attach Telemetry...
         </button>

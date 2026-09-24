@@ -120,29 +120,34 @@ function runChecks(scratch: string): void {
   check("a rejected line does not stop the stream", store.readEvents({}).length, 5);
   check("the rejection is counted", tailer.status().files[0]!.rejectedCount, 1);
 
-  // A second emitter writing into the same folder is a second stream, not a
-  // continuation of the first.
+  // A game holds one telemetry file (attachRule.ts), so a second emitter
+  // writing into the same folder is left alone, not made a second stream.
   writeFileSync(path.join(watched, "other.ndjson"), eventLine(60, "from the other bot"));
   tailer.poll();
-  check("a new file is picked up", tailer.status().files.length, 2);
-  check("both streams exist", store.getStreams().length, 2);
+  check("a second file is not adopted", tailer.status().files.length, 1);
+  check("it is counted as skipped", tailer.status().skippedCount, 1);
+  check("the game keeps one stream", store.getStreams().length, 1);
+  check("none of its lines are stored", store.readEvents({}).length, 5);
 
   // Killing the emitter mid-write leaves the trailing partial line unwritten
-  // for good; stopping must still close the streams cleanly.
+  // for good; stopping must still close the stream cleanly.
   appendFileSync(file, eventLine(70, "never finished").slice(0, 20));
   tailer.poll();
   tailer.stop();
-  check("the abandoned partial line is not ingested", store.readEvents({}).length, 6);
-  check("stopping records each stream's totals", store.getStreams()[0]!.lastLoop, 50);
+  check("the abandoned partial line is not ingested", store.readEvents({}).length, 5);
+  check("stopping records the stream's totals", store.getStreams()[0]!.lastLoop, 50);
   tailer.stop();
-  check("stopping twice changes nothing", store.readEvents({}).length, 6);
+  check("stopping twice changes nothing", store.readEvents({}).length, 5);
 
-  // Re-watching the same folder must not re-import what is already there: a
-  // second pass would duplicate every row.
+  // Watching again once the game has its telemetry adopts nothing, old file
+  // or new, which is also what keeps a re-watch from importing a file twice.
   const again = new TelemetryTailer(store, bus, watched);
   again.poll();
-  check("already-imported files are skipped", again.status().skippedCount, 2);
-  check("nothing was duplicated", store.readEvents({}).length, 6);
+  check("a game with telemetry adopts none of the files there", again.status().skippedCount, 2);
+  writeFileSync(path.join(watched, "late.ndjson"), eventLine(80, "a later run"));
+  again.poll();
+  check("nor a file written afterwards", again.status().skippedCount, 3);
+  check("nothing was added", store.readEvents({}).length, 5);
   again.stop();
 
   store.close();
@@ -197,15 +202,22 @@ function checkAutoAttachIgnoreList(scratch: string): void {
   const store2 = new HistoryStore(path.join(scratch, "auto-case.sqlite"));
   const shouted = new TelemetryTailer(store2, bus, watched, census.map((p) => p.toUpperCase()));
   shouted.poll();
-  check("the ignore list is not case-sensitive on Windows", shouted.status().skippedCount, process.platform === "win32" ? 1 : 0);
+  // Listed in name order, so a list that failed to match would adopt the
+  // earlier run's file, which sorts first.
+  check(
+    "the ignore list is not case-sensitive on Windows",
+    path.basename(shouted.status().files[0]?.path ?? ""),
+    process.platform === "win32" ? "this-run.ndjson" : "previous-run.ndjson"
+  );
   shouted.stop();
 
-  // The same folder with no list is the manual watch, which takes both.
+  // With no list at all, one file is still all a game takes.
   const store3 = new HistoryStore(path.join(scratch, "auto-manual.sqlite"));
-  const manual = new TelemetryTailer(store3, bus, watched);
-  manual.poll();
-  check("watching by hand takes every file", manual.status().files.length, 2);
-  manual.stop();
+  const unlisted = new TelemetryTailer(store3, bus, watched);
+  unlisted.poll();
+  check("with no ignore list it still adopts one file", unlisted.status().files.length, 1);
+  check("and skips the other", unlisted.status().skippedCount, 1);
+  unlisted.stop();
 
   store.close();
   store2.close();

@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { HistoryStore } from "../history/HistoryStore";
+import { telemetryRefusal } from "../telemetry/attachRule";
 import { StreamIngest } from "../telemetry/ingest";
 import { parseArgs } from "./args";
 
@@ -27,6 +28,12 @@ async function main(): Promise<void> {
   }
 
   const store = new HistoryStore(gamePath);
+  const problem = telemetryRefusal(store);
+  if (problem) {
+    store.close();
+    console.error(`[import] ${gamePath}: ${problem}`);
+    process.exit(1);
+  }
   const fallbackName = path.basename(filePath).replace(/\.ndjson$/i, "");
   const ingest = new StreamIngest(store, path.resolve(filePath), fallbackName);
 

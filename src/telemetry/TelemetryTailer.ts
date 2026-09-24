@@ -3,6 +3,7 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import type { EventBus } from "../bus/EventBus";
 import type { HistoryStore } from "../history/HistoryStore";
+import { telemetryRefusal } from "./attachRule";
 import { StreamIngest } from "./ingest";
 
 /**
@@ -17,6 +18,10 @@ import { StreamIngest } from "./ingest";
  *
  * Nothing here knows what a bot is. It reads bytes, hands complete lines to
  * the same StreamIngest the import CLI uses, and says "there is more".
+ *
+ * A game holds one telemetry file (attachRule.ts), so the tailer adopts the
+ * first new file it finds while the game has none, and leaves every other
+ * file alone.
  */
 
 const POLL_INTERVAL_MS = 150;
@@ -58,11 +63,13 @@ export interface TailerStatus {
 }
 
 export class TelemetryTailer {
-  private readonly files = new Map<string, WatchedFile>();
+  /** The one file being read into the game, once one has been adopted. */
+  private file: WatchedFile | null = null;
   /**
-   * Files this tailer will not touch: already imported into this recording, or
-   * truncated underneath it. Both cases would duplicate or corrupt rows if
-   * read, and both are sticky, so they are decided once rather than per poll.
+   * Files this tailer will not touch: in the ignore list, found while the game
+   * already had telemetry, or truncated underneath it. Each would put a second
+   * file's rows into the game or corrupt the first's, and each is sticky, so
+   * it is decided once rather than per poll.
    */
   private readonly skipped = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
@@ -82,8 +89,8 @@ export class TelemetryTailer {
    * sometimes seen as old and dropped for the rest of the game. That was
    * caught as a test that passed and failed on alternate runs.
    *
-   * Empty, the default, takes everything, which is what pointing at a folder
-   * by hand means.
+   * Watching a folder by hand passes the folder's current files too, so it
+   * also adopts the first file written after it starts rather than an old run.
    */
   constructor(
     private readonly store: HistoryStore,
@@ -120,26 +127,22 @@ export class TelemetryTailer {
     }
     this.watcher?.close();
     this.watcher = null;
-    for (const file of this.files.values()) {
-      file.ingest.finish();
-    }
+    this.file?.ingest.finish();
   }
 
   status(): TailerStatus {
-    return {
-      dir: this.dir,
-      files: [...this.files.values()].map((file) => {
-        const summary = file.ingest.summary();
-        return {
-          path: file.filePath,
-          name: summary.name,
-          messageCount: summary.messageCount,
-          rejectedCount: summary.rejectedCount,
-          lastLoop: summary.lastLoop,
-        };
-      }),
-      skippedCount: this.skipped.size,
-    };
+    const files: TailedFileStatus[] = [];
+    if (this.file) {
+      const summary = this.file.ingest.summary();
+      files.push({
+        path: this.file.filePath,
+        name: summary.name,
+        messageCount: summary.messageCount,
+        rejectedCount: summary.rejectedCount,
+        lastLoop: summary.lastLoop,
+      });
+    }
+    return { dir: this.dir, files, skippedCount: this.skipped.size };
   }
 
   /** Windows paths are case-insensitive, so the identity of a file is its
@@ -163,16 +166,10 @@ export class TelemetryTailer {
       for (const filePath of this.listFiles()) {
         if (this.consume(filePath)) appended = true;
       }
-      if (!appended) return;
+      if (!appended || !this.file) return;
 
-      let messageCount = 0;
-      let lastLoop: number | null = null;
-      for (const file of this.files.values()) {
-        file.ingest.settle();
-        const summary = file.ingest.summary();
-        messageCount += summary.messageCount;
-        if (summary.lastLoop !== null) lastLoop = Math.max(lastLoop ?? summary.lastLoop, summary.lastLoop);
-      }
+      this.file.ingest.settle();
+      const { messageCount, lastLoop } = this.file.ingest.summary();
       // One transaction for the whole poll, and only then the announcement:
       // a listener that re-queries must not be able to beat the rows in.
       this.store.flush();
@@ -202,12 +199,15 @@ export class TelemetryTailer {
     const key = this.key(filePath);
     if (this.skipped.has(key)) return false;
 
-    let file = this.files.get(key);
+    let file = this.file;
+    if (file && this.key(file.filePath) !== key) {
+      this.skipped.add(key);
+      return false;
+    }
     if (!file) {
-      // Reading a file that is already a stream in this recording would
-      // duplicate every row it holds: two streams, overlays drawn twice, every
-      // series counted twice. The manual attach refuses for the same reason.
-      if (this.alreadyAttached(filePath)) {
+      // The game's one file is either this one or already somewhere else:
+      // adopting a second would put two runs' telemetry into one game.
+      if (telemetryRefusal(this.store) !== null) {
         this.skipped.add(key);
         return false;
       }
@@ -219,7 +219,7 @@ export class TelemetryTailer {
         lineNo: 0,
         ingest: new StreamIngest(this.store, filePath, path.basename(filePath).replace(/\.ndjson$/i, "")),
       };
-      this.files.set(key, file);
+      this.file = file;
     }
 
     let size: number;
@@ -234,7 +234,7 @@ export class TelemetryTailer {
       // rows already ingested cannot be taken back, so re-reading from zero
       // would duplicate them; the file is dropped rather than guessed at.
       file.ingest.finish();
-      this.files.delete(key);
+      this.file = null;
       this.skipped.add(key);
       return false;
     }
@@ -268,10 +268,5 @@ export class TelemetryTailer {
       file.ingest.line(line.endsWith("\r") ? line.slice(0, -1) : line, ++file.lineNo);
     }
     return lines.length > 0;
-  }
-
-  private alreadyAttached(filePath: string): boolean {
-    const key = this.key(filePath);
-    return this.store.getStreams().some((stream) => this.key(stream.sourcePath) === key);
   }
 }

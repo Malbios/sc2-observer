@@ -9,8 +9,8 @@
  * the other's checkpoint with half the state. Everything the losing stream had
  * established before that loop then vanished from the view for the rest of the
  * game: no error, no rejected line, just an overlay that is there at loop 400
- * and gone at loop 600. §3.5 expects two files ("two bots") as a normal case,
- * so this was reachable in ordinary use.
+ * and gone at loop 600. A game takes one file per player (attachRule.ts), so
+ * two bots in one game still means two streams, and this stays reachable.
  *
  * Run with: node dist/cli/verify-telemetry.js
  */
@@ -18,6 +18,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { HistoryStore } from "../history/HistoryStore";
+import { telemetryRefusal } from "../telemetry/attachRule";
 import { detachStream } from "../telemetry/detach";
 import { StreamIngest } from "../telemetry/ingest";
 import { TelemetryResolver } from "../telemetry/TelemetryResolver";
@@ -67,12 +68,29 @@ function main(): void {
     checkOneStream(scratch);
     checkTwoStreams(scratch);
     checkDetach(scratch);
+    checkAttachRule(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
 
   console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);
+}
+
+/** One file per game, and removing it is what makes room for another. The
+ * picker, a dropped file, the tailer and the import CLI all ask this. */
+function checkAttachRule(scratch: string): void {
+  const store = new HistoryStore(path.join(scratch, "rule.sqlite"));
+  check("an empty game takes a file", telemetryRefusal(store), null);
+
+  const ingest = new StreamIngest(store, "C:/data/telemetry/mine.ndjson", "mine");
+  feed(ingest, "mine");
+  const { streamId } = ingest.finish();
+  check("a game with a file refuses another", typeof telemetryRefusal(store), "string");
+
+  detachStream(store, streamId!);
+  check("removing it makes room again", telemetryRefusal(store), null);
+  store.close();
 }
 
 /** The common case, and the fast path: one file checkpoints as it is written

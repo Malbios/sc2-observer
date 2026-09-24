@@ -245,8 +245,8 @@ export function App(): JSX.Element {
     async (result: AttachTelemetryResultIpc | null) => {
       if (!result) return;
 
-      if (result.status === "already-attached") {
-        setNotice("Already attached to this recording.");
+      if (result.status === "refused") {
+        setNotice(result.problem ?? "That telemetry file could not be attached.");
         return;
       }
 
