@@ -12,7 +12,7 @@ import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { HistoryStore } from "../history/HistoryStore";
-import { decodeResponse } from "../protocol/schema";
+import { decodeResponse, type Response } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
 import { extractUnitTypeInfo, type UnitCategory } from "../state/unitTypes";
@@ -81,6 +81,13 @@ function runChecks(fixturePath: string): void {
   // real number; this guards against that regressing silently again.
   check("unit.tag is a plain finite number", units.every((u) => typeof u.tag === "number" && Number.isFinite(u.tag)), true);
   check("unit.radius is a plain finite number", units.every((u) => typeof u.radius === "number" && Number.isFinite(u.radius)), true);
+  // An unset proto2 bool decodes as false off the prototype, which is the
+  // right answer here, but it has to come out a real boolean either way.
+  check("no unit in the fixture is a hallucination", units.every((u) => u.isHallucination === false), true);
+  const hallucinated = extractUnits({
+    observation: { observation: { raw_data: { units: [{ tag: 1, unit_type: 78, owner: 1, is_hallucination: true }] } } },
+  } as Response);
+  check("a flagged unit comes out as a hallucination", hallucinated[0]?.isHallucination, true);
 
   const gameInfoBytes = store.readFrameAtOrBefore("gameInfo", 0);
   if (!gameInfoBytes) throw new Error("no gameInfo frame in fixture");

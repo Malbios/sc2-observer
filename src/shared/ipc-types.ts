@@ -270,6 +270,7 @@ export interface UnitSummaryIpc {
   radius: number;
   buildProgress: number;
   pos: { x: number; y: number; z: number } | null;
+  isHallucination: boolean;
 }
 
 export interface FrameAtLoopIpc {

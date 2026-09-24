@@ -54,6 +54,10 @@ export interface UnitSummary {
    * fully built. */
   buildProgress: number;
   pos: { x: number; y: number; z: number } | null;
+  /** Set only when the recording's viewpoint knows it: the creator and the
+   * observer slot see it, the opponent does not (measured, see CLAUDE.md).
+   * So it can be shown as-is, with no idea of whose recording this is. */
+  isHallucination: boolean;
 }
 
 /**
@@ -88,5 +92,6 @@ export function extractUnits(observationResponse: Response): UnitSummary[] {
     radius: typeof u.radius === "number" ? u.radius : 0.5,
     buildProgress: typeof u.build_progress === "number" ? u.build_progress : 1,
     pos: u.pos ? { x: u.pos.x, y: u.pos.y, z: u.pos.z } : null,
+    isHallucination: u.is_hallucination === true,
   }));
 }
