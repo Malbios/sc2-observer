@@ -89,6 +89,14 @@ let lastOpenedDir: string | null = null;
 let session: SessionController | null = null;
 let inspector: DockerManager | null = null;
 /**
+ * Whether a replay brought the container up or used it, so quitting removes
+ * it. A flag rather than "remove whatever is running" because the headless
+ * `session` CLI uses the same container name, and closing the app must not
+ * kill a run it never started. A session clears it: from then on the session
+ * owns the container and removes it on stop.
+ */
+let replayUsedContainer = false;
+/**
  * Which store the queries answer from. A session and an opened recording can
  * both exist at once, and they are different games; the viewer shows one of
  * them, so main answers from that one rather than guessing.
@@ -532,6 +540,7 @@ async function inspectReplay(sourcePath: string): Promise<InspectReplayResultIpc
       info: null,
     };
   }
+  replayUsedContainer = true;
 
   const driver = new ReplayDriver({
     bus,
@@ -601,6 +610,7 @@ async function beginReplay(
     finishReplay(problem);
     return { status: "refused", problem, progress: replayProgress };
   }
+  replayUsedContainer = true;
 
   const driver = new ReplayDriver({
     bus,
@@ -711,6 +721,10 @@ export async function shutdownSession(): Promise<void> {
   replayDriver?.stop();
   replaySession?.close();
   if (session) await session.stop();
+  if (replayUsedContainer) {
+    replayUsedContainer = false;
+    await docker().stopContainer();
+  }
   inspector?.stopLogStream();
   resetLiveGame();
   catalog?.close();
@@ -1311,6 +1325,7 @@ export function registerIpcHandlers(): void {
       const second = options.telemetryDirs?.[2];
       if (second) seatTelemetryDirs[2] = second;
     }
+    replayUsedContainer = false;
     session = new SessionController({
       bus,
       dockerfileDir: dockerDir(),
