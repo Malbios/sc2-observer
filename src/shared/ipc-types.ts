@@ -299,6 +299,10 @@ export interface UnitSummaryIpc {
   buildProgress: number;
   pos: { x: number; y: number; z: number } | null;
   isHallucination: boolean;
+  health: number;
+  healthMax: number;
+  shield: number;
+  shieldMax: number;
 }
 
 export interface FrameAtLoopIpc {

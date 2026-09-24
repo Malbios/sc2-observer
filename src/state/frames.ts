@@ -58,6 +58,12 @@ export interface UnitSummary {
    * observer slot see it, the opponent does not (measured, see CLAUDE.md).
    * So it can be shown as-is, with no idea of whose recording this is. */
   isHallucination: boolean;
+  /** Current and maximum health and shields. A snapshot (a structure
+   * remembered under fog) carries none, and reads 0 / 0: no bar. */
+  health: number;
+  healthMax: number;
+  shield: number;
+  shieldMax: number;
 }
 
 /**
@@ -93,5 +99,9 @@ export function extractUnits(observationResponse: Response): UnitSummary[] {
     buildProgress: typeof u.build_progress === "number" ? u.build_progress : 1,
     pos: u.pos ? { x: u.pos.x, y: u.pos.y, z: u.pos.z } : null,
     isHallucination: u.is_hallucination === true,
+    health: typeof u.health === "number" ? u.health : 0,
+    healthMax: typeof u.health_max === "number" ? u.health_max : 0,
+    shield: typeof u.shield === "number" ? u.shield : 0,
+    shieldMax: typeof u.shield_max === "number" ? u.shield_max : 0,
   }));
 }

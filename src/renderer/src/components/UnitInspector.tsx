@@ -64,6 +64,18 @@ export function UnitInspector({ unit, unitTypeInfo, entities }: Props): JSX.Elem
         <br />
         owner {unit.owner}
         <br />
+        {unit.healthMax > 0 && (
+          <>
+            health {Math.round(unit.health)} / {Math.round(unit.healthMax)}
+            <br />
+          </>
+        )}
+        {unit.shieldMax > 0 && (
+          <>
+            shields {Math.round(unit.shield)} / {Math.round(unit.shieldMax)}
+            <br />
+          </>
+        )}
         {unit.pos ? `pos ${unit.pos.x.toFixed(1)}, ${unit.pos.y.toFixed(1)}, ${unit.pos.z.toFixed(1)}` : "no position"}
       </div>
 

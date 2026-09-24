@@ -89,6 +89,27 @@ function runChecks(fixturePath: string): void {
   } as Response);
   check("a flagged unit comes out as a hallucination", hallucinated[0]?.isHallucination, true);
 
+  // Health and shields, for the bars. A unit with nothing set (a snapshot
+  // under fog) must come out as 0 / 0, which draws no bar.
+  check("every unit's health is a plain number", units.every((u) => Number.isFinite(u.health) && Number.isFinite(u.healthMax)), true);
+  const hatchery = units.find((u) => typeInfo[u.unitType]?.name === "Hatchery");
+  check("a building has a maximum health", (hatchery?.healthMax ?? 0) > 0, true);
+  const [shielded, bare] = extractUnits({
+    observation: {
+      observation: {
+        raw_data: {
+          units: [
+            { tag: 2, unit_type: 74, owner: 2, health: 80, health_max: 80, shield: 30, shield_max: 80 },
+            { tag: 3, unit_type: 86, owner: 2 },
+          ],
+        },
+      },
+    },
+  } as Response);
+  // This suite's check compares with ===, so lists are compared as text.
+  check("a shielded unit keeps its shields", `${shielded?.shield}/${shielded?.shieldMax}`, "30/80");
+  check("a unit with nothing set reads 0 / 0", `${bare?.health}/${bare?.healthMax}/${bare?.shieldMax}`, "0/0/0");
+
   const gameInfoBytes = store.readFrameAtOrBefore("gameInfo", 0);
   if (!gameInfoBytes) throw new Error("no gameInfo frame in fixture");
   const terrain = extractTerrain(decodeResponse(gameInfoBytes));

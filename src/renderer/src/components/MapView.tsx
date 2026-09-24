@@ -34,6 +34,8 @@ interface UnitVisual {
   icon: PIXI.Sprite;
   underConstruction: PIXI.Graphics;
   selection: PIXI.Graphics;
+  /** Health and shield bars above the unit. */
+  bars: PIXI.Graphics;
   /** Entity-channel label, created only for units a bot actually annotated,
    * which is usually a small fraction of the frame. */
   label: PIXI.Text | null;
@@ -44,6 +46,62 @@ interface UnitVisual {
  * sized in world units directly. */
 const LABEL_WORLD_HEIGHT = 1.4;
 const LABEL_FONT_SIZE = 28;
+
+/** When health and shield bars are drawn: on every player's unit and
+ * building, only on damaged ones (and the selected one), or never. */
+export type BarsMode = "always" | "damaged" | "off";
+const BARS_MODES: { mode: BarsMode; label: string }[] = [
+  { mode: "always", label: "Always" },
+  { mode: "damaged", label: "Damaged" },
+  { mode: "off", label: "Off" },
+];
+const BARS_STORAGE_KEY = "spectator.barsMode";
+
+/** A per-viewer convenience, so browser storage; it can be missing or throw,
+ * and then the default is fine. */
+function loadBarsMode(): BarsMode {
+  try {
+    const stored = localStorage.getItem(BARS_STORAGE_KEY);
+    return stored === "damaged" || stored === "off" ? stored : "always";
+  } catch {
+    return "always";
+  }
+}
+
+/** Neutral objects (minerals, geysers, rocks) belong to player 16. */
+const NEUTRAL_OWNER = 16;
+
+/** SC2's own colours for the health bar: green, then yellow, then red. */
+function healthColor(fraction: number): number {
+  if (fraction > 0.5) return 0x4cd964;
+  if (fraction > 0.25) return 0xf5c518;
+  return 0xe5484d;
+}
+const SHIELD_COLOR = 0x4aa3ff;
+const BAR_TRACK = 0x0c0e11;
+
+/**
+ * Health, and shields above it for units that have them, just above the
+ * unit, as wide as the unit and scaled with the map like the unit is. A bar
+ * is a thin fraction of the unit's size with a floor, so a zergling's stays
+ * visible beside a hatchery's.
+ */
+function drawBars(bars: PIXI.Graphics, unit: UnitSummaryIpc, radius: number): void {
+  const width = radius * 2;
+  const height = Math.max(radius * 0.16, 0.18);
+  const gap = height * 0.35;
+  let top = -radius - gap - height;
+  const bar = (fraction: number, color: number): void => {
+    bars.rect(-width / 2, top, width, height).fill({ color: BAR_TRACK, alpha: 0.85 });
+    bars.rect(-width / 2, top, width * Math.max(0, Math.min(1, fraction)), height).fill(color);
+  };
+  const health = unit.health / unit.healthMax;
+  bar(health, healthColor(health));
+  if (unit.shieldMax > 0) {
+    top -= height + gap * 0.5;
+    bar(unit.shield / unit.shieldMax, SHIELD_COLOR);
+  }
+}
 
 /** A hallucination has its real unit's type but its own art, so the icon
  * texture cache needs both: the type id in the upper bits, the flag in the
@@ -130,6 +188,15 @@ export function MapView({
   visibleChannels,
 }: Props): JSX.Element {
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  const [barsMode, setBarsMode] = useState<BarsMode>(loadBarsMode);
+  const chooseBarsMode = (mode: BarsMode): void => {
+    setBarsMode(mode);
+    try {
+      localStorage.setItem(BARS_STORAGE_KEY, mode);
+    } catch {
+      // Not remembered this time; the choice still applies.
+    }
+  };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const worldRef = useRef<PIXI.Container | null>(null);
@@ -413,10 +480,11 @@ export function MapView({
         icon.anchor.set(0.5);
         const underConstruction = new PIXI.Graphics();
         const selection = new PIXI.Graphics();
-        container.addChild(shape, icon, underConstruction, selection);
+        const bars = new PIXI.Graphics();
+        container.addChild(shape, icon, underConstruction, selection, bars);
         container.eventMode = "static";
         container.cursor = "pointer";
-        visual = { container, shape, icon, underConstruction, selection, label: null };
+        visual = { container, shape, icon, underConstruction, selection, bars, label: null };
         pool.set(unit.tag, visual);
         layer.addChild(container);
       }
@@ -478,6 +546,16 @@ export function MapView({
         visual.selection.circle(0, 0, radius).stroke({ width: Math.max(radius * 0.12, 0.12), color: 0xffffff, alignment: 0 });
       }
 
+      // A remembered structure under fog carries no health (0 / 0), and
+      // resources and rocks are not anyone's to damage.
+      visual.bars.clear();
+      const hasBars =
+        unit.healthMax > 0 && unit.owner !== NEUTRAL_OWNER && info?.category !== "mineral" && info?.category !== "gas";
+      const damaged = unit.health < unit.healthMax || unit.shield < unit.shieldMax;
+      if (hasBars && (barsMode === "always" || (barsMode === "damaged" && (damaged || isSelected)))) {
+        drawBars(visual.bars, unit, radius);
+      }
+
       visual.container.x = unit.pos.x;
       visual.container.y = terrain.height - unit.pos.y;
       // Hit area a bit larger than the visible marker -- easier to click
@@ -522,7 +600,7 @@ export function MapView({
       setHover({ x: pointer.x, y: pointer.y, label });
     };
     updateHoverRef.current();
-  }, [frame, selectedTag, terrain, pixiReady, unitTypeInfo, iconVersion]);
+  }, [frame, selectedTag, terrain, pixiReady, unitTypeInfo, iconVersion, barsMode]);
 
   // Telemetry overlays: one pooled container per overlay, redrawn when the
   // resolved state changes. A bot's channel resolves to one overlay, but a
@@ -666,6 +744,42 @@ export function MapView({
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+      <div
+        style={{
+          position: "absolute",
+          left: 8,
+          bottom: 8,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: 11,
+          color: "#8b93a1",
+          background: "rgba(18, 21, 26, 0.8)",
+          border: "1px solid #2b323d",
+          borderRadius: 4,
+          padding: "2px 6px",
+        }}
+        title="Health and shield bars"
+      >
+        Bars:
+        {BARS_MODES.map(({ mode, label }) => (
+          <button
+            key={mode}
+            onClick={() => chooseBarsMode(mode)}
+            style={{
+              fontSize: 11,
+              padding: "0 5px",
+              background: barsMode === mode ? "#2b323d" : "transparent",
+              color: barsMode === mode ? "#e7e9ec" : "#8b93a1",
+              border: "none",
+              borderRadius: 3,
+              cursor: "pointer",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {hover && (
         <div
           style={{
