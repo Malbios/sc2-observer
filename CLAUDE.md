@@ -25,7 +25,7 @@ second `--` is added (`npm run testbot -- -- --end surrender`), which is more
 trouble than it is worth.
 
 ```
-node dist/cli/session.js --map TorchesAIE_v4.SC2Map [--mode A|B|BvB] [--watch 1|2] [--games-dir DIR]
+node dist/cli/session.js --map TorchesAIE_v4.SC2Map [--mode A|B|BvB] [--ai Zerg/Hard/Rush,Protoss/Medium] [--watch 1|2] [--games-dir DIR]
 node dist/cli/record.js --map TorchesAIE_v4.SC2Map --out game.sqlite [--sc2-port 5001]
 node dist/cli/dump.js game.sqlite --loop 5000
 node dist/cli/import-telemetry.js game.sqlite --file run.ndjson [--seat 1|2]
@@ -170,5 +170,6 @@ Decisions already taken that should not be re-litigated:
   - A stopped container fails the session instead of waiting on a hung game.
   - Each file's `players` meta says which bot was which.
   - Full-map review is not recorded live: it is "Watch As..." on the game, which plays its `.SC2Replay` from the observer slot.
+- **Built-in AIs (Mode A): one to three**, each with race, difficulty and build (`src/shared/ai-options.ts`; the stored form is the proto's names). **A map with too few start locations drops the extra AIs without any error** (measured on 4.10), so the session compares the game's `game_info` player count with what it asked for, and warns in the status and in the game file's `warning` meta. The AI Arena ladder maps are all two-player; `maps/Flat48`, `Flat64`, `Flat96` and `Flat128` (Blizzard's Melee pack, committed, see `maps/SOURCE.md`) take four.
 - **Telemetry is one file per player.** In a bot-vs-bot game each player has their own folder and stream (`streams.seat`, schema v3), and **every channel is filed under `P1/` or `P2/` at ingest**, so two bots writing the same channel names cannot overwrite each other. Such a game refuses a file whose player is not given. One-bot games have no seat and no prefix.
 - A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.

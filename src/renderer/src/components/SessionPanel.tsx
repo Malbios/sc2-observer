@@ -7,6 +7,7 @@ import type {
   SessionStatusIpc,
   StartSessionOptionsIpc,
 } from "../../../shared/ipc-types";
+import { AI_BUILDS, AI_DIFFICULTIES, AI_RACES, DEFAULT_AI, MAX_AIS, type AiOpponent } from "../../../shared/ai-options";
 
 type Mode = "A" | "B" | "BvB";
 
@@ -101,6 +102,9 @@ export function SessionPanel({
   const [mode, setMode] = useState<Mode>("A");
   const [map, setMap] = useState<string>("");
   const [watchSeat, setWatchSeat] = useState(1);
+  /** Mode A's opponents, kept while the app runs so the next start offers
+   * the same line-up. */
+  const [ais, setAis] = useState<AiOpponent[]>([DEFAULT_AI]);
   const [showLogs, setShowLogs] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
 
@@ -152,7 +156,13 @@ export function SessionPanel({
       ) : (
         <button
           onClick={() =>
-            onStart(mode === "BvB" ? { map: selectedMap, mode, watchSeat, telemetryDirs: bvbTelemetryDirs } : { map: selectedMap, mode })
+            onStart(
+              mode === "BvB"
+                ? { map: selectedMap, mode, watchSeat, telemetryDirs: bvbTelemetryDirs }
+                : mode === "A"
+                  ? { map: selectedMap, mode, opponents: ais }
+                  : { map: selectedMap, mode }
+            )
           }
           disabled={selectedMap === "" || dockerBad}
           title={dockerBad ? docker?.reason ?? "" : "Bring up the container and wait for your bot"}
@@ -180,6 +190,55 @@ export function SessionPanel({
         <span>
           {status.gamesPlayed} game{status.gamesPlayed === 1 ? "" : "s"} recorded
           {status.gameFile ? `, writing ${status.gameFile.split(/[\\/]/).pop()}` : ""}
+        </span>
+      )}
+    </div>
+  );
+
+  // Before a Mode A session: the built-in AIs, one to three. More than one
+  // needs a map with that many more start locations; the session warns if
+  // the map drops some, because SC2 itself says nothing.
+  const setAi = (index: number, change: Partial<AiOpponent>): void =>
+    setAis((current) => current.map((ai, i) => (i === index ? { ...ai, ...change } : ai)));
+  const aiRows = !running && mode === "A" && (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#8b93a1" }}>
+      {ais.map((ai, index) => (
+        <span key={index} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ minWidth: 34 }}>AI {index + 1}</span>
+          <select value={ai.race} onChange={(e) => setAi(index, { race: Number(e.target.value) })} title="Race">
+            {AI_RACES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select value={ai.difficulty} onChange={(e) => setAi(index, { difficulty: Number(e.target.value) })} title="Difficulty">
+            {AI_DIFFICULTIES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select value={ai.build} onChange={(e) => setAi(index, { build: Number(e.target.value) })} title="Build">
+            {AI_BUILDS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {ais.length > 1 && (
+            <button style={{ fontSize: 11 }} onClick={() => setAis((current) => current.filter((_, i) => i !== index))} title="Remove this AI">
+              Remove
+            </button>
+          )}
+        </span>
+      ))}
+      {ais.length < MAX_AIS && (
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button style={{ fontSize: 11 }} onClick={() => setAis((current) => [...current, DEFAULT_AI])}>
+            Add AI
+          </button>
+          {ais.length >= 1 && <span>more than one AI needs a map with more start locations, such as Flat64</span>}
         </span>
       )}
     </div>
@@ -248,8 +307,10 @@ export function SessionPanel({
     <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
       {!compact && <div style={{ fontSize: 13 }}>Live session</div>}
       {controls}
+      {aiRows}
       {seatFolders}
       {seats}
+      {running && status?.warning && <div style={{ fontSize: 12, color: "#d19a66" }}>{status.warning}</div>}
       {!compact && detail}
       {showLogs && (
         <div
