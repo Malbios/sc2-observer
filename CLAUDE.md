@@ -29,7 +29,7 @@ node dist/cli/session.js --map TorchesAIE.SC2Map [--mode A|B] [--games-dir DIR]
 node dist/cli/record.js --map TorchesAIE.SC2Map --out game.sqlite [--sc2-port 5001]
 node dist/cli/dump.js game.sqlite --loop 5000
 node dist/cli/import-telemetry.js game.sqlite --file run.ndjson
-node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw]
+node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw] [--race Protoss --hallucinate]
 node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
 node dist/cli/probe-replay.js --file game.SC2Replay
 ```
@@ -120,7 +120,7 @@ Everything below the viewer is tested against recorded frames and bytes, never a
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
-The live path (proxy, session controller, tailer) cannot be covered that way, so `src/cli/testbot.ts` is a scripted SC2 API client: it joins like a real bot, steps for a set number of loops, optionally writes a conformant telemetry file, gives raw unit orders (`--command`) and draws with the debug API (`--debug-draw`), and ends the game on command (`surrender`, `leave`, `disconnect`, `hang`, `play`) so failure modes reproduce in seconds instead of a full game. It is a dev tool only. The real python-sc2 bot at `C:\dev\sc2-ai` stays the realism oracle and **must not be modified** for this project's needs.
+The live path (proxy, session controller, tailer) cannot be covered that way, so `src/cli/testbot.ts` is a scripted SC2 API client: it joins like a real bot, steps for a set number of loops, optionally writes a conformant telemetry file, gives raw unit orders (`--command`), draws with the debug API (`--debug-draw`), casts Sentry hallucinations (`--race Protoss --hallucinate`), and ends the game on command (`surrender`, `leave`, `disconnect`, `hang`, `play`) so failure modes reproduce in seconds instead of a full game. It is a dev tool only. The real python-sc2 bot at `C:\dev\sc2-ai` stays the realism oracle and **must not be modified** for this project's needs.
 
 Replay facts, measured by `node dist/cli/probe-replay.js` rather than read off the proto: `replay_info` and `start_replay` both accept the replay as **bytes** (`replay_data`), so nothing is copied into the container; a replay ends by the client leaving `in_replay`, which is what the driver stops on; `replay_info` carries the map, the length in loops, the build and every player with race and result, so a converted replay is filed with its outcome before a loop is stepped; and **`disable_fog` does not mean "see everything"**. Watching as player 1 with fog off showed 27 units at loop 200 of a test game (that player's own vision); the same replay from the observer slot (`observed_player_id = 0`) with fog off showed 229 (both players and every neutral). Full-map review is the observer slot; watching as a player is the other, equally useful thing.
 
@@ -134,9 +134,13 @@ Six phases (§7), each depending on the prior and ending with something runnable
 
 **Phases 0 through 5 are complete**, each verified against live games rather than only fixtures.
 
-**Phase 6 is in progress.** The replay path is done: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. Command-intent lines and native debug draws are done too, seen live and in the reopened recording. What is left of the phase, planned separately: keyboard shortcuts, settings (ports, folders, retention), and the installer.
+**Phase 6 is done for local bot development.** The replay path works: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. Command-intent lines and native debug draws are done too, seen live and in the reopened recording.
 
-Decisions already taken that the rest of the phase should not re-litigate:
+**Deferred on purpose (2026-09-24), not unfinished:** keyboard shortcuts, settings (ports, folders, retention) and the installer. The project owner judged them unnecessary for now, so do not pick them up unasked. Until then the app runs from the repo (`npm run dev`), and games go to `<userData>/games`. §7's installer exit criterion stays unmet.
+
+Unit icons are owner-supplied PNGs in `src/renderer/public/icons/`, named after the unit type names the API's `data` response reports (`LurkerMP`, `SwarmHostMP`, `TemplarArchive`), not display names. `src/renderer/src/icons.ts` lists them and aliases variants (burrowed, sieged, add-ons, cocoons) to a base image. A hallucination uses `<Unit>Hallucination.png`, chosen by the recorded `is_hallucination` flag. Where each file came from is in `SOURCE.md` there.
+
+Decisions already taken that should not be re-litigated:
 
 - **A replay is played once and recorded, then watched as a recording.** SC2 cannot seek a replay backwards, so the driver writes every observation into a game file and the viewer scrubs that. Play/pause/speed/seek are therefore the controls the viewer already has, and the second viewing needs no container at all.
 - **Whose eyes and whose result are separate.** `observed_player_id` decides how much of the map the recording holds; the subject player decides whose result the row reports. A ladder replay is watched from the observer slot and still filed under the bot's defeat.
