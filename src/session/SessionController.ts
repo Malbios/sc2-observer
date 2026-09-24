@@ -445,7 +445,11 @@ export class SessionController {
         const problem = await state.host.leaveGame();
         if (problem) this.log(`player ${state.seat}'s client did not leave the game: ${problem}`);
       }
-      if ((await this.client.containerStatus()) !== "running") {
+      // Stopping the session removes the container too, and can land while
+      // the clients are leaving; that is the user stopping, not a client dying.
+      const container = await this.client.containerStatus();
+      if (this.stopping) return;
+      if (container !== "running") {
         this.fail("An SC2 client stopped, and the container with it. Start the session again.");
         return;
       }

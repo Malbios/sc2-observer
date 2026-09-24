@@ -580,6 +580,31 @@ async function checkBotVsBotDeadClient(): Promise<void> {
   await h.controller.stop();
 }
 
+/** Stopping removes the container, and a stop can land while the clients are
+ * leaving a finished game. That must read as the user stopping, not as a
+ * client that died. Seen in the app: Stop clicked as a game ended. */
+async function checkBotVsBotStopWhileLeaving(): Promise<void> {
+  const h = botVsBot();
+  const [p1, p2] = h.seats;
+  await h.controller.start();
+  p1.joins();
+  p2.joins();
+  p1.frame(1);
+  // The container is gone by the time the session asks, because the stop
+  // below has already removed it.
+  p2.game.leaveGame = async (): Promise<string | null> => {
+    h.client.container = "missing";
+    await h.controller.stop();
+    return null;
+  };
+  p1.ends("result", 1);
+  p1.leaves();
+  p2.leaves();
+  await settle();
+  check("a stop during the leave ends as stopped", h.controller.status.phase, "stopped");
+  check("with no error", h.controller.status.error, null);
+}
+
 async function main(): Promise<void> {
   checkNaming();
   await checkStartup();
@@ -591,6 +616,7 @@ async function main(): Promise<void> {
   await checkModeBNextGame();
   await checkBotVsBot();
   await checkBotVsBotDeadClient();
+  await checkBotVsBotStopWhileLeaving();
 
   console.log(failures === 0 ? "\nall session checks passed" : `\n${failures} session check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);
