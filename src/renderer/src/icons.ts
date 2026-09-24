@@ -165,6 +165,8 @@ const ICON_ALIASES: Record<string, string> = {
   WidowMineBurrowed: "WidowMine",
   ThorAP: "Thor",
   RefineryRich: "Refinery",
+  BroodlingEscort: "Broodling",
+  LocustMPPrecursor: "LocustMP",
   WarpPrismPhasing: "WarpPrism",
   ObserverSiegeMode: "Observer",
   PylonOvercharged: "Pylon",
