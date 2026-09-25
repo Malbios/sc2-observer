@@ -302,14 +302,15 @@ export function GameCatalog({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th style={{ ...HEAD, width: "20%" }}>Map</th>
-                <th style={{ ...HEAD, width: "13%" }}>When</th>
-                <th style={{ ...HEAD, width: "13%" }}>Length</th>
-                <th style={{ ...HEAD, width: "11%" }}>Outcome</th>
-                <th style={{ ...HEAD, width: "10%" }}>Bot</th>
-                <th style={{ ...HEAD, width: "14%" }}>Tags</th>
+                <th style={{ ...HEAD, width: "18%" }}>Map</th>
+                <th style={{ ...HEAD, width: "12%" }}>When</th>
+                <th style={{ ...HEAD, width: "12%" }}>Length</th>
+                {/* Wide enough for a bot's name: the column names the winner. */}
+                <th style={{ ...HEAD, width: "18%" }}>Outcome</th>
+                <th style={{ ...HEAD, width: "9%" }}>Bot</th>
+                <th style={{ ...HEAD, width: "10%" }}>Tags</th>
                 <th style={{ ...HEAD, width: "7%", textAlign: "right" }}>Size</th>
-                <th style={{ ...HEAD, width: "12%" }} />
+                <th style={{ ...HEAD, width: "14%" }} />
               </tr>
             </thead>
             <tbody>
