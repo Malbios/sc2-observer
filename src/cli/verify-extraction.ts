@@ -11,7 +11,7 @@
 import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { HistoryStore } from "../history/HistoryStore";
+import { HistoryStore, SCHEMA_VERSION } from "../history/HistoryStore";
 import { decodeResponse, type Response } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
@@ -28,6 +28,48 @@ function check(label: string, actual: unknown, expected: unknown): void {
   if (!pass) failures++;
 }
 
+/**
+ * A converted replay holds one pass per viewpoint in one file. Each view's
+ * frames must come back on their own, and the default is the first view the
+ * file lists, the observer.
+ */
+function checkViewpoints(scratch: string): void {
+  const filePath = path.join(scratch, "views.sqlite");
+  const writer = new HistoryStore(filePath);
+  const frame = (loop: number, byte: number) => ({
+    sessionId: "t",
+    loop,
+    kind: "observation" as const,
+    direction: "response" as const,
+    bytes: new Uint8Array([byte]),
+  });
+  writer.frameViewpoint = 0;
+  writer.recordFrame(frame(0, 10));
+  writer.recordFrame(frame(8, 11));
+  writer.flush();
+  writer.addViewpoint(0);
+  writer.frameViewpoint = 2;
+  writer.recordFrame(frame(0, 20));
+  writer.flush();
+  writer.addViewpoint(2);
+  writer.frameViewpoint = 1;
+  writer.recordFrame(frame(0, 30));
+  writer.deleteViewpoint(1);
+  writer.close();
+
+  const reader = new HistoryStore(filePath);
+  check("a converted replay lists its viewpoints", JSON.stringify(reader.viewpoints()), "[0,2]");
+  check("it opens on the first, the observer", reader.readViewpoint, 0);
+  check("the observer's frame", reader.readFrameAtOrBefore("observation", 8)?.[0], 11);
+  check("the observer's length", reader.getMaxLoop(), 8);
+  reader.readViewpoint = 2;
+  check("another viewpoint's frame", reader.readFrameAtOrBefore("observation", 8)?.[0], 20);
+  check("and its own length", reader.getMaxLoop(), 0);
+  reader.readViewpoint = 1;
+  check("an unfinished viewpoint was dropped", reader.readFrameAtOrBefore("observation", 8), undefined);
+  reader.close();
+}
+
 function main(): void {
   // Opening a recording migrates it to the current schema, which is the right
   // behaviour for a real file but would rewrite a 20 MB committed fixture on
@@ -40,6 +82,7 @@ function main(): void {
 
   try {
     runChecks(fixture);
+    checkViewpoints(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -54,8 +97,12 @@ function main(): void {
 function runChecks(fixturePath: string): void {
   const store = new HistoryStore(fixturePath);
 
-  check("fixture migrated to the current schema", store.getMeta("schema_version"), "3");
+  check("fixture migrated to the current schema", store.getMeta("schema_version"), String(SCHEMA_VERSION));
   check("migration left the frames intact", store.getMaxLoop() > 0, true);
+  // v4 added a viewpoint per frame; a file from before it has one unnamed
+  // viewpoint and must read exactly as it always did.
+  check("an old file lists no viewpoints", store.viewpoints().length, 0);
+  check("and reads its one unnamed viewpoint", store.readViewpoint, null);
   check("a migrated v1 file has no telemetry", store.getStreams().length, 0);
 
   const dataBytes = store.readFrameAtOrBefore("data", 0);

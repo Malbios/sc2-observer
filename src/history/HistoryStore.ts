@@ -18,7 +18,7 @@ import type {
 /** The schema this build writes and understands. Exported so the catalog can
  * say "this file is newer than me" without opening it through the store,
  * which would try to migrate it. */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 const BATCH_SIZE = 50;
 /** §6.4 asks for "one transaction per second (or per 50 events)". */
 const FLUSH_INTERVAL_MS = 1000;
@@ -125,7 +125,33 @@ const MIGRATIONS: ((db: Database.Database) => void)[] = [
   (db) => {
     db.exec(`ALTER TABLE streams ADD COLUMN seat INTEGER`);
   },
+  // v4: whose eyes a frame was seen through. A converted replay holds one
+  // pass per viewpoint (0 is the observer slot, else a player id), because
+  // SC2 plays a replay from one viewpoint and one view's fog cannot be
+  // derived from another's. NULL is "the file's only viewpoint", which is
+  // every file before this and every live game, so nothing is rewritten.
+  (db) => {
+    db.exec(`
+      ALTER TABLE frames ADD COLUMN viewpoint INTEGER;
+      CREATE INDEX IF NOT EXISTS idx_frames_view_kind_loop ON frames (viewpoint, kind, loop);
+    `);
+  },
 ];
+
+/** Meta key: the viewpoints a file holds in full, as a JSON array of ids. */
+export const VIEWPOINTS_META = "viewpoints";
+
+/** The viewpoints listed in a file's meta, or an empty list for a file that
+ * holds one unnamed viewpoint (NULL in `frames.viewpoint`). */
+export function parseViewpoints(raw: string | undefined): number[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is number => typeof id === "number") : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface StreamInfo {
   name: string;
@@ -202,12 +228,19 @@ function seriesNameForChannel(ch: string): string {
 export class HistoryStore {
   private readonly db: Database.Database;
   private readonly statements = new Map<string, Database.Statement>();
-  private pendingFrames: FrameEvent[] = [];
+  private pendingFrames: (FrameEvent & { viewpoint: number | null })[] = [];
   private pendingTelemetry: TelemetryRow[] = [];
   private pendingSeries: SeriesRow[] = [];
   private pendingEvents: EventRow[] = [];
   private lastFlushAt = Date.now();
   private closed = false;
+  /** The viewpoint frames are written under. Null for a live game, whose
+   * frames are its only view; a replay conversion sets it per pass. */
+  frameViewpoint: number | null = null;
+  /** The viewpoint frames are read from. Defaults to the first one the file
+   * lists, which for a converted replay is the observer; null for a file with
+   * one unnamed viewpoint, which reads exactly as before v4. */
+  readViewpoint: number | null = null;
 
   constructor(filePath: string) {
     mkdirSync(dirname(filePath), { recursive: true });
@@ -222,6 +255,27 @@ export class HistoryStore {
       );
     `);
     this.migrate();
+    this.readViewpoint = this.viewpoints()[0] ?? null;
+  }
+
+  /** The viewpoints this file holds in full, in the order they were
+   * converted. Empty for a file with one unnamed viewpoint. */
+  viewpoints(): number[] {
+    return parseViewpoints(this.getMeta(VIEWPOINTS_META));
+  }
+
+  /** Records that a viewpoint is complete, which is what makes it offered. */
+  addViewpoint(id: number): void {
+    const list = this.viewpoints();
+    if (!list.includes(id)) this.setMeta(VIEWPOINTS_META, JSON.stringify([...list, id]));
+    if (this.readViewpoint === null) this.readViewpoint = id;
+  }
+
+  /** Drops the frames of a viewpoint that was not finished, so a stopped
+   * conversion leaves no half-seen view behind. */
+  deleteViewpoint(id: number): void {
+    this.flush();
+    this.stmt("DELETE FROM frames WHERE viewpoint = ?").run(id);
   }
 
   /**
@@ -273,7 +327,7 @@ export class HistoryStore {
   }
 
   recordFrame(event: FrameEvent): void {
-    this.pendingFrames.push(event);
+    this.pendingFrames.push({ ...event, viewpoint: this.frameViewpoint });
     this.maybeFlush();
   }
 
@@ -392,7 +446,7 @@ export class HistoryStore {
     this.pendingSeries = [];
     this.pendingEvents = [];
 
-    const insertFrame = this.stmt("INSERT INTO frames (loop, kind, direction, bytes) VALUES (?, ?, ?, ?)");
+    const insertFrame = this.stmt("INSERT INTO frames (loop, kind, direction, bytes, viewpoint) VALUES (?, ?, ?, ?, ?)");
     const insertTelemetry = this.stmt(
       "INSERT INTO telemetry (stream_id, seq, loop, ch, kind, style, ttl, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     );
@@ -403,7 +457,7 @@ export class HistoryStore {
 
     this.db.transaction(() => {
       for (const event of frames) {
-        insertFrame.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes, BROTLI_FAST));
+        insertFrame.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes, BROTLI_FAST), event.viewpoint);
       }
       for (const row of telemetry) {
         insertTelemetry.run(row.streamId, row.seq, row.loop, row.ch, row.kind, row.style, row.ttl, row.data);
@@ -421,8 +475,8 @@ export class HistoryStore {
   /** Reads the nearest response frame of `kind` at or before `loop`. */
   readFrameAtOrBefore(kind: string, loop: number): Uint8Array | undefined {
     const row = this.stmt(
-      "SELECT bytes FROM frames WHERE kind = ? AND direction = 'response' AND loop <= ? ORDER BY loop DESC LIMIT 1"
-    ).get(kind, loop) as { bytes: Buffer } | undefined;
+      "SELECT bytes FROM frames WHERE viewpoint IS ? AND kind = ? AND direction = 'response' AND loop <= ? ORDER BY loop DESC LIMIT 1"
+    ).get(this.readViewpoint, kind, loop) as { bytes: Buffer } | undefined;
     return row ? brotliDecompressSync(row.bytes) : undefined;
   }
 
@@ -431,13 +485,13 @@ export class HistoryStore {
    * a history to replay forward, not a state to look up. */
   readFrames(kind: string, direction: "request" | "response"): { loop: number; bytes: Uint8Array }[] {
     const rows = this.stmt(
-      "SELECT loop, bytes FROM frames WHERE kind = ? AND direction = ? ORDER BY loop, rowid"
-    ).all(kind, direction) as { loop: number; bytes: Buffer }[];
+      "SELECT loop, bytes FROM frames WHERE viewpoint IS ? AND kind = ? AND direction = ? ORDER BY loop, rowid"
+    ).all(this.readViewpoint, kind, direction) as { loop: number; bytes: Buffer }[];
     return rows.map((row) => ({ loop: row.loop, bytes: brotliDecompressSync(row.bytes) }));
   }
 
   getMaxLoop(): number {
-    const row = this.stmt("SELECT MAX(loop) as maxLoop FROM frames WHERE kind = 'observation'").get() as
+    const row = this.stmt("SELECT MAX(loop) as maxLoop FROM frames WHERE viewpoint IS ? AND kind = 'observation'").get(this.readViewpoint) as
       | { maxLoop: number | null }
       | undefined;
     return row?.maxLoop ?? 0;
