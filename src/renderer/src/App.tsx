@@ -25,7 +25,8 @@ import { ReplayChooser } from "./components/ReplayChooser";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { SeriesChart } from "./components/SeriesChart";
-import { SessionPanel } from "./components/SessionPanel";
+import { DEFAULT_CHOICES, NewGamePanel, type NewGameChoices } from "./components/NewGamePanel";
+import { SessionStatus } from "./components/SessionStatus";
 import { SnapshotInspector } from "./components/SnapshotInspector";
 import { Timeline } from "./components/Timeline";
 import { UnitInspector } from "./components/UnitInspector";
@@ -140,6 +141,10 @@ export function App(): JSX.Element {
   const [telemetryRevision, setTelemetryRevision] = useState(0);
   const [timelineEvents, setTimelineEvents] = useState<EventIpc[]>([]);
   const [watch, setWatch] = useState<TelemetryWatchIpc | null>(null);
+  /** The New Game form, which only the Games screen opens. Its choices outlive
+   * it, so the next game offers the same line-up. */
+  const [newGameOpen, setNewGameOpen] = useState(false);
+  const [newGameChoices, setNewGameChoices] = useState<NewGameChoices>(DEFAULT_CHOICES);
 
   const mapHandleRef = useRef<MapViewHandle | null>(null);
   const loopRef = useRef(0);
@@ -830,14 +835,33 @@ export function App(): JSX.Element {
     });
   }, []);
 
-  const sessionPanel = (compact: boolean): JSX.Element => (
-    <SessionPanel
-      status={session}
+  /**
+   * Starting a game is the Games screen's New Game, never the header of a
+   * game being watched: that one is left first. Once started, a session
+   * reports here, on both screens, with the way to stop it. A session that
+   * failed to start stays on show, because its error is the only explanation.
+   */
+  const sessionStatus =
+    session && (sessionRunning(session) || session.phase === "failed") ? (
+      <SessionStatus
+        status={session}
+        logs={logs}
+        onStop={() => void stopSession()}
+        onWatchSeat={(seat) =>
+          void window.spectator.setWatchedSeat(seat).then((state) => {
+            if (state) setSession(state);
+          })
+        }
+      />
+    ) : null;
+
+  const newGamePanel = newGameOpen && (
+    <NewGamePanel
+      choices={newGameChoices}
+      onChange={setNewGameChoices}
       docker={dockerState}
       maps={maps}
       logs={logs}
-      onStart={(options) => void startSession(options)}
-      onStop={() => void stopSession()}
       bvbTelemetryDirs={bvbTelemetryDirs}
       onPickBvbTelemetryDir={(seat) =>
         void window.spectator.pickBvbTelemetryDir(seat).then((dir) => {
@@ -853,12 +877,11 @@ export function App(): JSX.Element {
           })
         )
       }
-      onWatchSeat={(seat) =>
-        void window.spectator.setWatchedSeat(seat).then((state) => {
-          if (state) setSession(state);
-        })
-      }
-      compact={compact}
+      onStart={(options) => {
+        setNewGameOpen(false);
+        void startSession(options);
+      }}
+      onCancel={() => setNewGameOpen(false)}
     />
   );
 
@@ -932,6 +955,7 @@ export function App(): JSX.Element {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }} {...dropTarget}>
         {replayOverlay}
+        {newGamePanel}
         <div
           style={{
             padding: "8px 16px",
@@ -949,6 +973,17 @@ export function App(): JSX.Element {
             </button>
           )}
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {sessionStatus}
+            <button
+              onClick={() => {
+                refreshDocker();
+                setNewGameOpen(true);
+              }}
+              disabled={clientBusy !== null}
+              title={clientBusy ?? "Set up a game and wait for your bot"}
+            >
+              New Game...
+            </button>
             {/* Games from elsewhere: a copy someone sent, or the repo's
                 fixtures. Anything in the games folder is already a row. */}
             <button
@@ -959,7 +994,6 @@ export function App(): JSX.Element {
               Open Replay...
             </button>
             <button onClick={openRecording}>Open Recording...</button>
-            {sessionPanel(true)}
           </span>
         </div>
         <GameCatalog
@@ -1081,18 +1115,9 @@ export function App(): JSX.Element {
               a folder mid-game imports every earlier run sitting in it, each
               on its own loop axis, into the live recording. */}
           {!live && <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>}
-          {/* Offered here as well as in the catalog: a replay someone sent you
-              is opened from wherever you happen to be. Disabled rather than
-              hidden while the client is taken, so it says why. */}
-          <button
-            onClick={() => void pickReplay()}
-            disabled={clientBusy !== null}
-            title={clientBusy ?? "Play a .SC2Replay and record it as a game"}
-          >
-            Open Replay...
-          </button>
-          <button onClick={openRecording}>Open Recording...</button>
-          {sessionPanel(true)}
+          {/* Nothing new is started or opened from here: that is the Games
+              screen's job. A replay dropped on the window still opens. */}
+          {sessionStatus}
         </span>
       </div>
 
