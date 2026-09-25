@@ -12,7 +12,10 @@ deleted (the last four, `MothershipCore`, `PointDefenseDrone`, `Viking` and
 ships any more. It is still in the git history.
 
 `minerals.png` and `vespene.png` stand in for every mineral-field and
-vespene-geyser type.
+vespene-geyser type, and `richminerals.png` (added 2026-09-25) for every rich
+mineral-field type. They are unmodified copies of the project owner's
+`images/neutral/mineral_field.png`, `vespene_geyser.png` and
+`rich_mineral_field.png`. Rich geysers have no art of their own yet.
 
 The Zerg `.png` files (units and buildings, 43 of them) were supplied by the
 project owner on 2026-09-23. They are named after the unit type names the SC2 API reports (so

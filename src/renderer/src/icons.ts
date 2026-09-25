@@ -65,14 +65,17 @@ async function loadProcessedTexture(url: string): Promise<PIXI.Texture> {
   return texture;
 }
 
-/** Mineral field variants (MineralField, MineralField750, RichMineralField,
- * RichMineralField750, ...) all share one real depiction of the actual
- * in-game crystal cluster object, and geyser variants share one real
- * geyser depiction -- unlike the earlier vscode-starcraft
- * `minerals.png`/`vespene.png`, which turned out to be generic
- * resource-counter icons for a HUD panel, not the map object itself.
+/** Mineral field variants (MineralField, MineralField750, LabMineralField,
+ * ...) all share one real depiction of the actual in-game crystal cluster
+ * object, rich ones (RichMineralField, PurifierRichMineralField750, ...)
+ * another, and geyser variants share one real geyser depiction -- unlike the
+ * earlier vscode-starcraft `minerals.png`/`vespene.png`, which turned out to
+ * be generic resource-counter icons for a HUD panel, not the map object
+ * itself. The first pattern that matches wins, so rich comes before plain.
+ * Rich geysers have no art of their own yet and use the ordinary one.
  */
 const GENERIC_ICON_PATTERNS: [RegExp, string][] = [
+  [/richmineralfield/i, "richminerals.png"],
   [/mineralfield/i, "minerals.png"],
   [/geyser|vespene/i, "vespene.png"],
 ];
