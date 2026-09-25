@@ -160,15 +160,34 @@ export function App(): JSX.Element {
   const lastTelemetryAtRef = useRef<number | null>(null);
 
   const replaying = replay !== null && !replay.finished;
-  const live = view === "live" && (sessionRunning(session) || replaying);
+  /** A session's game, which really is live: the view follows its head. */
+  const live = view === "live" && sessionRunning(session);
+  /**
+   * A replay still being recorded. It is not live: every frame is in its file
+   * as soon as it is converted, so it is watched like a recording, with play,
+   * pause, speed and seeking, up to the loop recording has reached.
+   */
+  const replayView = view === "live" && replay !== null && (!replay.finished || replay.gameFile !== null);
   /** The list is on screen when asked for, and also when there is nothing
    * else to show: a stopped session leaves `view` at "live" with no game. */
-  const showingCatalog = view === "catalog" || (!recording && !live);
-  const map = live ? session?.map || replay?.map || "" : recording?.map ?? "";
-  const mode = live ? (sessionRunning(session) ? session!.mode : "replay") : recording?.mode ?? "";
+  const showingCatalog = view === "catalog" || (!recording && !live && !replayView);
+  const map = live ? session?.map ?? "" : replayView ? replay.map : recording?.map ?? "";
+  const mode = live ? session!.mode : replayView ? "replay" : recording?.mode ?? "";
   // Live has nothing past the head to scrub to (§6.4), so the track's end is
-  // wherever the game is now and the thumb sits on it.
-  const maxLoop = live ? loop : recording?.maxLoop ?? 0;
+  // wherever the game is now and the thumb sits on it. A replay's track spans
+  // the whole game from the start, because its length is known.
+  const maxLoop = live ? loop : replayView ? replay.totalLoops : recording?.maxLoop ?? 0;
+  /** How far playback can go: the recorded part of a replay being recorded,
+   * otherwise the whole game. Read by the playback loop through a ref, so a
+   * replay's progress does not restart the loop on every step. */
+  const playableLoop = replayView ? replay.recordedLoop : maxLoop;
+  const playableRef = useRef(playableLoop);
+  playableRef.current = playableLoop;
+  /** Whether the playable part is the whole game, so reaching it is the end.
+   * A replay still recording is never at its end, even before its length is
+   * known and every number is still 0. */
+  const wholeGameRef = useRef(true);
+  wholeGameRef.current = !replayView || replay.finished;
 
   useEffect(() => {
     viewRef.current = view;
@@ -205,16 +224,20 @@ export function App(): JSX.Element {
 
   /** Everything the viewer resets when the game under it changes. Shared by
    * the picker and, from Phase 5's catalog, by a clicked row. */
-  const showRecording = useCallback(async (info: RecordingInfo) => {
+  const showRecording = useCallback(async (info: RecordingInfo, keepPosition = false) => {
     setRecording(info);
     // Main has already pointed its queries at this file; the view follows,
     // and so does what the catalog offers to go back to.
     setView("recording");
     setLastSource("recording");
-    setSelectedUnit(null);
-    setPlaying(false);
-    loopRef.current = 0;
-    setLoop(0);
+    // A replay that has just finished recording is the same game carrying on:
+    // it keeps its loop, its selection and whether it was playing.
+    if (!keepPosition) {
+      setSelectedUnit(null);
+      setPlaying(false);
+      loopRef.current = 0;
+      setLoop(0);
+    }
     lastFetchedLoopRef.current = -1;
     setTelemetry(null);
     setNotice(null);
@@ -558,7 +581,7 @@ export function App(): JSX.Element {
    * it, so the click goes there instead.
    */
   const openGameByPath = useCallback(
-    async (filePath: string) => {
+    async (filePath: string, keepPosition = false) => {
       const result = await window.spectator.openGame(filePath);
       if (result.status !== "done" || !result.recording) {
         setCatalogProblem(result.problem ?? "That game could not be opened.");
@@ -567,7 +590,7 @@ export function App(): JSX.Element {
       }
       setCatalogProblem(null);
       setLastSource("recording");
-      await showRecording(result.recording);
+      await showRecording(result.recording, keepPosition);
     },
     [refreshCatalog, showRecording]
   );
@@ -643,6 +666,10 @@ export function App(): JSX.Element {
       loopRef.current = 0;
       setLoop(0);
       lastFetchedLoopRef.current = -1;
+      // Watching starts at once, at normal speed, and waits wherever the
+      // recording has not reached yet.
+      setSpeed(1);
+      setPlaying(true);
       setView("live");
       viewRef.current = "live";
       setLastSource("live");
@@ -680,15 +707,22 @@ export function App(): JSX.Element {
   );
 
   /**
-   * A finished replay is a game file, and SC2 cannot seek a replay backwards,
-   * so this is where watching one actually begins: the recording opens and
-   * every control the viewer already has applies to it.
+   * A finished replay is an ordinary game file, which is opened as a
+   * recording where the viewer already is: same loop, still playing if it
+   * was, now with the whole game to seek in. The replay is let go of only
+   * once the recording is on screen, so the view never drops to the list in
+   * between.
    */
+  const openingReplayRef = useRef<string | null>(null);
   useEffect(() => {
     if (!replay?.finished || !replay.gameFile) return;
     const file = replay.gameFile;
-    setReplay(null);
-    void openGameByPath(file);
+    if (openingReplayRef.current === file) return;
+    openingReplayRef.current = file;
+    void openGameByPath(file, true).finally(() => {
+      openingReplayRef.current = null;
+      setReplay(null);
+    });
   }, [replay, openGameByPath]);
 
   /** Switching what the window shows also switches what main answers from. */
@@ -750,24 +784,30 @@ export function App(): JSX.Element {
   // fetched; asking the store for a frame it may not have flushed yet is what
   // §6.4 forbids.
   useEffect(() => {
-    if (!recording && !live) return;
+    if (!recording && !live && !replayView) return;
     if (loop === lastFetchedLoopRef.current) return;
     lastFetchedLoopRef.current = loop;
     let cancelled = false;
     const framePromise = live ? Promise.resolve(null) : window.spectator.getFrameAtLoop(loop);
     Promise.all([framePromise, window.spectator.getTelemetryAtLoop(loop)]).then(([frameResult, telemetryResult]) => {
       if (cancelled) return;
-      if (!live) setFrame(frameResult);
+      // A replay whose file is being swapped for the finished recording has
+      // nothing to answer from for a moment; keep the picture meanwhile.
+      if (!live && (frameResult || !replayView)) setFrame(frameResult);
       setTelemetry(telemetryResult);
     });
     return () => {
       cancelled = true;
     };
-  }, [recording, live, loop]);
+  }, [recording, live, replayView, loop]);
 
-  // Playback loop. Live has no playback: it follows the head.
+  // Playback loop. Live has no playback: it follows the head. A replay being
+  // recorded plays up to what has been recorded and waits there, still
+  // playing, so it carries on as more arrives; only the real end stops it.
+  const endLoop = recording ? recording.maxLoop : replayView ? replay.totalLoops : 0;
+  const canPlay = recording !== null || replayView;
   useEffect(() => {
-    if (!playing || !recording || live) return;
+    if (!playing || !canPlay || live) return;
     let raf = 0;
     let lastTime = performance.now();
 
@@ -775,20 +815,21 @@ export function App(): JSX.Element {
       const deltaSeconds = (now - lastTime) / 1000;
       lastTime = now;
       const next = loopRef.current + deltaSeconds * LOOPS_PER_SECOND * speed;
-      if (next >= recording.maxLoop) {
-        loopRef.current = recording.maxLoop;
-        setLoop(recording.maxLoop);
+      const playable = playableRef.current;
+      if (wholeGameRef.current && next >= endLoop) {
+        loopRef.current = endLoop;
+        setLoop(endLoop);
         setPlaying(false);
         return;
       }
-      loopRef.current = next;
-      setLoop(Math.floor(next));
+      loopRef.current = Math.min(next, playable);
+      setLoop(Math.floor(loopRef.current));
       raf = requestAnimationFrame(tick);
     };
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, recording, live]);
+  }, [playing, speed, canPlay, endLoop, live]);
 
   const handleSeek = useCallback((value: number) => {
     loopRef.current = value;
@@ -1056,47 +1097,23 @@ export function App(): JSX.Element {
         )}
         {replay && (
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#8b93a1" }}>
+            {/* How far recording has got. Watching is the timeline's play,
+                pause and speed; the conversion itself always runs flat out. */}
             <span title={replay.sourcePath}>
               {replay.sourceName}
-              {replay.totalLoops > 0 && ` ${Math.min(100, Math.floor((replay.loop / replay.totalLoops) * 100))}%`}
+              {!replay.finished &&
+                replay.totalLoops > 0 &&
+                `, recording ${Math.min(100, Math.floor((replay.loop / replay.totalLoops) * 100))}%`}
             </span>
             {replay.error && <span style={{ color: "#e06c75" }}>{replay.error}</span>}
             {!replay.finished && (
-              <>
-                <button
-                  style={{ fontSize: 11, padding: "1px 6px" }}
-                  onClick={() => void window.spectator.controlReplay(replay.playing ? "pause" : "play")}
-                >
-                  {replay.playing ? "Pause" : "Resume"}
-                </button>
-                {/* The speeds a replay is watched at. "max" is the one that
-                    matters for converting it; the rest are for watching it
-                    arrive, which is free because the recording is the same
-                    either way. */}
-                <select
-                  defaultValue="max"
-                  style={{ fontSize: 11 }}
-                  onChange={(event) =>
-                    void window.spectator.controlReplay(
-                      "play",
-                      event.target.value === "max" ? "max" : Number(event.target.value)
-                    )
-                  }
-                >
-                  <option value="max">as fast as possible</option>
-                  <option value="8">8x</option>
-                  <option value="4">4x</option>
-                  <option value="2">2x</option>
-                  <option value="1">1x</option>
-                </select>
-                <button
-                  style={{ fontSize: 11, padding: "1px 6px" }}
-                  onClick={() => void window.spectator.controlReplay("stop")}
-                  title="Stop here and keep what has been recorded so far"
-                >
-                  Stop
-                </button>
-              </>
+              <button
+                style={{ fontSize: 11, padding: "1px 6px" }}
+                onClick={() => void window.spectator.stopReplay()}
+                title="Stop recording here and keep what has been recorded so far"
+              >
+                Stop
+              </button>
             )}
           </span>
         )}
@@ -1114,7 +1131,7 @@ export function App(): JSX.Element {
               telemetry folder for the game being played, and pointing this at
               a folder mid-game imports every earlier run sitting in it, each
               on its own loop axis, into the live recording. */}
-          {!live && <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>}
+          {!live && !replayView && <button onClick={toggleWatch}>{watch ? "Stop Watching" : "Watch Folder..."}</button>}
           {/* Nothing new is started or opened from here: that is the Games
               screen's job. A replay dropped on the window still opens. */}
           {sessionStatus}
@@ -1136,13 +1153,13 @@ export function App(): JSX.Element {
             channels={channels}
             visible={visibleChannels}
             onToggle={handleToggleChannels}
-            onAttach={live ? null : attachTelemetry}
+            onAttach={live || replayView ? null : attachTelemetry}
             betweenBots={!live && recording?.mode === "BvB"}
             streams={streams}
             // Detaching underneath a tailer would have it re-create the
             // stream on its next poll, so it is not offered while one is
             // reading into this game; main refuses it as well.
-            onDetach={live || watch ? null : (id) => void detachStream(id)}
+            onDetach={live || replayView || watch ? null : (id) => void detachStream(id)}
             notice={notice}
           />
         </div>
@@ -1270,6 +1287,7 @@ export function App(): JSX.Element {
           onTogglePlay={() => setPlaying((p) => !p)}
           onSpeedChange={setSpeed}
           events={timelineEvents}
+          available={replayView ? replay.recordedLoop : null}
           live={
             live
               ? {

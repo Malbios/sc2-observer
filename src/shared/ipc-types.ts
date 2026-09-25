@@ -168,6 +168,9 @@ export interface ReplayProgressIpc {
   note: string | null;
   loop: number;
   totalLoops: number;
+  /** The last loop already written to the game file, and so readable. The
+   * viewer plays the replay up to here while the rest is still converting. */
+  recordedLoop: number;
   playing: boolean;
   finished: boolean;
   /** Set when the replay stopped because something went wrong. */
@@ -393,7 +396,10 @@ export interface SpectatorApi {
   inspectReplay(filePath: string): Promise<InspectReplayResultIpc>;
   pickReplay(): Promise<InspectReplayResultIpc>;
   openReplay(filePath: string, observedPlayerId: number, subjectPlayerId: number): Promise<OpenReplayResultIpc>;
-  controlReplay(action: "play" | "pause" | "stop", speed?: number | "max"): Promise<ReplayProgressIpc | null>;
+  /** Ends the conversion here, keeping what has been recorded so far. The
+   * conversion always runs as fast as the client goes; watching it is the
+   * viewer's own playback. */
+  stopReplay(): Promise<ReplayProgressIpc | null>;
   getReplayProgress(): Promise<ReplayProgressIpc | null>;
   onReplayProgress(listener: (progress: ReplayProgressIpc) => void): () => void;
   /**

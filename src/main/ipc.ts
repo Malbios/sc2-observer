@@ -114,6 +114,10 @@ let cachedStore: HistoryStore | null = null;
  * full, this only limits what crosses the IPC boundary. */
 const LIVE_FRAME_INTERVAL_MS = 50;
 
+/** The bus session id a replay's frames carry, which is how they are told
+ * apart from a live session's. */
+const REPLAY_SESSION_ID = "replay";
+
 let liveTerrain: TerrainData | null = null;
 let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
 /** The live game's `game_info`, kept for its player list. The names are added
@@ -447,6 +451,9 @@ function onLiveFrame(event: FrameEvent): void {
       applyFootprints();
       if (liveTerrain) pushLiveTerrain();
     }
+    // A replay is watched from its file, like a recording, so its frames are
+    // not pushed: the viewer asks for the loop it is showing.
+    if (event.sessionId === REPLAY_SESSION_ID) return;
     latestObservation = event.bytes;
     if (!liveFrameTimer) {
       liveFrameTimer = setTimeout(() => {
@@ -616,6 +623,7 @@ async function beginReplay(
     note: "starting the client",
     loop: 0,
     totalLoops: 0,
+    recordedLoop: 0,
     playing: true,
     finished: false,
     error: null,
@@ -633,7 +641,7 @@ async function beginReplay(
 
   const driver = new ReplayDriver({
     bus,
-    sessionId: "replay",
+    sessionId: REPLAY_SESSION_ID,
     connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
     replayData,
     observedPlayerId,
@@ -814,9 +822,13 @@ function resolveTelemetry(loop: number): TelemetryStateIpc {
   const state = telemetryResolver.stateAt(loop);
 
   const derived = currentGameOverlays(store);
+  // A live session's lines follow the head. A replay is watched behind its
+  // head, so its lines are drawn against the loop on screen, as a
+  // recording's are.
+  const followingHead = activeSource === "live" && !replaySession;
   const observation = !derived.needsObservation
     ? null
-    : activeSource === "live"
+    : followingHead
       ? liveObservation
       : observationAt(store, loop);
   const extra = derived.overlaysAt(loop, observation);
@@ -971,6 +983,9 @@ export function registerIpcHandlers(): void {
       ...replayProgress,
       loop: event.loop,
       totalLoops: event.totalLoops || replayProgress.totalLoops,
+      // An indexed MAX, so cheap per step. It trails the conversion by up to
+      // the store's flush interval, which is what makes it safe to read to.
+      recordedLoop: replaySession?.activeStore?.getMaxLoop() ?? replayProgress.recordedLoop,
       playing: event.playing,
       gameFile: replaySession?.gameFile ?? replayProgress.gameFile,
     };
@@ -1293,19 +1308,14 @@ export function registerIpcHandlers(): void {
       beginReplay(filePath, observedPlayerId, subjectPlayerId),
   );
 
-  /** Play, pause and stop. Pausing is fine here and nowhere near a bot: a
-   * replay has no lockstep peer to starve (§4). */
-  ipcMain.handle(
-    "spectator:controlReplay",
-    (_event, action: string, speed?: number | "max"): ReplayProgressIpc | null => {
-      if (!replayDriver || !replayProgress) return null;
-      if (speed !== undefined) replayDriver.setSpeed(speed);
-      if (action === "play") replayDriver.play();
-      if (action === "pause") replayDriver.pause();
-      if (action === "stop") replayDriver.stop();
-      return replayProgress;
-    },
-  );
+  /** Stops converting and keeps what has been recorded. There is no pause or
+   * speed here: the conversion runs flat out, and the viewer plays the
+   * recorded part at whatever pace the user picks. */
+  ipcMain.handle("spectator:stopReplay", (): ReplayProgressIpc | null => {
+    if (!replayDriver || !replayProgress) return null;
+    replayDriver.stop();
+    return replayProgress;
+  });
 
   ipcMain.handle("spectator:getReplayProgress", (): ReplayProgressIpc | null => replayProgress);
 

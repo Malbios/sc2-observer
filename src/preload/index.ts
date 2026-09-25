@@ -33,8 +33,7 @@ const api: SpectatorApi = {
   pickReplay: () => ipcRenderer.invoke("spectator:pickReplay"),
   openReplay: (filePath: string, observedPlayerId: number, subjectPlayerId: number) =>
     ipcRenderer.invoke("spectator:openReplay", filePath, observedPlayerId, subjectPlayerId),
-  controlReplay: (action: "play" | "pause" | "stop", speed?: number | "max") =>
-    ipcRenderer.invoke("spectator:controlReplay", action, speed),
+  stopReplay: () => ipcRenderer.invoke("spectator:stopReplay"),
   getReplayProgress: () => ipcRenderer.invoke("spectator:getReplayProgress"),
   onReplayProgress: (listener: (progress: ReplayProgressIpc) => void) =>
     subscribe("spectator:replayProgress", listener),
