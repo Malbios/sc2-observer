@@ -16,6 +16,7 @@ import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "..
 import { extractUnits } from "../state/frames";
 import { GameOverlays } from "../state/GameOverlays";
 import { extractUnitTypeInfo } from "../state/unitTypes";
+import { describePlayers, namesFromMeta } from "../state/players";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
 import { ReplaySession } from "../replay/ReplaySession";
 import { connectSc2 } from "../protocol/connection";
@@ -34,6 +35,7 @@ import type {
   InspectReplayResultIpc,
   OpenGameResultIpc,
   OpenReplayResultIpc,
+  PlayerIpc,
   ReplayProgressIpc,
   RecordingInfo,
   SessionPhase,
@@ -69,6 +71,7 @@ let tailers: TelemetryTailer[] = [];
 let tailerStore: HistoryStore | null = null;
 let terrainCache: TerrainData | null = null;
 let unitTypeInfoCache: Record<number, UnitTypeInfoIpc> | null = null;
+let playersCache: PlayerIpc[] | null = null;
 let channelsCache: ChannelIpc[] | null = null;
 let telemetryResolver: TelemetryResolver | null = null;
 /** The open recording's derived overlays (command intent, debug draws), built
@@ -113,6 +116,11 @@ const LIVE_FRAME_INTERVAL_MS = 50;
 
 let liveTerrain: TerrainData | null = null;
 let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
+/** The live game's `game_info`, kept for its player list. The names are added
+ * when it is pushed, because they come from the session or the replay. */
+let liveGameInfo: Response | null = null;
+/** A replay's player names, from its `replay_info`. */
+let replayPlayerNames = new Map<number, string>();
 let liveFootprintsPending = false;
 let firstObservation: Uint8Array | null = null;
 let latestObservation: Uint8Array | null = null;
@@ -348,6 +356,7 @@ function toIpcTerrain(terrain: TerrainData): TerrainDataIpc {
 function resetCaches(): void {
   terrainCache = null;
   unitTypeInfoCache = null;
+  playersCache = null;
   channelsCache = null;
   telemetryResolver = null;
   gameOverlaysCache = null;
@@ -359,6 +368,7 @@ function resetCaches(): void {
 function resetLiveGame(): void {
   liveTerrain = null;
   liveUnitTypes = {};
+  liveGameInfo = null;
   liveFootprintsPending = false;
   firstObservation = null;
   latestObservation = null;
@@ -369,10 +379,18 @@ function resetLiveGame(): void {
   liveFrameTimer = null;
 }
 
+/** The live game's players. A running session knows the names its bots
+ * joined under; a replay knows every name from `replay_info`. */
+function livePlayers(): PlayerIpc[] {
+  const names = session && sessionRunning(session.status.phase) ? session.playerNames() : replayPlayerNames;
+  return describePlayers(liveGameInfo, names);
+}
+
 function pushLiveTerrain(): void {
   send("spectator:liveTerrain", {
     terrain: liveTerrain ? toIpcTerrain(liveTerrain) : null,
     unitTypes: liveUnitTypes,
+    players: livePlayers(),
   });
 }
 
@@ -440,7 +458,8 @@ function onLiveFrame(event: FrameEvent): void {
   }
 
   if (event.kind === "gameInfo") {
-    liveTerrain = extractTerrain(decodeResponse(event.bytes));
+    liveGameInfo = decodeResponse(event.bytes);
+    liveTerrain = extractTerrain(liveGameInfo);
     liveFootprintsPending = liveTerrain !== null;
     applyFootprints();
     pushLiveTerrain();
@@ -632,6 +651,7 @@ async function beginReplay(
 
   rememberPickerDir(path.dirname(filePath));
   resetLiveGame();
+  replayPlayerNames = new Map(info.players.map((player) => [player.playerId, player.name]));
   replayDriver = driver;
   replaySession = new ReplaySession({
     bus,
@@ -1148,6 +1168,19 @@ export function registerIpcHandlers(): void {
       unitTypeInfoCache = bytes ? extractUnitTypeInfo(decodeResponse(bytes)) : {};
     }
     return unitTypeInfoCache;
+  });
+
+  // A recording's players come from its stored game_info and the names its
+  // `players` meta kept. The live game's are pushed with its terrain.
+  ipcMain.handle("spectator:getPlayers", (): PlayerIpc[] => {
+    if (activeSource === "live") return livePlayers();
+    const store = db();
+    if (!store) return [];
+    if (!playersCache) {
+      const bytes = store.readFrameAtOrBefore("gameInfo", 0);
+      playersCache = describePlayers(bytes ? decodeResponse(bytes) : null, namesFromMeta(store.getMeta("players")));
+    }
+    return playersCache;
   });
 
   ipcMain.handle("spectator:getFrameAtLoop", (_event, loop: number): FrameAtLoopIpc | null => {

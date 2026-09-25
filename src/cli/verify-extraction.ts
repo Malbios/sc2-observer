@@ -15,6 +15,7 @@ import { HistoryStore } from "../history/HistoryStore";
 import { decodeResponse, type Response } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
+import { describePlayers, namesFromMeta } from "../state/players";
 import { extractUnitTypeInfo, type UnitCategory } from "../state/unitTypes";
 
 const FIXTURE = "fixtures/phase1-sample-game.sqlite";
@@ -118,6 +119,23 @@ function runChecks(fixturePath: string): void {
     check("terrain cell count matches grid length", terrain.pathingGrid.length, terrain.width * terrain.height);
     checkFootprintClearing(terrain, store);
   }
+
+  // The fixture is the test bot against an easy Zerg AI. 4.10's game_info
+  // carries no names, so they come from the file's `players` meta or not at
+  // all, and a built-in AI is described by its difficulty and race.
+  const gameInfo = decodeResponse(gameInfoBytes);
+  const unnamed = describePlayers(gameInfo, new Map());
+  check("both players are described", unnamed.length, 2);
+  check("an unnamed bot is Player N", unnamed[0]?.label, "Player 1");
+  check("the bot's race is its actual one", unnamed[0]?.race, "Zerg");
+  check("a built-in AI is Computer", unnamed[1]?.label, "Computer");
+  check("a built-in AI has its difficulty", unnamed[1]?.difficulty, "Easy");
+  const replayNames = namesFromMeta(JSON.stringify([{ playerId: 1, name: "VeTerran" }, { playerId: 2, name: "Creepy" }]));
+  check("a converted replay's names are read", describePlayers(gameInfo, replayNames)[1]?.label, "Creepy");
+  const liveNames = namesFromMeta(JSON.stringify([{ seat: null, player_id: 1, name: "MyBot", result: "Victory" }]));
+  check("a live game's bot name is read", describePlayers(gameInfo, liveNames)[0]?.label, "MyBot");
+  check("an unnamed player in meta stays unnamed", namesFromMeta(JSON.stringify([{ player_id: 1, name: null }])).size, 0);
+  check("unreadable meta gives no names", namesFromMeta("not json").size, 0);
 
   store.close();
 }

@@ -1,15 +1,30 @@
 import type { JSX } from "react";
-import type { UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
+import type { PlayerIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
 import type { EntityStateIpc } from "../../../shared/telemetry-types";
-import { colorForCategory, colorForChannel, colorForOwner, cssColor } from "../colors";
+import { colorForCategory, colorForChannel, colorForOwner, cssColor, NEUTRAL_OWNER } from "../colors";
 import { HALLUCINATION_BADGE_URL } from "../icons";
 
 interface Props {
   unit: UnitSummaryIpc | null;
   unitTypeInfo: Record<number, UnitTypeInfoIpc>;
+  /** The game's players, to name the owner by. */
+  players: PlayerIpc[];
   /** Entity channels at the current loop; whatever the bot attached to this
    * unit's tag shows up here (§3.6). */
   entities: EntityStateIpc[];
+}
+
+/**
+ * Who owns a unit, in words: "Creepy_macro (player 2, Zerg)" or
+ * "Computer (player 2, Easy Terran)". An id the game's player list does not
+ * have keeps the number, which is all there is to say about it.
+ */
+function ownerText(owner: number, players: PlayerIpc[]): string {
+  if (owner === NEUTRAL_OWNER) return "neutral";
+  const player = players.find((entry) => entry.playerId === owner);
+  if (!player) return String(owner);
+  const detail = [player.difficulty, player.race].filter((part) => part).join(" ");
+  return `${player.label} (player ${owner}${detail ? `, ${detail}` : ""})`;
 }
 
 /** Everything a bot said about one tag, across every entity channel. */
@@ -25,7 +40,7 @@ function entityRowsFor(entities: EntityStateIpc[], tag: number): { ch: string; f
   return rows;
 }
 
-export function UnitInspector({ unit, unitTypeInfo, entities }: Props): JSX.Element {
+export function UnitInspector({ unit, unitTypeInfo, players, entities }: Props): JSX.Element {
   if (!unit) {
     return <div style={{ color: "#8b93a1", fontSize: 13 }}>Click a unit to inspect it.</div>;
   }
@@ -62,7 +77,7 @@ export function UnitInspector({ unit, unitTypeInfo, entities }: Props): JSX.Elem
         <br />
         tag {unit.tag}
         <br />
-        owner {unit.owner}
+        owner {ownerText(unit.owner, players)}
         <br />
         {unit.healthMax > 0 && (
           <>

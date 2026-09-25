@@ -234,6 +234,17 @@ export class SessionController {
     return this.bvb ? this.watched.host.sessionId : null;
   }
 
+  /** Each bot's name by player id, for the ones that joined under one. The
+   * built-in AIs have none; the viewer calls them "Computer". */
+  playerNames(): Map<number, string> {
+    const names = new Map<number, string>();
+    for (const state of this.seats) {
+      const { botPlayerId, botName } = state.host;
+      if (botPlayerId !== null && botName) names.set(botPlayerId, botName);
+    }
+    return names;
+  }
+
   get status(): SessionStatusIpc {
     const seats: SeatStatusIpc[] | null = this.bvb
       ? this.seats.map((state) => ({
@@ -526,17 +537,16 @@ export class SessionController {
     const watched = this.watched.host;
     const results = watched.lastResult ?? this.seats.map((state) => state.host.lastResult).find((r) => r && r.length > 0) ?? null;
 
-    if (this.bvb) {
-      // Which bot was which, for the catalog and for the row's tooltip. The
-      // same shape a converted replay writes.
-      const players = this.seats.map((state) => ({
-        seat: state.seat,
-        player_id: state.host.botPlayerId,
-        name: state.host.botName,
-        result: results?.find((entry) => entry.player_id === state.host.botPlayerId)?.result ?? "unknown",
-      }));
-      store.setMeta("players", JSON.stringify(players));
-    }
+    // Which bot was which, and the name each joined under, so a recording
+    // can name a unit's owner. Every game, not only BvB: a one-bot game has
+    // one entry, with no seat.
+    const players = this.seats.map((state) => ({
+      seat: this.bvb ? state.seat : null,
+      player_id: state.host.botPlayerId,
+      name: state.host.botName,
+      result: results?.find((entry) => entry.player_id === state.host.botPlayerId)?.result ?? "unknown",
+    }));
+    store.setMeta("players", JSON.stringify(players));
 
     if (!results || results.length === 0) {
       store.setMeta("result", "unknown");

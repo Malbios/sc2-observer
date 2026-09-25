@@ -279,6 +279,20 @@ export interface DockerLogIpc {
 export interface LiveTerrainIpc {
   terrain: TerrainDataIpc | null;
   unitTypes: Record<number, UnitTypeInfoIpc>;
+  players: PlayerIpc[];
+}
+
+/** One player of a game, for naming a unit's owner. */
+export interface PlayerIpc {
+  playerId: number;
+  /** The player's name when known (a replay, or the name a bot joined
+   * under), else "Computer" or "Player N". */
+  label: string;
+  race: string | null;
+  /** "Participant", "Computer" or "Observer". */
+  type: string | null;
+  /** A built-in AI's difficulty, such as "Easy". */
+  difficulty: string | null;
 }
 
 export interface TerrainDataIpc {
@@ -390,6 +404,7 @@ export interface SpectatorApi {
 
   getTerrain(): Promise<TerrainDataIpc | null>;
   getUnitTypeInfo(): Promise<Record<number, UnitTypeInfoIpc>>;
+  getPlayers(): Promise<PlayerIpc[]>;
   getFrameAtLoop(loop: number): Promise<FrameAtLoopIpc | null>;
 
   /** Opens a picker, ingests the chosen .ndjson into the open recording.

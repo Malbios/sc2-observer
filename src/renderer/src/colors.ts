@@ -1,4 +1,4 @@
-const NEUTRAL_OWNER = 16;
+export const NEUTRAL_OWNER = 16;
 // High-contrast against the dark, blue-grey terrain ramp in MapView.
 const PLAYER_PALETTE = [0x4fd1e8, 0xff6b5b, 0x8be04f, 0xffc24f, 0xc084fc, 0x5fc9c9];
 

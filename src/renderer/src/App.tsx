@@ -7,6 +7,7 @@ import type {
   GameCatalogIpc,
   GameSummaryIpc,
   InspectReplayResultIpc,
+  PlayerIpc,
   ReplayProgressIpc,
   RecordingInfo,
   SessionStatusIpc,
@@ -119,6 +120,8 @@ export function App(): JSX.Element {
   const [clock, setClock] = useState(Date.now());
   const [terrain, setTerrain] = useState<TerrainDataIpc | null>(null);
   const [unitTypeInfo, setUnitTypeInfo] = useState<Record<number, UnitTypeInfoIpc>>({});
+  /** Who is who, so the inspector can name a unit's owner. */
+  const [players, setPlayers] = useState<PlayerIpc[]>([]);
   const [loop, setLoop] = useState(0);
   const [frame, setFrame] = useState<FrameAtLoopIpc | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitSummaryIpc | null>(null);
@@ -215,9 +218,14 @@ export function App(): JSX.Element {
     // Main stops the tailer when the store it writes into is replaced.
     setWatch(null);
 
-    const [terrainData, typeInfo] = await Promise.all([window.spectator.getTerrain(), window.spectator.getUnitTypeInfo()]);
+    const [terrainData, typeInfo, playerList] = await Promise.all([
+      window.spectator.getTerrain(),
+      window.spectator.getUnitTypeInfo(),
+      window.spectator.getPlayers(),
+    ]);
     setTerrain(terrainData);
     setUnitTypeInfo(typeInfo);
+    setPlayers(playerList);
     await loadChannels(true);
   }, [loadChannels]);
 
@@ -386,6 +394,7 @@ export function App(): JSX.Element {
       if (viewRef.current !== "live") return;
       setTerrain(payload.terrain);
       setUnitTypeInfo(payload.unitTypes);
+      setPlayers(payload.players);
       // A map arriving is a game starting, and none of the last game's
       // selection or overlays belong to it. The frame is deliberately left
       // alone: the next one replaces it within a frame time, and clearing it
@@ -426,6 +435,7 @@ export function App(): JSX.Element {
     viewRef.current = "live";
     setTerrain(null);
     setUnitTypeInfo({});
+    setPlayers([]);
     setFrame(null);
     setSelectedUnit(null);
     setTelemetry(null);
@@ -487,6 +497,7 @@ export function App(): JSX.Element {
     setRecording(null);
     setTerrain(null);
     setUnitTypeInfo({});
+    setPlayers([]);
     setFrame(null);
     setSelectedUnit(null);
     setTelemetry(null);
@@ -616,6 +627,7 @@ export function App(): JSX.Element {
       setPendingReplay(null);
       setTerrain(null);
       setUnitTypeInfo({});
+      setPlayers([]);
       setFrame(null);
       setSelectedUnit(null);
       setTelemetry(null);
@@ -683,12 +695,14 @@ export function App(): JSX.Element {
       lastFetchedLoopRef.current = -1;
       await window.spectator.setActiveSource(kind);
       if (kind === "recording") {
-        const [terrainData, typeInfo] = await Promise.all([
+        const [terrainData, typeInfo, playerList] = await Promise.all([
           window.spectator.getTerrain(),
           window.spectator.getUnitTypeInfo(),
+          window.spectator.getPlayers(),
         ]);
         setTerrain(terrainData);
         setUnitTypeInfo(typeInfo);
+        setPlayers(playerList);
       }
       // Live terrain and the current frame are re-pushed by main.
       await loadChannels(true);
@@ -1168,7 +1182,7 @@ export function App(): JSX.Element {
         >
           <Minimap terrain={terrain} frame={frame} onRecenter={handleRecenter} />
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            <UnitInspector unit={selectedUnit} unitTypeInfo={unitTypeInfo} entities={telemetry?.entities ?? []} />
+            <UnitInspector unit={selectedUnit} unitTypeInfo={unitTypeInfo} players={players} entities={telemetry?.entities ?? []} />
           </div>
         </div>
       </div>

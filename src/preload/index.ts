@@ -45,6 +45,7 @@ const api: SpectatorApi = {
 
   getTerrain: () => ipcRenderer.invoke("spectator:getTerrain"),
   getUnitTypeInfo: () => ipcRenderer.invoke("spectator:getUnitTypeInfo"),
+  getPlayers: () => ipcRenderer.invoke("spectator:getPlayers"),
   getFrameAtLoop: (loop: number) => ipcRenderer.invoke("spectator:getFrameAtLoop", loop),
 
   attachTelemetry: (seat?: number | null) => ipcRenderer.invoke("spectator:attachTelemetry", seat ?? null),
