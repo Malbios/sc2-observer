@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import type {
   AttachTelemetryResultIpc,
   ConversionIpc,
@@ -28,6 +28,7 @@ import { SessionStatus } from "./components/SessionStatus";
 import { SnapshotInspector } from "./components/SnapshotInspector";
 import { Timeline } from "./components/Timeline";
 import { UnitInspector } from "./components/UnitInspector";
+import { hideCoveredGeysers } from "../../shared/geysers";
 
 /** SC2's normal-speed loop rate: 22.4 game loops per real second. Widely
  * documented across the SC2 AI/ladder tooling community for loop<->time
@@ -165,6 +166,12 @@ export function App(): JSX.Element {
   const maxLoop = live ? loop : recording?.maxLoop ?? 0;
   /** Replays still to convert, for the note in the viewer's header. */
   const converting = conversions.filter((item) => item.state === "waiting" || item.state === "converting");
+  /** The frame as drawn: a geyser with a gas building on it is not shown,
+   * as in the game. The recording and the frame state keep every unit. */
+  const shownFrame = useMemo(
+    () => (frame ? { ...frame, units: hideCoveredGeysers(frame.units, (type) => unitTypeInfo[type]?.name) } : null),
+    [frame, unitTypeInfo]
+  );
 
   useEffect(() => {
     viewRef.current = view;
@@ -1074,7 +1081,7 @@ export function App(): JSX.Element {
         <div style={{ flex: 1, position: "relative" }}>
           <MapView
             terrain={terrain}
-            frame={frame}
+            frame={shownFrame}
             selectedTag={selectedUnit?.tag ?? null}
             onSelectUnit={setSelectedUnit}
             unitTypeInfo={unitTypeInfo}
@@ -1098,7 +1105,7 @@ export function App(): JSX.Element {
             minHeight: 0,
           }}
         >
-          <Minimap terrain={terrain} frame={frame} onRecenter={handleRecenter} />
+          <Minimap terrain={terrain} frame={shownFrame} onRecenter={handleRecenter} />
           <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
             <UnitInspector unit={selectedUnit} unitTypeInfo={unitTypeInfo} players={players} entities={telemetry?.entities ?? []} />
           </div>

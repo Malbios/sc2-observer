@@ -16,6 +16,7 @@ import { decodeResponse, type Response } from "../protocol/schema";
 import { clearInitialUnitFootprints, extractTerrain, type TerrainData } from "../state/terrain";
 import { extractUnits } from "../state/frames";
 import { describePlayers, namesFromMeta } from "../state/players";
+import { hideCoveredGeysers } from "../shared/geysers";
 import { extractUnitTypeInfo, type UnitCategory } from "../state/unitTypes";
 
 const FIXTURE = "fixtures/phase1-sample-game.sqlite";
@@ -70,6 +71,37 @@ function checkViewpoints(scratch: string): void {
   reader.close();
 }
 
+/** A geyser is not drawn while a gas building stands on it, as in the game. */
+function checkCoveredGeysers(): void {
+  const names: Record<number, string> = {
+    1: "VespeneGeyser",
+    2: "Extractor",
+    3: "RefineryRich",
+    4: "RichVespeneGeyser",
+    5: "MineralField",
+    6: "Assimilator",
+  };
+  const at = (tag: number, unitType: number, x: number, y: number) => ({ tag, unitType, pos: { x, y } });
+  const units = [
+    at(10, 1, 20.5, 30.5), // under the Extractor
+    at(11, 2, 20.5, 30.5),
+    at(12, 4, 40.5, 30.5), // under the RefineryRich
+    at(13, 3, 40.5, 30.5),
+    at(14, 1, 60.5, 30.5), // nothing on it
+    at(15, 1, 80.5, 30.5), // an Assimilator a cell away is not on it
+    at(16, 6, 81.5, 30.5),
+    at(17, 5, 20.5, 30.5), // a mineral field is never a geyser
+  ];
+  const shown = hideCoveredGeysers(units, (type) => names[type]).map((unit) => unit.tag);
+  check("a geyser under an Extractor is hidden", shown.includes(10), false);
+  check("and the Extractor is drawn", shown.includes(11), true);
+  check("a rich geyser under a rich Refinery is hidden", shown.includes(12), false);
+  check("a geyser with nothing on it is drawn", shown.includes(14), true);
+  check("a gas building a cell away hides nothing", shown.includes(15), true);
+  check("a mineral field on the same spot is untouched", shown.includes(17), true);
+  check("nothing else is dropped", shown.length, units.length - 2);
+}
+
 function main(): void {
   // Opening a recording migrates it to the current schema, which is the right
   // behaviour for a real file but would rewrite a 20 MB committed fixture on
@@ -83,6 +115,7 @@ function main(): void {
   try {
     runChecks(fixture);
     checkViewpoints(scratch);
+    checkCoveredGeysers();
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
