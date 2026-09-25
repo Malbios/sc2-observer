@@ -24,15 +24,18 @@ const BATCH_SIZE = 50;
 const FLUSH_INTERVAL_MS = 1000;
 
 /**
- * Telemetry payloads are many small JSON documents rather than a handful of
- * large protobufs, and brotli's default quality 11 is expensive per call. At
- * quality 5 these compress nearly as well for a fraction of the time, which
- * matters when a bot emits a grid every step.
+ * Brotli quality for everything the store writes. The default, 11, is far too
+ * slow for a flush that runs on the main thread: on a real ladder game's
+ * observations (90 to 110 KB raw) it took 43 to 70 ms each, so a second's
+ * batch at full replay speed froze the app for over a second. Quality 5 took
+ * 1.3 to 2.1 ms for about 6% more bytes. Telemetry's many small JSON documents
+ * compress nearly as well at 5 too. Reading is the same at any quality, so
+ * files written at 11 open unchanged.
  */
-const JSON_BROTLI = { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 } };
+const BROTLI_FAST = { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 } };
 
 function compressJson(value: unknown): Buffer {
-  return brotliCompressSync(Buffer.from(JSON.stringify(value ?? null), "utf8"), JSON_BROTLI);
+  return brotliCompressSync(Buffer.from(JSON.stringify(value ?? null), "utf8"), BROTLI_FAST);
 }
 
 function decompressJson(blob: Buffer): unknown {
@@ -400,7 +403,7 @@ export class HistoryStore {
 
     this.db.transaction(() => {
       for (const event of frames) {
-        insertFrame.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes));
+        insertFrame.run(event.loop, event.kind, event.direction, brotliCompressSync(event.bytes, BROTLI_FAST));
       }
       for (const row of telemetry) {
         insertTelemetry.run(row.streamId, row.seq, row.loop, row.ch, row.kind, row.style, row.ttl, row.data);
