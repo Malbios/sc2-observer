@@ -283,10 +283,12 @@ async function checkOneGame(): Promise<void> {
   // What the client reported, and which player the bot joined as, both known
   // by the time the game ends.
   h.game.botPlayerId = 1;
+  h.game.botName = "MyBot";
   h.game.lastResult = [
     { player_id: 1, result: "Defeat" },
     { player_id: 2, result: "Victory" },
   ];
+  check("the session knows the bot's name", [...h.controller.playerNames()], [[1, "MyBot"]]);
   h.ends("result", 100);
   await settle();
   check("the session is in the ended phase", h.controller.status.phase, "ended");
@@ -312,6 +314,8 @@ async function checkOneGame(): Promise<void> {
   check("the recording knows how it ended", meta.end_reason, "result");
   check("the result is the bot's own", meta.result, "Defeat");
   check("the bot's player id is recorded", meta.bot_player_id, "1");
+  // So the inspector can name the bot's units when the recording is opened.
+  check("the bot's name is kept", meta.players, JSON.stringify([{ seat: null, player_id: 1, name: "MyBot", result: "Defeat" }]));
   check("the raw result is kept too", JSON.parse(meta.player_result ?? "[]").length, 2);
   check("the game has an id of its own", typeof meta.game_id, "string");
   check("the game says where it came from", meta.source, "live");
