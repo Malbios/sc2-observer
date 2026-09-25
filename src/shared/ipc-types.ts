@@ -51,6 +51,9 @@ export interface GameSummaryIpc {
   source: string | null;
   /** The bot's own outcome, or "unknown" for the endings that produce none. */
   result: string | null;
+  /** Who won, by name ("VeTerran-extended won", "Tie"), with every player's
+   * result for the tooltip. Null when the game recorded no winner. */
+  outcome: { text: string; detail: string } | null;
   endReason: string | null;
   /** The last loop the file holds, counting telemetry as well as frames:
    * loops are the time axis (§3), and a game can hold telemetry past its last

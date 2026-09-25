@@ -310,6 +310,56 @@ function main(): void {
       // to rest on something a game always has and this never does.
       check("a catalog file does not read as a game", peekGame(file).state, "unreadable");
     }
+
+    // -- who won, by name --------------------------------------------------
+    {
+      // The list names the winner rather than one player's Victory or
+      // Defeat, from what each kind of file already records.
+      const withMeta = (name: string, meta: Record<string, string>): string => {
+        const file = path.join(dir, `${name}.sqlite`);
+        writeFinishedGame(file, { map: "Torches.SC2Map", startedAt: "2026-02-01T00:00:00.000Z", result: "unknown" });
+        const store = new HistoryStore(file);
+        for (const [key, value] of Object.entries(meta)) store.setMeta(key, value);
+        store.close();
+        return file;
+      };
+      const results = (a: string, b: string): string =>
+        JSON.stringify([{ player_id: 1, result: a }, { player_id: 2, result: b }]);
+
+      const replay = peekGame(
+        withMeta("replay", {
+          source: "replay",
+          players: JSON.stringify([
+            { playerId: 1, name: "VeTerran-extended", race: "Terran" },
+            { playerId: 2, name: "Creepy_macro", race: "Zerg" },
+          ]),
+          player_result: results("Victory", "Defeat"),
+        })
+      );
+      check("a replay names its winner", replay.outcome?.text, "VeTerran-extended won");
+      check("and lists every player for the tooltip", replay.outcome?.detail, "VeTerran-extended: Victory\nCreepy_macro: Defeat");
+
+      const againstAi = peekGame(
+        withMeta("against-ai", {
+          players: JSON.stringify([{ seat: null, player_id: 1, name: "MyBot", result: "Defeat" }]),
+          opponents: JSON.stringify([{ player_id: 2, race: "Zerg", difficulty: "Easy", build: "RandomBuild" }]),
+          player_result: results("Defeat", "Victory"),
+        })
+      );
+      check("a built-in AI that won is named by its setup", againstAi.outcome?.text, "Computer (Easy Zerg) won");
+
+      const older = peekGame(withMeta("older", { bot_player_id: "1", player_result: results("Victory", "Defeat") }));
+      check("an older live game with no names still says the bot won", older.outcome?.text, "the bot won");
+
+      const tie = peekGame(withMeta("tie", { player_result: results("Tie", "Tie") }));
+      check("a tie says so", tie.outcome?.text, "Tie");
+
+      const unnamed = peekGame(withMeta("unnamed", { source: "replay", player_result: results("Defeat", "Victory") }));
+      check("a player with no name is Player N", unnamed.outcome?.text, "Player 2 won");
+
+      const noResult = peekGame(withMeta("no-result", {}));
+      check("a game with no result names no winner", noResult.outcome, null);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

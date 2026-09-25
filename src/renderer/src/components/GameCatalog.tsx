@@ -104,17 +104,18 @@ function endReasonLabel(reason: string | null): string {
   }
 }
 
-/** The headline column. A result when SC2 reported one, and otherwise the
- * honest answer, which is how it ended rather than an invented outcome. */
-function outcome(game: GameSummaryIpc): { text: string; color: string } {
-  if (game.state === "newer") return { text: "newer build", color: "#d19a66" };
-  if (game.state === "unreadable") return { text: "unreadable", color: "#e06c75" };
-  if (game.state === "incomplete") return { text: "unfinished", color: "#d19a66" };
-  if (game.result && game.result !== "unknown") {
-    const won = game.result === "Victory";
-    return { text: game.result, color: won ? "#98c379" : "#8b93a1" };
-  }
-  return { text: endReasonLabel(game.endReason), color: "#8b93a1" };
+/**
+ * The headline column: who won, by name, when SC2 reported it, and otherwise
+ * the honest answer, which is how it ended rather than an invented outcome.
+ * Never "Victory" or "Defeat": those are one player's point of view, and in a
+ * replay that player may be nobody the user knows.
+ */
+function outcome(game: GameSummaryIpc): { text: string; color: string; detail: string | null } {
+  if (game.state === "newer") return { text: "newer build", color: "#d19a66", detail: null };
+  if (game.state === "unreadable") return { text: "unreadable", color: "#e06c75", detail: null };
+  if (game.state === "incomplete") return { text: "unfinished", color: "#d19a66", detail: null };
+  if (game.outcome) return { text: game.outcome.text, color: "#e7e9ec", detail: game.outcome.detail };
+  return { text: endReasonLabel(game.endReason), color: "#8b93a1", detail: null };
 }
 
 /** Tags as typed: one line, commas between them. Whitespace and duplicates
@@ -137,6 +138,7 @@ function matches(game: GameSummaryIpc, needle: string): boolean {
     game.fileName,
     game.map ?? "",
     game.result ?? "",
+    game.outcome?.text ?? "",
     game.mode ?? "",
     game.source ?? "",
     ...game.tags,
@@ -370,7 +372,9 @@ export function GameCatalog({
                     <td style={{ ...CELL, color: "#8b93a1" }} title="22.4 loops per second at normal speed">
                       {formatDuration(game.maxLoop)}
                     </td>
-                    <td style={{ ...CELL, color: result.color }}>{result.text}</td>
+                    <td style={{ ...CELL, color: result.color }} title={result.detail ?? undefined}>
+                      {result.text}
+                    </td>
                     <td style={{ ...CELL, color: "#8b93a1" }}>{game.botNames.join(", ") || "-"}</td>
                     <td
                       style={{ ...CELL, color: "#8b93a1" }}

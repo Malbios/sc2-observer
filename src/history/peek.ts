@@ -19,6 +19,7 @@ import { basename, join } from "node:path";
 import Database from "better-sqlite3";
 import type { GameFileState, GameSummaryIpc } from "../shared/ipc-types";
 import { replayPathFor } from "./gameFiles";
+import { describeOutcome } from "./outcome";
 import { SCHEMA_VERSION } from "./HistoryStore";
 
 /** A game file and everything beside it that belongs to it. A live game keeps
@@ -50,6 +51,7 @@ function emptyRow(filePath: string, state: GameFileState, problem: string | null
     startedAt: null,
     endedAt: null,
     result: null,
+    outcome: null,
     endReason: null,
     maxLoop: null,
     botNames: [],
@@ -114,6 +116,7 @@ export function peekGame(filePath: string): GameSummaryIpc {
     row.startedAt = meta.get("started_at") ?? null;
     row.endedAt = meta.get("ended_at") ?? null;
     row.result = meta.get("result") ?? null;
+    row.outcome = describeOutcome(meta);
     row.endReason = meta.get("end_reason") ?? null;
     row.gameId = meta.get("game_id") ?? null;
     row.tags = parseTags(meta.get("tags"));
