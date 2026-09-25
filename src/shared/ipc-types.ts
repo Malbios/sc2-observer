@@ -73,6 +73,9 @@ export interface GameCatalogIpc {
   liveFilePath: string | null;
   /** The recording the viewer currently has open. */
   openFilePath: string | null;
+  /** Game files the replay queue is still writing: listed, but not a game
+   * to open, export or delete until every viewpoint is in. */
+  busyFilePaths: string[];
 }
 
 /**
@@ -137,52 +140,28 @@ export interface ReplayInfoIpc {
   players: ReplayPlayerIpc[];
 }
 
-/** Reading a replay before playing it, which is what lets the user pick whose
- * eyes to watch through and what tells them early that a replay is from a
- * build this client cannot open. */
-export interface InspectReplayResultIpc {
-  status: GameActionStatus;
-  problem: string | null;
-  filePath: string;
-  fileName: string;
-  info: ReplayInfoIpc | null;
-}
-
 /**
- * A `.SC2Replay` being played through the client and recorded (§7's replay
- * driver).
- *
- * Unlike a session this has a known end: `replay_info` gives the game's length
- * in loops before the first step, so the UI shows a real fraction. When it
- * finishes, `gameFile` is an ordinary game and the viewer opens it; SC2 cannot
- * seek a replay backwards, so the recording is what gets scrubbed.
+ * One replay in the conversion queue. A replay is converted once per
+ * viewpoint (the observer slot, which sees everything, then each player), all
+ * into one game file, and the game opens when every pass is done.
  */
-export interface ReplayProgressIpc {
+export interface ConversionIpc {
+  id: number;
   sourcePath: string;
   sourceName: string;
-  map: string;
-  /** What it is doing before any loop has been stepped: starting the
-   * container, reading the replay, loading it. A replay takes a few seconds
-   * to get going and a window with nothing on it reads as a window that has
-   * not noticed the file. */
+  state: "waiting" | "converting" | "done" | "failed" | "stopped";
+  /** What it is doing when there is nothing to count yet, such as waiting
+   * for a live session to end or starting the client. */
   note: string | null;
+  /** The game file, once the first frame has been written. */
+  gameFile: string | null;
+  /** 1-based pass being converted, and how many there are (0 until the
+   * replay has been read). */
+  pass: number;
+  passes: number;
   loop: number;
   totalLoops: number;
-  /** The last loop already written to the game file, and so readable. The
-   * viewer plays the replay up to here while the rest is still converting. */
-  recordedLoop: number;
-  playing: boolean;
-  finished: boolean;
-  /** Set when the replay stopped because something went wrong. */
   error: string | null;
-  /** The game file being written, once the first frame has landed. */
-  gameFile: string | null;
-}
-
-export interface OpenReplayResultIpc {
-  status: GameActionStatus;
-  problem: string | null;
-  progress: ReplayProgressIpc | null;
 }
 
 /**
@@ -390,18 +369,20 @@ export interface SpectatorApi {
    * rows, checkpoints and all. */
   detachStream(streamId: number): Promise<DetachStreamResultIpc>;
 
-  /** Plays a `.SC2Replay` through the client, recording it as a game. Refused
-   * while a live session holds the client: SC2 accepts one at a time. */
-  /** Reads a replay without playing it, for the "watch as" choice. */
-  inspectReplay(filePath: string): Promise<InspectReplayResultIpc>;
-  pickReplay(): Promise<InspectReplayResultIpc>;
-  openReplay(filePath: string, observedPlayerId: number, subjectPlayerId: number): Promise<OpenReplayResultIpc>;
-  /** Ends the conversion here, keeping what has been recorded so far. The
-   * conversion always runs as fast as the client goes; watching it is the
-   * viewer's own playback. */
-  stopReplay(): Promise<ReplayProgressIpc | null>;
-  getReplayProgress(): Promise<ReplayProgressIpc | null>;
-  onReplayProgress(listener: (progress: ReplayProgressIpc) => void): () => void;
+  /** Queues replays for conversion: each becomes one game file holding every
+   * viewpoint, offered in the list once all of them are done. */
+  enqueueReplays(filePaths: string[]): Promise<ConversionIpc[]>;
+  /** The same, from a multi-select picker. */
+  pickReplays(): Promise<ConversionIpc[]>;
+  /** Removes a waiting replay, stops a converting one (keeping the views it
+   * finished), or dismisses a finished row. */
+  stopConversion(id: number): Promise<ConversionIpc[]>;
+  getConversions(): Promise<ConversionIpc[]>;
+  onConversions(listener: (conversions: ConversionIpc[]) => void): () => void;
+  /** The viewpoints the open recording holds; empty when it has one. 0 is
+   * the observer slot, which sees everything, else a player id. */
+  getViewpoints(): Promise<number[]>;
+  setViewpoint(id: number): Promise<null>;
   /**
    * The path of a dropped file. Electron stopped exposing `File.path` in v32,
    * so this is `webUtils.getPathForFile`, which only the preload can call.

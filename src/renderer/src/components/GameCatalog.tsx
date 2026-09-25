@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type CSSProperties, type JSX } from "react";
-import type { GameCatalogIpc, GameSummaryIpc } from "../../../shared/ipc-types";
+import type { ConversionIpc, GameCatalogIpc, GameSummaryIpc } from "../../../shared/ipc-types";
 
 /**
  * The history browser (§6.4): every game in the games folder, newest first,
@@ -26,10 +26,40 @@ interface Props {
   onSetTags(game: GameSummaryIpc, tags: string[]): void;
   onExport(game: GameSummaryIpc): void;
   onDelete(game: GameSummaryIpc): void;
-  /** Plays the game's own .SC2Replay through the replay chooser, which is how
-   * a game is seen through other eyes: everything, or either player. Null
-   * while the client is busy with a session or another replay. */
-  onWatchReplay: ((game: GameSummaryIpc) => void) | null;
+  /** Queues the game's own .SC2Replay for conversion, which is how a live
+   * game is seen through other eyes: a new game holding the observer's view
+   * and each player's. */
+  onConvertReplay(game: GameSummaryIpc): void;
+  /** Replays in the conversion queue, and the ones that finished. */
+  conversions: ConversionIpc[];
+  /** Cancels a waiting replay, stops a converting one, or dismisses a row. */
+  onStopConversion(id: number): void;
+}
+
+/** What a conversion row says about itself. */
+function conversionStatus(item: ConversionIpc): string {
+  switch (item.state) {
+    case "waiting":
+      return item.note ?? "waiting";
+    case "converting": {
+      if (item.passes === 0 || item.note) return item.note ?? "starting";
+      const percent = item.totalLoops > 0 ? Math.min(100, Math.floor((item.loop / item.totalLoops) * 100)) : 0;
+      return `view ${item.pass} of ${item.passes}, ${percent}%`;
+    }
+    case "done":
+      return `ready, ${item.passes} view${item.passes === 1 ? "" : "s"}`;
+    case "stopped":
+      return "stopped; the views that finished were kept";
+    case "failed":
+      return item.error ?? "failed";
+  }
+}
+
+/** Progress across every pass of one replay, 0 to 1. */
+function conversionFraction(item: ConversionIpc): number {
+  if (item.state === "done") return 1;
+  if (item.passes === 0 || item.totalLoops === 0) return 0;
+  return Math.min(1, (item.pass - 1 + item.loop / item.totalLoops) / item.passes);
 }
 
 function formatWhen(iso: string | null): string {
@@ -148,7 +178,9 @@ export function GameCatalog({
   onSetTags,
   onExport,
   onDelete,
-  onWatchReplay,
+  onConvertReplay,
+  conversions,
+  onStopConversion,
 }: Props): JSX.Element {
   const [filter, setFilter] = useState("");
   /** The game whose tags are being typed, and the text as typed. Tags are
@@ -159,9 +191,12 @@ export function GameCatalog({
    * question names what goes. */
   const [confirming, setConfirming] = useState<string | null>(null);
 
+  // A file the queue is still writing is not a game yet: its conversion row
+  // stands for it until every viewpoint is in.
   const games = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    return (catalog?.games ?? []).filter((game) => matches(game, needle));
+    const busy = new Set(catalog?.busyFilePaths ?? []);
+    return (catalog?.games ?? []).filter((game) => !busy.has(game.filePath) && matches(game, needle));
   }, [catalog, filter]);
 
   const total = catalog?.games.length ?? 0;
@@ -185,6 +220,74 @@ export function GameCatalog({
       </div>
 
       {problem && <div style={{ padding: "0 16px 8px", color: "#e06c75", fontSize: 12 }}>{problem}</div>}
+
+      {/* The conversion queue: every replay dropped or opened, one converting
+          at a time, each opened like any game once all its views are in. */}
+      {conversions.length > 0 && (
+        <div style={{ padding: "0 16px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          {conversions.map((item) => {
+            const color = item.state === "failed" ? "#e06c75" : item.state === "done" ? "#98c379" : "#8b93a1";
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 12,
+                  background: "#181c22",
+                  border: "1px solid #2b323d",
+                  borderRadius: 4,
+                  padding: "6px 10px",
+                }}
+              >
+                <span title={item.sourcePath} style={{ color: "#e7e9ec", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.sourceName}
+                </span>
+                <div style={{ width: 160, height: 4, background: "#242a33", borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
+                  <div
+                    style={{
+                      width: `${conversionFraction(item) * 100}%`,
+                      height: "100%",
+                      background: item.state === "failed" ? "#e06c75" : "#4fd1e8",
+                      transition: "width 200ms linear",
+                    }}
+                  />
+                </div>
+                <span style={{ color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                  {conversionStatus(item)}
+                </span>
+                <span style={{ marginLeft: "auto", display: "flex", gap: 4, flexShrink: 0 }}>
+                  {item.state === "done" && item.gameFile && (
+                    <button
+                      style={ACTION}
+                      onClick={() => {
+                        const game = catalog?.games.find((entry) => entry.filePath === item.gameFile);
+                        if (game) onOpen(game);
+                      }}
+                    >
+                      Open
+                    </button>
+                  )}
+                  <button
+                    style={ACTION}
+                    onClick={() => onStopConversion(item.id)}
+                    title={
+                      item.state === "converting"
+                        ? "Stop, keeping the views that finished"
+                        : item.state === "waiting"
+                          ? "Take it out of the queue"
+                          : "Remove this line"
+                    }
+                  >
+                    {item.state === "converting" ? "Stop" : item.state === "waiting" ? "Cancel" : "Dismiss"}
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {notice && !problem && <div style={{ padding: "0 16px 8px", color: "#8b93a1", fontSize: 12 }}>{notice}</div>}
 
       <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
@@ -306,15 +409,10 @@ export function GameCatalog({
                         {game.hasReplay && (
                           <button
                             style={ACTION}
-                            onClick={() => onWatchReplay?.(game)}
-                            disabled={!onWatchReplay}
-                            title={
-                              onWatchReplay
-                                ? "Play this game's replay again, seeing everything or through either player's eyes"
-                                : "The client is busy; stop the session or replay first"
-                            }
+                            onClick={() => onConvertReplay(game)}
+                            title="Convert this game's replay into a new game with every viewpoint: the observer, which sees everything, and each player"
                           >
-                            Watch As...
+                            Convert Replay
                           </button>
                         )}
                         <button style={ACTION} onClick={() => onExport(game)} title="Copy this game and its replay elsewhere">

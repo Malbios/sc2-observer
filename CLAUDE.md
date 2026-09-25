@@ -30,7 +30,7 @@ node dist/cli/record.js --map TorchesAIE_v4.SC2Map --out game.sqlite [--sc2-port
 node dist/cli/dump.js game.sqlite --loop 5000
 node dist/cli/import-telemetry.js game.sqlite --file run.ndjson [--seat 1|2]
 node dist/cli/testbot.js --end surrender --loops 1000 --telemetry telemetry [--command] [--debug-draw] [--race Protoss --hallucinate]
-node dist/cli/replay.js --file game.SC2Replay [--games-dir DIR] [--watch N] [--player N] [--step 8]
+node dist/cli/replay.js --file game.SC2Replay [--file ...] [--games-dir DIR] [--out game.sqlite] [--watch N] [--player N] [--step 8]
 node dist/cli/probe-replay.js --file game.SC2Replay
 node dist/cli/probe-twoplayer.js --map TorchesAIE_v4.SC2Map [--api-ports 5001,5002] [--start-port 5100] [--loops 2000] [--games 2]
 ```
@@ -42,10 +42,10 @@ node dist/cli/probe-twoplayer.js --map TorchesAIE_v4.SC2Map [--api-ports 5001,50
 `session` is the headless equivalent of the app's live session: it owns the
 container, records a file per game, saves replays and creates the next game.
 `record` is the minimal single-game recorder and expects a container to be
-running already; it is what fixtures are made with. `replay` plays a
-`.SC2Replay` through the client and records it as a game: `--watch` is whose
-eyes it is watched through (0, the default, is the observer slot and sees
-everything) and `--player` is whose result the game file calls its own.
+running already; it is what fixtures are made with. `replay` converts
+`.SC2Replay` files the way the app's queue does, one game file each with every
+viewpoint: `--watch N` converts only that one (0 is the observer slot, which
+sees everything) and `--player` is whose result the game file calls its own.
 
 Python emitter (no dependencies, not part of the npm build):
 
@@ -80,7 +80,7 @@ One Electron main process owns the Docker manager, game proxy, session controlle
 ```
 src/bus/          EventBus: frame, gameEnded, telemetry
 src/proxy/        GameProxy (Mode A: the proxy sends createGame itself)
-src/replay/       ReplayDriver (plays a .SC2Replay) and ReplaySession (records it)
+src/replay/       ReplayDriver (plays a .SC2Replay), ReplaySession (records it), ReplayQueue (every viewpoint, one replay at a time)
 src/protocol/     protobufjs loader for the vendored .proto files
 src/state/        decode helpers: frames (units, request/response classification), terrain, unitTypes;
                   and the overlays derived from the game itself: intent, debugDraw, GameOverlays
@@ -107,6 +107,8 @@ vendor/           s2clientprotocol .proto files, pinned
 
 One SQLite file per game (better-sqlite3, WAL) plus a global catalog file that holds settings and nothing else (`src/history/CatalogStore.ts`; the games themselves are read from the folder on demand, see `src/history/peek.ts`). Observations are Brotli-compressed raw protobuf bytes, not JSON (sizing rationale in §6.1). A single global database and flat-file-only storage were both considered and rejected (§6.2).
 
+A frame carries the viewpoint it was seen through (`frames.viewpoint`, schema v4): 0 is the observer slot, else a player id, and meta `viewpoints` lists the views a file holds in full. NULL means the file's only viewpoint, which is every live game and every file from before v4, so those read exactly as they always did. The store reads one viewpoint at a time (`readViewpoint`, the first listed by default).
+
 The schema is versioned in `meta.schema_version` with ordered additive migrations in `HistoryStore.MIGRATIONS`. Opening a file migrates it, and the store refuses a file newer than the build understands. **Adding a migration means adding to that array, never editing an existing one.**
 
 Telemetry state at loop L is the nearest checkpoint at or before L (every 500 loops) plus a forward replay of stored messages. That is what makes the history browser identical to the live view by construction rather than by discipline.
@@ -121,7 +123,7 @@ Field spellings live in `src/shared/telemetry-types.ts`, which both the viewer a
 
 Everything below the viewer is tested against recorded frames and bytes, never against a live game, so tests stay deterministic:
 
-- `npm run verify` builds and runs nine suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-overlays` (command-intent lines against the same fixture copy, plus synthetic chains, unit targets and debug draws), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, and the game file a replay becomes), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, one file per game and the ignore list, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
+- `npm run verify` builds and runs nine suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-overlays` (command-intent lines against the same fixture copy, plus synthetic chains, unit targets and debug draws), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, the game file a replay becomes, and the queue: every viewpoint, stopping, refusals, waiting for the client), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, one file per game and the ignore list, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
@@ -145,7 +147,7 @@ Six phases (§7), each depending on the prior and ending with something runnable
 
 **Phases 0 through 5 are complete**, each verified against live games rather than only fixtures.
 
-**Phase 6 is done for local bot development.** The replay path works: `.SC2Replay` files play through the client and are recorded as ordinary games (drag-and-drop or "Open Replay..."), and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. Command-intent lines and native debug draws are done too, seen live and in the reopened recording.
+**Phase 6 is done for local bot development.** The replay path works: `.SC2Replay` files are queued (drag-and-drop, several at once, or "Open Replays..."), converted in the background into ordinary games holding every viewpoint, and the telemetry file from that match attaches to the result, which is §7's exit criterion for it. Command-intent lines and native debug draws are done too, seen live and in the reopened recording.
 
 **Deferred on purpose (2026-09-24), not unfinished:** keyboard shortcuts, settings (ports, folders, retention) and the installer. The project owner judged them unnecessary for now, so do not pick them up unasked. Until then the app runs from the repo (`npm run dev`), and games go to `<userData>/games`. §7's installer exit criterion stays unmet.
 
@@ -153,9 +155,9 @@ Unit icons are owner-supplied PNGs in `src/renderer/public/icons/`, named after 
 
 Decisions already taken that should not be re-litigated:
 
-- **A replay is played once and recorded, and watched as a recording, already while it is being recorded.** SC2 cannot seek a replay backwards, so the driver writes every observation into a game file, always as fast as the client goes, and the viewer plays that file. Play/pause/speed/seek are therefore the controls the viewer already has. While recording runs, the timeline marks how far it has got (`ReplayProgressIpc.recordedLoop`, the file's last flushed observation), and playback waits there. A replay is not live: its frames are not pushed, and nothing shows the live dot. When recording finishes, the file opens as a recording at the same loop. The second viewing needs no container at all.
-- **Whose eyes and whose result are separate.** `observed_player_id` decides how much of the map the recording holds; the subject player decides whose result the row reports. A ladder replay is watched from the observer slot and still filed under the bot's defeat.
-- **The client is one seat.** A replay is refused while a session runs and a session is refused while a replay plays, enforced in `src/main/ipc.ts`, because SC2 accepts one connection at a time and a session's `ensureClientReady({replaceRunning: true})` would destroy a container a replay was using.
+- **A replay is converted in the background, every viewpoint, into one game file, and opened once it is all there (2026-09-25).** SC2 cannot seek a replay backwards, and it plays a replay from one `observed_player_id`, fixed at `start_replay`; one view's fog cannot be derived from another's. So `ReplayQueue` plays each replay once from the observer slot, then once as each player, at full speed, every pass into the same file under its own viewpoint. The owner chose waiting once (about 50 s per view for an 11-minute game) over waiting again for each extra view, and one file over one per view. Replays are queued, one converts at a time, and the Games list shows each with its progress; the viewer's header offers a viewpoint switch that keeps the loop. Watching while converting was tried and dropped (`c77ad8d`, reverted by this). Stopping keeps the views already finished and drops the partial one, except that a first view is kept rather than leaving nothing.
+- **Whose eyes and whose result are separate.** The viewpoint decides how much of the map a frame holds; the subject player (the first participant) decides whose result the row reports. A ladder replay is filed under the bot's result whichever view is on screen.
+- **The client is one seat.** Conversions wait while a live session runs and resume when it ends; a session is refused while a replay is converting, enforced in `src/main/ipc.ts`, because SC2 accepts one connection at a time and a session's `ensureClientReady({replaceRunning: true})` would destroy a container a conversion was using. A conversion's frames never reach the live view, and its pass endings are not the live game's `gameEnded`.
 - **Retention, when it is built, reports and never deletes on its own**: the folder's size plus a manual "delete games older than X" behind the same confirmation as a single delete.
 - `CatalogStore` (`<userData>/catalog.sqlite`) holds settings and nothing else. That is where the settings step belongs. There is deliberately **no `games` table**: under WAL a cache of the game files has no workable staleness key, so `listGames` peeks the folder on every call (the reasoning is in `src/history/peek.ts`).
 - Game files are named in UTC while the catalog shows local time, deliberately: names stay sortable and unambiguous, and the row's tooltip carries the path.
@@ -169,7 +171,7 @@ Decisions already taken that should not be re-litigated:
   - After a game, the replay is saved and **both clients `leave_game`** before the next `create_game`.
   - A stopped container fails the session instead of waiting on a hung game.
   - Each file's `players` meta says which bot was which.
-  - Full-map review is not recorded live: it is "Watch As..." on the game, which plays its `.SC2Replay` from the observer slot.
+  - Full-map review is not recorded live: it is "Convert Replay" on the game, which queues its `.SC2Replay` into a new game with every viewpoint.
 - **Built-in AIs (Mode A): one to three**, each with race, difficulty and build (`src/shared/ai-options.ts`; the stored form is the proto's names). **A map with too few start locations drops the extra AIs without any error** (measured on 4.10), so the session compares the game's `game_info` player count with what it asked for, and warns in the status and in the game file's `warning` meta. The AI Arena ladder maps are all two-player; `maps/Flat48`, `Flat64`, `Flat96` and `Flat128` (Blizzard's Melee pack, committed, see `maps/SOURCE.md`) take four.
 - **Telemetry is one file per player.** In a bot-vs-bot game each player has their own folder and stream (`streams.seat`, schema v3), and **every channel is filed under `P1/` or `P2/` at ingest**, so two bots writing the same channel names cannot overwrite each other. Such a game refuses a file whose player is not given. One-bot games have no seat and no prefix.
 - A game file is **four files** (`.sqlite`, `-wal`, `-shm`, `.SC2Replay`). Anything that copies, moves or deletes one has to account for all of them; `src/history/gameFiles.ts` is the one place that says so.

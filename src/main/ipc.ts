@@ -17,8 +17,7 @@ import { extractUnits } from "../state/frames";
 import { GameOverlays } from "../state/GameOverlays";
 import { extractUnitTypeInfo } from "../state/unitTypes";
 import { describePlayers, namesFromMeta } from "../state/players";
-import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
-import { ReplaySession } from "../replay/ReplaySession";
+import { CONVERSION_SESSION_ID, ReplayQueue } from "../replay/ReplayQueue";
 import { connectSc2 } from "../protocol/connection";
 import { telemetryRefusal } from "../telemetry/attachRule";
 import { detachStream } from "../telemetry/detach";
@@ -27,16 +26,14 @@ import { TelemetryResolver } from "../telemetry/TelemetryResolver";
 import { TelemetryTailer } from "../telemetry/TelemetryTailer";
 import type {
   AttachTelemetryResultIpc,
+  ConversionIpc,
   DetachStreamResultIpc,
   DockerStateIpc,
   FrameAtLoopIpc,
   GameActionResultIpc,
   GameCatalogIpc,
-  InspectReplayResultIpc,
   OpenGameResultIpc,
-  OpenReplayResultIpc,
   PlayerIpc,
-  ReplayProgressIpc,
   RecordingInfo,
   SessionPhase,
   SessionStatusIpc,
@@ -114,17 +111,11 @@ let cachedStore: HistoryStore | null = null;
  * full, this only limits what crosses the IPC boundary. */
 const LIVE_FRAME_INTERVAL_MS = 50;
 
-/** The bus session id a replay's frames carry, which is how they are told
- * apart from a live session's. */
-const REPLAY_SESSION_ID = "replay";
-
 let liveTerrain: TerrainData | null = null;
 let liveUnitTypes: Record<number, UnitTypeInfoIpc> = {};
 /** The live game's `game_info`, kept for its player list. The names are added
- * when it is pushed, because they come from the session or the replay. */
+ * when it is pushed, because they come from the session. */
 let liveGameInfo: Response | null = null;
-/** A replay's player names, from its `replay_info`. */
-let replayPlayerNames = new Map<number, string>();
 let liveFootprintsPending = false;
 let firstObservation: Uint8Array | null = null;
 let latestObservation: Uint8Array | null = null;
@@ -159,16 +150,56 @@ let telemetryDir: string | null = null;
  * each land under their own player. */
 let seatTelemetryDirs: Record<number, string> | null = null;
 
-// -- the replay driver ------------------------------------------------------
+// -- replay conversion ------------------------------------------------------
 
 /**
- * The replay being converted, if any. A replay and a live session both want
- * the client, and SC2 accepts one connection at a time, so only one of these
- * two exists at once and each refuses to start while the other holds it.
+ * Replays waiting to be converted, and the one being converted. Each becomes
+ * a game file holding every viewpoint (the observer slot and each player),
+ * and is offered in the list once all of them are done. It shares the client
+ * with a live session, one at a time: items wait while a session runs.
  */
-let replayDriver: ReplayDriver | null = null;
-let replaySession: ReplaySession | null = null;
-let replayProgress: ReplayProgressIpc | null = null;
+let replayQueue: ReplayQueue | null = null;
+/** Pushes of the queue are coalesced: progress changes every step. */
+let conversionPushTimer: NodeJS.Timeout | null = null;
+const CONVERSION_PUSH_INTERVAL_MS = 250;
+
+function conversions(): ConversionIpc[] {
+  return replayQueue?.conversions ?? [];
+}
+
+function queue(): ReplayQueue {
+  if (replayQueue) return replayQueue;
+  replayQueue = new ReplayQueue({
+    bus,
+    connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
+    gamesDir: gamesDir(),
+    readReplay: (file) => {
+      if (!existsSync(file)) throw new Error("That replay is no longer on disk.");
+      return readFileSync(file);
+    },
+    ensureClient: async () => {
+      const ready = await docker().ensureClientReady();
+      if (!ready.ok) return ready.reason ?? "The client is not available.";
+      replayUsedContainer = true;
+      return null;
+    },
+    clientFree: () => !(session && sessionRunning(session.status.phase)),
+    appVersion: app.getVersion(),
+  });
+  replayQueue.onChange(() => {
+    if (conversionPushTimer) return;
+    conversionPushTimer = setTimeout(() => {
+      conversionPushTimer = null;
+      send("spectator:conversions", conversions());
+    }, CONVERSION_PUSH_INTERVAL_MS);
+  });
+  return replayQueue;
+}
+
+/** A game file the queue is still writing, which is not a game yet. */
+function beingConverted(filePath: string): boolean {
+  return (replayQueue?.busyFiles ?? []).some((file) => samePath(file, filePath));
+}
 
 function dockerDir(): string {
   return path.join(app.getAppPath(), "docker");
@@ -222,7 +253,7 @@ function docker(): DockerManager {
  * store, filling up, that the viewer follows.
  */
 function liveStore(): HistoryStore | null {
-  return session?.activeStore ?? replaySession?.activeStore ?? null;
+  return session?.activeStore ?? null;
 }
 
 /** The store the queries read from. */
@@ -304,7 +335,8 @@ function buildCatalog(): GameCatalogIpc {
   return {
     dir: gamesDir(),
     games: listGames(gamesDir()),
-    liveFilePath: session?.status.gameFile ?? replaySession?.gameFile ?? null,
+    liveFilePath: session?.status.gameFile ?? null,
+    busyFilePaths: replayQueue?.busyFiles ?? [],
     openFilePath,
   };
 }
@@ -383,11 +415,9 @@ function resetLiveGame(): void {
   liveFrameTimer = null;
 }
 
-/** The live game's players. A running session knows the names its bots
- * joined under; a replay knows every name from `replay_info`. */
+/** The live game's players, named as the session's bots joined. */
 function livePlayers(): PlayerIpc[] {
-  const names = session && sessionRunning(session.status.phase) ? session.playerNames() : replayPlayerNames;
-  return describePlayers(liveGameInfo, names);
+  return describePlayers(liveGameInfo, session ? session.playerNames() : new Map());
 }
 
 function pushLiveTerrain(): void {
@@ -431,6 +461,9 @@ function pushLiveFrame(): void {
  * means, and the recording still has every one of them.
  */
 function onLiveFrame(event: FrameEvent): void {
+  // A replay being converted is not a live game: its frames go into its own
+  // file and nowhere else, whatever the window is showing.
+  if (event.sessionId === CONVERSION_SESSION_ID) return;
   // A game between two bots has a proxy per bot, each seeing its own bot's
   // view. The live view shows the one being recorded, so what is on screen
   // is what the file will hold. Only while that session runs: a replay after
@@ -451,9 +484,6 @@ function onLiveFrame(event: FrameEvent): void {
       applyFootprints();
       if (liveTerrain) pushLiveTerrain();
     }
-    // A replay is watched from its file, like a recording, so its frames are
-    // not pushed: the viewer asks for the loop it is showing.
-    if (event.sessionId === REPLAY_SESSION_ID) return;
     latestObservation = event.bytes;
     if (!liveFrameTimer) {
       liveFrameTimer = setTimeout(() => {
@@ -515,210 +545,6 @@ function liveTelemetryFolders(): { dir: string; seat: number | null }[] {
   return [{ dir: telemetryDir ?? defaultTelemetryDir(), seat: null }];
 }
 
-/** One place for both replay entry points to refuse: the client is a single
- * seat, and a live session or a replay already playing is in it. */
-function replayBlocker(): string | null {
-  if (session && session.status.phase !== "stopped" && session.status.phase !== "failed") {
-    return "A live session has the client. Stop it first.";
-  }
-  if (replayDriver && !replayDriver.isFinished) return "A replay is already playing.";
-  return null;
-}
-
-/** Pushes what the replay is doing before it has any loops to report. */
-function noteReplay(note: string): void {
-  if (!replayProgress) return;
-  replayProgress = { ...replayProgress, note };
-  send("spectator:replayProgress", replayProgress);
-}
-
-/**
- * Reads a replay without playing it: the map, the length, the build and the
- * players, which is what the "watch as" choice is made from. A replay from
- * another SC2 build is refused here rather than after the container has been
- * started and the user has waited.
- */
-async function inspectReplay(sourcePath: string): Promise<InspectReplayResultIpc> {
-  const filePath = path.resolve(sourcePath);
-  const fileName = path.basename(filePath);
-  const blocked = replayBlocker();
-  if (blocked) return { status: "refused", problem: blocked, filePath, fileName, info: null };
-  if (!existsSync(filePath)) {
-    return { status: "failed", problem: "That replay is no longer on disk.", filePath, fileName, info: null };
-  }
-
-  let replayData: Buffer;
-  try {
-    replayData = readFileSync(filePath);
-  } catch (err) {
-    return { status: "failed", problem: (err as Error).message, filePath, fileName, info: null };
-  }
-
-  // Reading a replay needs the client, so the container comes up here. It
-  // stays up for the play that usually follows.
-  const ready = await docker().ensureClientReady();
-  if (!ready.ok) {
-    return {
-      status: "refused",
-      problem: ready.reason ?? "The client is not available.",
-      filePath,
-      fileName,
-      info: null,
-    };
-  }
-  replayUsedContainer = true;
-
-  const driver = new ReplayDriver({
-    bus,
-    sessionId: "inspect",
-    connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
-    replayData,
-  });
-  try {
-    const info = await driver.readInfo();
-    return { status: "done", problem: null, filePath, fileName, info };
-  } catch (err) {
-    const refused = err instanceof ReplayRefused;
-    return { status: refused ? "refused" : "failed", problem: (err as Error).message, filePath, fileName, info: null };
-  } finally {
-    driver.close();
-  }
-}
-
-/**
- * Plays a replay and records it, which is the whole of the replay driver from
- * the app's side.
- *
- * `observedPlayerId` is whose eyes it is watched through: the observer slot
- * sees the whole map, a player id sees exactly what that player could see
- * (measured; see ReplayDriver). `subjectPlayerId` is whose result the game
- * file calls its own, which is a different question and usually the bot's.
- */
-async function beginReplay(
-  sourcePath: string,
-  observedPlayerId: number,
-  subjectPlayerId: number,
-): Promise<OpenReplayResultIpc> {
-  const filePath = path.resolve(sourcePath);
-  const blocked = replayBlocker();
-  if (blocked) return { status: "refused", problem: blocked, progress: null };
-  if (!existsSync(filePath)) {
-    return { status: "failed", problem: "That replay is no longer on disk.", progress: null };
-  }
-
-  let replayData: Buffer;
-  try {
-    replayData = readFileSync(filePath);
-  } catch (err) {
-    return { status: "failed", problem: (err as Error).message, progress: null };
-  }
-
-  // Something on screen before any of the waiting starts. The container check
-  // and the load take seconds each, and a window showing nothing reads as a
-  // window that did not notice the file.
-  replayProgress = {
-    sourcePath: filePath,
-    sourceName: path.basename(filePath),
-    map: "",
-    note: "starting the client",
-    loop: 0,
-    totalLoops: 0,
-    recordedLoop: 0,
-    playing: true,
-    finished: false,
-    error: null,
-    gameFile: null,
-  };
-  send("spectator:replayProgress", replayProgress);
-
-  const ready = await docker().ensureClientReady();
-  if (!ready.ok) {
-    const problem = ready.reason ?? "The client is not available.";
-    finishReplay(problem);
-    return { status: "refused", problem, progress: replayProgress };
-  }
-  replayUsedContainer = true;
-
-  const driver = new ReplayDriver({
-    bus,
-    sessionId: REPLAY_SESSION_ID,
-    connect: () => connectSc2(`ws://127.0.0.1:${CONTAINER_PORT}/sc2api`),
-    replayData,
-    observedPlayerId,
-  });
-
-  noteReplay("reading the replay");
-  let info: ReplayInfo;
-  try {
-    info = await driver.readInfo();
-  } catch (err) {
-    finishReplay((err as Error).message);
-    const refused = err instanceof ReplayRefused;
-    return { status: refused ? "refused" : "failed", problem: (err as Error).message, progress: replayProgress };
-  }
-
-  rememberPickerDir(path.dirname(filePath));
-  resetLiveGame();
-  replayPlayerNames = new Map(info.players.map((player) => [player.playerId, player.name]));
-  replayDriver = driver;
-  replaySession = new ReplaySession({
-    bus,
-    gamesDir: gamesDir(),
-    sourcePath: filePath,
-    info,
-    observedPlayerId,
-    subjectPlayerId,
-    appVersion: app.getVersion(),
-  });
-  replaySession.attach();
-  replayProgress = {
-    ...replayProgress,
-    map: info.localMapPath || info.mapName,
-    totalLoops: info.durationLoops,
-    note: "loading the replay",
-  };
-  send("spectator:replayProgress", replayProgress);
-  // The queries follow the window, and the window is about to show a replay
-  // filling up exactly as a live game does.
-  activeSource = "live";
-
-  try {
-    await driver.start();
-  } catch (err) {
-    finishReplay((err as Error).message);
-    return { status: "failed", problem: (err as Error).message, progress: replayProgress };
-  }
-  noteReplay("playing");
-
-  // Deliberately not awaited: the replay plays for as long as it plays, and
-  // the renderer follows it through `replayProgress` like any other push.
-  void driver
-    .run()
-    .then(() => finishReplay(null))
-    .catch((err: Error) => finishReplay(err.message));
-
-  bus.emit("dockerLog", {
-    source: "history",
-    line: `playing ${path.basename(filePath)} (${info.durationLoops} loops)`,
-  });
-  return { status: "done", problem: null, progress: replayProgress };
-}
-
-/** Closes the recording once, however the replay ended: its last loop, a
- * stop, or an error. */
-function finishReplay(error: string | null): void {
-  if (!replayProgress) return;
-  const file = replaySession?.gameFile ?? null;
-  replaySession?.close();
-  replaySession = null;
-  replayProgress = { ...replayProgress, playing: false, finished: true, note: null, error, gameFile: file };
-  send("spectator:replayProgress", replayProgress);
-  bus.emit("dockerLog", {
-    source: "history",
-    line: error ? `the replay stopped: ${error}` : `recorded ${file ?? "nothing"}`,
-  });
-}
-
 /** Everything already in a telemetry folder, for the ignore list above. */
 function telemetryCensus(dir: string = telemetryDir ?? defaultTelemetryDir()): string[] {
   try {
@@ -746,8 +572,13 @@ function listMaps(): string[] {
  * container running is the failure that outlives the app. */
 export async function shutdownSession(): Promise<void> {
   stopTailing();
-  replayDriver?.stop();
-  replaySession?.close();
+  if (replayQueue) {
+    // The pass being converted stops and its file is closed; the rest of the
+    // queue is dropped. Bounded, so a client that stopped answering cannot
+    // hold up quitting.
+    replayQueue.shutdown();
+    await Promise.race([replayQueue.whenIdle(), new Promise((resolve) => setTimeout(resolve, 5000))]);
+  }
   if (session) await session.stop();
   if (replayUsedContainer) {
     replayUsedContainer = false;
@@ -822,10 +653,9 @@ function resolveTelemetry(loop: number): TelemetryStateIpc {
   const state = telemetryResolver.stateAt(loop);
 
   const derived = currentGameOverlays(store);
-  // A live session's lines follow the head. A replay is watched behind its
-  // head, so its lines are drawn against the loop on screen, as a
-  // recording's are.
-  const followingHead = activeSource === "live" && !replaySession;
+  // A live session's lines follow the head; a recording's are drawn against
+  // the loop on screen.
+  const followingHead = activeSource === "live";
   const observation = !derived.needsObservation
     ? null
     : followingHead
@@ -974,27 +804,13 @@ export function registerIpcHandlers(): void {
 
   bus.on("frame", onLiveFrame);
 
-  // The replay's own heartbeat. The game file only exists once the first
-  // frame has landed, so it is read here rather than carried by the driver,
-  // which knows nothing about stores.
-  bus.on("replayProgress", (event) => {
-    if (!replayProgress || replayProgress.finished) return;
-    replayProgress = {
-      ...replayProgress,
-      loop: event.loop,
-      totalLoops: event.totalLoops || replayProgress.totalLoops,
-      // An indexed MAX, so cheap per step. It trails the conversion by up to
-      // the store's flush interval, which is what makes it safe to read to.
-      recordedLoop: replaySession?.activeStore?.getMaxLoop() ?? replayProgress.recordedLoop,
-      playing: event.playing,
-      gameFile: replaySession?.gameFile ?? replayProgress.gameFile,
-    };
-    send("spectator:replayProgress", replayProgress);
-  });
   bus.on("dockerLog", (event) => send("spectator:dockerLog", event));
 
   bus.on("sessionState", (state) => {
     send("spectator:sessionState", state);
+    // Conversions wait while a session holds the client, and carry on once
+    // it lets go.
+    if (!sessionRunning(state.phase)) replayQueue?.kick();
     // Each game gets its own store, and the tailer writes into one store, so
     // a game appearing is a tailer appearing with it (§3.5).
     if (state.phase !== lastPhase) {
@@ -1011,7 +827,10 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  bus.on("gameEnded", () => {
+  bus.on("gameEnded", (event) => {
+    // A conversion pass ending is not the live game ending, and must not stop
+    // a folder being watched for the recording on screen.
+    if (event.sessionId === CONVERSION_SESSION_ID) return;
     // Before the controller closes the game's store, not after: stopping the
     // tailer writes each stream's closing checkpoint, and a closed store
     // cannot take it.
@@ -1042,6 +861,9 @@ export function registerIpcHandlers(): void {
     if (!existsSync(filePath)) {
       return { status: "failed", problem: "That game is no longer on disk.", recording: null };
     }
+    if (beingConverted(filePath)) {
+      return { status: "refused", problem: "That replay is still being converted.", recording: null };
+    }
     return openRecordingFile(filePath);
   });
 
@@ -1055,6 +877,7 @@ export function registerIpcHandlers(): void {
     if (live && samePath(live, filePath)) {
       return refused("That game is being played right now.");
     }
+    if (beingConverted(filePath)) return refused("That replay is still being converted.");
 
     // Windows will not unlink a file SQLite still has open, and the failure
     // is a permission error with nothing in it about why. So the viewer lets
@@ -1085,6 +908,7 @@ export function registerIpcHandlers(): void {
     if (!existsSync(filePath)) {
       return { status: "failed", problem: "That game is no longer on disk.", catalog: buildCatalog() };
     }
+    if (beingConverted(filePath)) return refused("That replay is still being converted.");
     const result = await dialog.showSaveDialog({
       title: "Export Game",
       defaultPath: path.join(pickerDir(), path.basename(filePath)),
@@ -1285,39 +1109,41 @@ export function registerIpcHandlers(): void {
 
   // -- replays (§7's replay driver) -----------------------------------------
 
-  ipcMain.handle("spectator:inspectReplay", (_event, filePath: string): Promise<InspectReplayResultIpc> =>
-    inspectReplay(filePath),
-  );
+  ipcMain.handle("spectator:enqueueReplays", (_event, filePaths: string[]): ConversionIpc[] => {
+    const files = (filePaths ?? []).map((file) => path.resolve(file));
+    if (files.length > 0) rememberPickerDir(path.dirname(files[0]!));
+    return queue().enqueue(files);
+  });
 
-  ipcMain.handle("spectator:pickReplay", async (): Promise<InspectReplayResultIpc> => {
+  ipcMain.handle("spectator:pickReplays", async (): Promise<ConversionIpc[]> => {
     const result = await dialog.showOpenDialog({
-      title: "Open Replay",
+      title: "Open Replays",
       defaultPath: pickerDir(),
       filters: [{ name: "StarCraft II replays", extensions: ["SC2Replay"] }],
-      properties: ["openFile"],
+      properties: ["openFile", "multiSelections"],
     });
-    if (result.canceled || result.filePaths.length === 0) {
-      return { status: "cancelled", problem: null, filePath: "", fileName: "", info: null };
-    }
-    return inspectReplay(result.filePaths[0]!);
+    if (result.canceled || result.filePaths.length === 0) return conversions();
+    rememberPickerDir(path.dirname(result.filePaths[0]!));
+    return queue().enqueue(result.filePaths);
   });
 
-  ipcMain.handle(
-    "spectator:openReplay",
-    (_event, filePath: string, observedPlayerId: number, subjectPlayerId: number): Promise<OpenReplayResultIpc> =>
-      beginReplay(filePath, observedPlayerId, subjectPlayerId),
-  );
-
-  /** Stops converting and keeps what has been recorded. There is no pause or
-   * speed here: the conversion runs flat out, and the viewer plays the
-   * recorded part at whatever pace the user picks. */
-  ipcMain.handle("spectator:stopReplay", (): ReplayProgressIpc | null => {
-    if (!replayDriver || !replayProgress) return null;
-    replayDriver.stop();
-    return replayProgress;
+  ipcMain.handle("spectator:stopConversion", (_event, id: number): ConversionIpc[] => {
+    replayQueue?.stop(id);
+    return conversions();
   });
 
-  ipcMain.handle("spectator:getReplayProgress", (): ReplayProgressIpc | null => replayProgress);
+  ipcMain.handle("spectator:getConversions", (): ConversionIpc[] => conversions());
+
+  // A converted replay holds one recording per viewpoint; the viewer reads one
+  // at a time, and switching keeps everything else about the open game.
+  ipcMain.handle("spectator:getViewpoints", (): number[] => (activeSource === "recording" ? store?.viewpoints() ?? [] : []));
+
+  ipcMain.handle("spectator:setViewpoint", (_event, id: number): null => {
+    if (activeSource !== "recording" || !store || !store.viewpoints().includes(id)) return null;
+    store.readViewpoint = id;
+    resetCaches();
+    return null;
+  });
 
   // -- the session ---------------------------------------------------------
 
@@ -1347,10 +1173,10 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("spectator:startSession", async (_event, options: StartSessionOptionsIpc): Promise<SessionStatusIpc> => {
-    // The other half of the one-owner rule: a replay is using the client, and
+    // The other half of the one-owner rule: a replay is being converted, and
     // starting a session would take the container out from under it.
-    if (replayDriver && !replayDriver.isFinished) {
-      return { ...idleSessionStatus(), error: "A replay is playing. Stop it first." };
+    if (replayQueue?.isConverting) {
+      return { ...idleSessionStatus(), error: "A replay is being converted. Wait for it, or stop it in the Games list." };
     }
     // A session that is still running is not replaced: starting a second one
     // would bind the same bot port and fight the first for the client.

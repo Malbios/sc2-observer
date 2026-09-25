@@ -27,8 +27,10 @@ export interface ReplaySessionOptions {
    * be traced back to the file someone was sent. */
   sourcePath: string;
   info: ReplayInfo;
-  /** Whose eyes the replay was watched through, for the record. */
-  observedPlayerId: number;
+  /** Only frames from this bus session are recorded, when given. The replay
+   * queue's drivers publish under one id, and nothing else ever lands in the
+   * file by accident. */
+  sessionId?: string;
   /**
    * Whose outcome the game file calls its own. Separate from the observed
    * player because the two answer different questions: a ladder replay is
@@ -46,7 +48,7 @@ export class ReplaySession {
   private readonly explicitPath: string | undefined;
   private readonly sourcePath: string;
   private readonly info: ReplayInfo;
-  private readonly observedPlayerId: number;
+  private readonly sessionId: string | undefined;
   private readonly subjectPlayerId: number;
   private readonly appVersion: string | undefined;
   private readonly now: () => Date;
@@ -54,6 +56,8 @@ export class ReplaySession {
   private store: HistoryStore | null = null;
   private filePath: string | null = null;
   private onFrame: ((event: FrameEvent) => void) | null = null;
+  /** The viewpoint the frames arriving now were seen through. */
+  private viewpoint: number | null = null;
 
   constructor(options: ReplaySessionOptions) {
     this.bus = options.bus;
@@ -61,7 +65,7 @@ export class ReplaySession {
     this.explicitPath = options.outPath;
     this.sourcePath = options.sourcePath;
     this.info = options.info;
-    this.observedPlayerId = options.observedPlayerId;
+    this.sessionId = options.sessionId;
     this.subjectPlayerId = options.subjectPlayerId;
     this.appVersion = options.appVersion;
     this.now = options.now ?? (() => new Date());
@@ -81,6 +85,7 @@ export class ReplaySession {
   attach(): void {
     if (this.onFrame) return;
     this.onFrame = (event: FrameEvent): void => {
+      if (this.sessionId !== undefined && event.sessionId !== this.sessionId) return;
       this.ensureStore().recordFrame(event);
     };
     this.bus.on("frame", this.onFrame);
@@ -92,12 +97,39 @@ export class ReplaySession {
     this.onFrame = null;
   }
 
-  /** Closes the recording. Safe to call twice, because a replay can end by
-   * reaching its last loop and by being stopped, and both end here. */
-  close(): void {
+  /**
+   * Which viewpoint the next frames belong to. A replay is converted once per
+   * viewpoint (the observer slot, then each player), all into this one file,
+   * because SC2 plays a replay from one viewpoint at a time.
+   */
+  setViewpoint(id: number): void {
+    this.viewpoint = id;
+    if (this.store) this.store.frameViewpoint = id;
+  }
+
+  /** A viewpoint played to its end, which is what makes it offered. */
+  completeViewpoint(id: number): void {
+    this.store?.flush();
+    this.store?.addViewpoint(id);
+  }
+
+  /** A viewpoint that was stopped part way, whose frames are thrown away. */
+  discardViewpoint(id: number): void {
+    this.store?.deleteViewpoint(id);
+  }
+
+  /** How many viewpoints are complete so far. */
+  get completedViewpoints(): number {
+    return this.store?.viewpoints().length ?? 0;
+  }
+
+  /** Closes the recording. Safe to call twice. `endReason` replaces the
+   * default "replay" when the conversion did not run to its end. */
+  close(endReason?: string): void {
     this.detach();
     const store = this.store;
     if (!store) return;
+    if (endReason) store.setMeta("end_reason", endReason);
     store.setMeta("ended_at", this.now().toISOString());
     store.flush();
     store.close();
@@ -113,6 +145,7 @@ export class ReplaySession {
 
     const path = this.explicitPath ?? this.nextGamePath();
     const store = new HistoryStore(path);
+    store.frameViewpoint = this.viewpoint;
     this.writeMeta(store);
     this.store = store;
     this.filePath = path;
@@ -157,7 +190,6 @@ export class ReplaySession {
     // §6.3 keeps players and races as data, never as something to branch on.
     store.setMeta("players", JSON.stringify(this.info.players));
     store.setMeta("bot_player_id", String(this.subjectPlayerId));
-    store.setMeta("observed_player_id", String(this.observedPlayerId));
 
     // Traceability for the failure this build will actually meet: a replay
     // from another SC2 version refuses to load, and the version it wants is

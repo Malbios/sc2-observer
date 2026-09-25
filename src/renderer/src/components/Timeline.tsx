@@ -26,10 +26,6 @@ interface Props {
   /** Set while a session is running, which replaces the playback controls:
    * the live view follows the head and does not scrub (§6.4). */
   live?: LiveState | null;
-  /** A replay still being recorded: the last loop that can be shown. The
-   * track spans the whole game and marks how far recording has got; seeking
-   * past it stops at it. */
-  available?: number | null;
 }
 
 const SPEEDS = [1, 2, 4, 8];
@@ -65,9 +61,7 @@ const RANGE_CSS = `
 .timeline-range::-webkit-slider-runnable-track {
   height: ${TRACK_HEIGHT}px;
   border-radius: ${TRACK_HEIGHT / 2}px;
-  /* The recorded part of a replay still being recorded, like a video's
-     buffered range. 0% for everything else, which is the plain track. */
-  background: linear-gradient(to right, #56606e var(--recorded, 0%), #2b323d var(--recorded, 0%));
+  background: #2b323d;
 }
 .timeline-range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -103,10 +97,7 @@ export function Timeline({
   onSpeedChange,
   events,
   live = null,
-  available = null,
 }: Props): JSX.Element {
-  const seek = (value: number): void => onSeek(available === null ? value : Math.min(value, available));
-  const recordedPercent = available === null || maxLoop <= 0 ? 0 : Math.min(100, (available / maxLoop) * 100);
   // Two seconds of nothing is a stream that has stopped rather than one
   // between frames: a bot stepping normally produces one every few
   // milliseconds, and even a slow one does not go quiet for that long.
@@ -161,7 +152,7 @@ export function Timeline({
               key={`${event.seq}-${event.loop}-${index}`}
               className="timeline-tick"
               title={`${event.loop}  ${event.ch}: ${event.msg}`}
-              onClick={() => seek(event.loop)}
+              onClick={() => onSeek(event.loop)}
               style={{
                 left: `${maxLoop > 0 ? (event.loop / maxLoop) * 100 : 0}%`,
                 background: cssColor(colorForLevel(event.level)),
@@ -176,9 +167,7 @@ export function Timeline({
           max={maxLoop}
           value={loop}
           disabled={live !== null}
-          onChange={(e) => seek(Number(e.target.value))}
-          style={{ ["--recorded" as string]: `${recordedPercent}%` }}
-          title={available === null ? undefined : `recorded up to loop ${available}`}
+          onChange={(e) => onSeek(Number(e.target.value))}
         />
       </div>
 

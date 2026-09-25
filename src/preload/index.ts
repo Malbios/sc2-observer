@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   DockerLogIpc,
-  ReplayProgressIpc,
+  ConversionIpc,
   FrameAtLoopIpc,
   LiveTerrainIpc,
   SessionStatusIpc,
@@ -29,14 +29,13 @@ const api: SpectatorApi = {
   setGameTags: (filePath: string, tags: string[]) => ipcRenderer.invoke("spectator:setGameTags", filePath, tags),
   detachStream: (streamId: number) => ipcRenderer.invoke("spectator:detachStream", streamId),
 
-  inspectReplay: (filePath: string) => ipcRenderer.invoke("spectator:inspectReplay", filePath),
-  pickReplay: () => ipcRenderer.invoke("spectator:pickReplay"),
-  openReplay: (filePath: string, observedPlayerId: number, subjectPlayerId: number) =>
-    ipcRenderer.invoke("spectator:openReplay", filePath, observedPlayerId, subjectPlayerId),
-  stopReplay: () => ipcRenderer.invoke("spectator:stopReplay"),
-  getReplayProgress: () => ipcRenderer.invoke("spectator:getReplayProgress"),
-  onReplayProgress: (listener: (progress: ReplayProgressIpc) => void) =>
-    subscribe("spectator:replayProgress", listener),
+  enqueueReplays: (filePaths: string[]) => ipcRenderer.invoke("spectator:enqueueReplays", filePaths),
+  pickReplays: () => ipcRenderer.invoke("spectator:pickReplays"),
+  stopConversion: (id: number) => ipcRenderer.invoke("spectator:stopConversion", id),
+  getConversions: () => ipcRenderer.invoke("spectator:getConversions"),
+  onConversions: (listener: (conversions: ConversionIpc[]) => void) => subscribe("spectator:conversions", listener),
+  getViewpoints: () => ipcRenderer.invoke("spectator:getViewpoints"),
+  setViewpoint: (id: number) => ipcRenderer.invoke("spectator:setViewpoint", id),
   /** Electron dropped `File.path` in v32; this is the supported replacement,
    * and it only works in the preload, which is why it is on the bridge at all
    * rather than being read off the drop event in the renderer. */

@@ -20,7 +20,9 @@ import type { Sc2Connection } from "../protocol/connection";
 import { encodeResponse } from "../protocol/schema";
 import { SC2_STATUS } from "../protocol/status";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
+import { ReplayQueue } from "../replay/ReplayQueue";
 import { ReplaySession } from "../replay/ReplaySession";
+import { peekGame } from "../history/peek";
 
 let failures = 0;
 
@@ -98,6 +100,9 @@ class FakeClient implements Sc2Connection {
         });
       case "start_replay":
         this.startRequest = fields["start_replay"] as Record<string, unknown>;
+        // Every replay starts from its first loop, which is what lets one
+        // client play the same replay once per viewpoint.
+        this.loop = 0;
         return this.options.startError
           ? encodeResponse({ status: SC2_STATUS.launched, start_replay: this.options.startError })
           : encodeResponse({ status: SC2_STATUS.inReplay, start_replay: {} });
@@ -172,6 +177,7 @@ async function main(): Promise<void> {
     await checkRun();
     await checkPauseAndStop();
     checkSession(scratch);
+    await checkQueue(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
@@ -365,9 +371,8 @@ function checkSession(scratch: string): void {
       gamesDir: scratch,
       sourcePath,
       info,
-      // Watched from the observer slot, which sees everything, while the row
-      // still reports the bot's own result. Two different players.
-      observedPlayerId: OBSERVER_SLOT,
+      // The row reports the bot's own result, whichever viewpoints the file
+      // ends up holding.
       subjectPlayerId: 1,
       appVersion: "0.0.0",
     });
@@ -385,7 +390,7 @@ function checkSession(scratch: string): void {
     check("with the display name beside it", store.getMeta("map_name"), "Torches AIE");
     check("the outcome is the subject player's", store.getMeta("result"), "Defeat");
     check("not the observer slot's", store.getMeta("bot_player_id"), "1");
-    check("and the view is recorded too", store.getMeta("observed_player_id"), "0");
+    check("a single-view file lists no viewpoints", store.viewpoints(), []);
     check("the replay it came from", store.getMeta("replay_path"), sourcePath);
     check("the build it needs", store.getMeta("game_version"), "4.10.0.75689");
     check("the players, as data", JSON.parse(store.getMeta("players") ?? "[]").length, 2);
@@ -407,13 +412,13 @@ function checkSession(scratch: string): void {
     // file, which is the same rule the session controller has for two games
     // that start in the same second.
     const bus = new EventBus();
-    const first = new ReplaySession({ bus, gamesDir: scratch, sourcePath, info, observedPlayerId: 0, subjectPlayerId: 1 });
+    const first = new ReplaySession({ bus, gamesDir: scratch, sourcePath, info, subjectPlayerId: 1 });
     first.attach();
     bus.emit("frame", frame(0));
     const firstFile = first.gameFile!;
     first.close();
 
-    const second = new ReplaySession({ bus, gamesDir: scratch, sourcePath, info, observedPlayerId: 0, subjectPlayerId: 1 });
+    const second = new ReplaySession({ bus, gamesDir: scratch, sourcePath, info, subjectPlayerId: 1 });
     second.attach();
     bus.emit("frame", frame(0));
     const secondFile = second.gameFile!;
@@ -434,7 +439,6 @@ function checkSession(scratch: string): void {
       outPath: path.join(scratch, "no-result.sqlite"),
       sourcePath,
       info: noResult,
-      observedPlayerId: 0,
       subjectPlayerId: 1,
     });
     session.attach();
@@ -445,6 +449,130 @@ function checkSession(scratch: string): void {
     check("a replay with no result says unknown", store.getMeta("result"), "unknown");
     check("and invents no player_result", store.getMeta("player_result"), undefined);
     store.close();
+  }
+}
+
+/**
+ * The queue: every viewpoint of a replay into one file, one replay at a time,
+ * and what stopping or a refusal leaves behind.
+ */
+async function checkQueue(scratch: string): Promise<void> {
+  const dir = path.join(scratch, "queue");
+  // Which scripted client the next connection gets, chosen by the replay
+  // being read, so one queue can hold a good replay and a refused one.
+  let clientOptions: FakeOptions = {};
+  const newQueue = (): ReplayQueue =>
+    new ReplayQueue({
+      bus: new EventBus(),
+      connect: async () => new FakeClient({ ...clientOptions, loops: 40 }),
+      gamesDir: dir,
+      readReplay: (file) => {
+        clientOptions = file.includes("refused")
+          ? { infoError: { error: 1, error_details: "Parsing error." } }
+          : {};
+        return new Uint8Array([1, 2, 3]);
+      },
+    });
+
+  {
+    const queue = newQueue();
+    let midway: string | null = null;
+    let busyDuringFirstView: number | null = null;
+    queue.onChange(() => {
+      const item = queue.conversions[0];
+      if (item?.state === "converting" && item.pass === 1 && item.loop > 0 && busyDuringFirstView === null) {
+        busyDuringFirstView = queue.busyFiles.length;
+      }
+      if (item?.state === "converting" && item.pass === 2 && item.gameFile && midway === null) {
+        midway = peekGame(item.gameFile).state;
+      }
+    });
+    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    await queue.whenIdle();
+    const item = queue.conversions[0]!;
+    check("a replay converts", item.state, "done");
+    check("once per viewpoint: the observer and both players", item.passes, 3);
+    check("the file is not finished while views are still converting", midway, "incomplete");
+    check("its file is kept out of the list from the first view on", busyDuringFirstView, 1);
+
+    const store = new HistoryStore(item.gameFile!);
+    check("one file holds every viewpoint, observer first", store.viewpoints(), [0, 1, 2]);
+    check("and opens on the observer", store.readViewpoint, 0);
+    check("the observer's view runs to the end", store.getMaxLoop(), 40);
+    store.readViewpoint = 2;
+    check("so does each player's", store.getMaxLoop(), 40);
+    check("and each has its own map frame", store.readFrameAtOrBefore("gameInfo", 0) !== undefined, true);
+    check("it is finished once the last view is in", typeof store.getMeta("ended_at"), "string");
+    check("and ended the ordinary way", store.getMeta("end_reason"), "replay");
+    store.close();
+  }
+
+  {
+    // Stopped during the second view: the observer's view is kept, the
+    // half-played one is not.
+    const queue = newQueue();
+    queue.onChange(() => {
+      const item = queue.conversions[0];
+      if (item?.state === "converting" && item.pass === 2 && item.loop >= 16) queue.stop(item.id);
+    });
+    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    await queue.whenIdle();
+    const item = queue.conversions[0]!;
+    check("a stopped replay says so", item.state, "stopped");
+    const store = new HistoryStore(item.gameFile!);
+    check("it keeps the views it finished", store.viewpoints(), [0]);
+    store.readViewpoint = 1;
+    check("and drops the one it did not", store.getMaxLoop(), 0);
+    check("the file is closed as stopped", store.getMeta("end_reason"), "stopped");
+    check("and is a finished game, not an abandoned one", typeof store.getMeta("ended_at"), "string");
+    store.readViewpoint = 0;
+    check("the kept view is whole", store.getMaxLoop(), 40);
+    store.close();
+    check("the list calls it finished", peekGame(item.gameFile!).state, "ok");
+    check("and as long as its whole view", peekGame(item.gameFile!).maxLoop, 40);
+  }
+
+  {
+    // Two in the queue, the first refused: it fails on its own row and the
+    // second still converts, after it.
+    const queue = newQueue();
+    const order: string[] = [];
+    queue.onChange(() => {
+      for (const entry of queue.conversions) {
+        if (entry.state === "converting" && !order.includes(entry.sourceName)) order.push(entry.sourceName);
+      }
+    });
+    queue.enqueue([path.join(scratch, "refused.SC2Replay"), path.join(scratch, "ladder.SC2Replay")]);
+    check("a queued replay waits its turn", queue.conversions[1]!.state, "waiting");
+    await queue.whenIdle();
+    const [refused, good] = queue.conversions;
+    check("they run in order", order, ["refused.SC2Replay", "ladder.SC2Replay"]);
+    check("a refused replay fails its row", refused!.state, "failed");
+    check("with the client's words", (refused!.error ?? "").includes("Parsing error."), true);
+    check("and leaves no file", refused!.gameFile, null);
+    check("the next one still converts", good!.state, "done");
+  }
+
+  {
+    // Nothing starts while the client is taken, and a kick resumes it.
+    let free = false;
+    const queue = new ReplayQueue({
+      bus: new EventBus(),
+      connect: async () => new FakeClient({ loops: 16 }),
+      gamesDir: dir,
+      readReplay: () => new Uint8Array([1]),
+      clientFree: () => free,
+      viewpoints: [0],
+    });
+    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    check("a replay waits while a session holds the client", queue.conversions[0]!.state, "waiting");
+    check("and says why", queue.conversions[0]!.note, "waiting for the live session to end");
+    free = true;
+    queue.kick();
+    await queue.whenIdle();
+    check("it converts once the client is free", queue.conversions[0]!.state, "done");
+    check("only the viewpoints asked for", queue.conversions[0]!.passes, 1);
   }
 }
 
