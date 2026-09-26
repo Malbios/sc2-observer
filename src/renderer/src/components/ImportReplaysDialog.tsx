@@ -60,7 +60,7 @@ function ReplayViews(props: {
         <span style={{ color: "#e7e9ec" }}>{replay.fileName}</span>
         <span style={{ ...MUTED, fontSize: 12 }}>
           {"  "}
-          {replay.mapName}, {formatLength(replay.durationLoops)}
+          {replay.mapName} ({replay.mapFile}), {formatLength(replay.durationLoops)}
         </span>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", paddingLeft: 8 }}>

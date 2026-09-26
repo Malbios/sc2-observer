@@ -22,6 +22,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EventBus } from "../bus/EventBus";
 import { connectSc2 } from "../protocol/connection";
+import { findMapFile } from "../replay/mapFiles";
 import { ReplayQueue } from "../replay/ReplayQueue";
 
 const REPO_ROOT = join(__dirname, "..", "..");
@@ -76,6 +77,10 @@ async function main(): Promise<void> {
     gamesDir: gamesDir ? resolve(gamesDir) : join(REPO_ROOT, "games"),
     outPath: out ? resolve(out) : undefined,
     readReplay: (file) => readFileSync(file),
+    readMap: (localMapPath) => {
+      const found = findMapFile(join(REPO_ROOT, "maps"), localMapPath);
+      return found ? readFileSync(found) : null;
+    },
     subjectPlayerId: player === undefined ? null : Number(player),
     stepLoops: step ? Number(step) : undefined,
     appVersion: appVersion(),

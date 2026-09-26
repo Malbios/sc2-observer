@@ -11,7 +11,7 @@
  *
  * Run with: node dist/cli/verify-replay.js
  */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { EventBus, type FrameEvent, type GameEndedEvent, type ReplayProgressEvent } from "../bus/EventBus";
@@ -20,6 +20,7 @@ import type { Sc2Connection } from "../protocol/connection";
 import { encodeResponse } from "../protocol/schema";
 import { SC2_STATUS } from "../protocol/status";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
+import { findMapFile } from "../replay/mapFiles";
 import { ReplayQueue } from "../replay/ReplayQueue";
 import { readReplayFile } from "../replay/replayFile";
 import { ReplaySession } from "../replay/ReplaySession";
@@ -146,7 +147,7 @@ interface Harness {
 
 function harness(
   options: FakeOptions = {},
-  driverOptions: { stepLoops?: number; observedPlayerId?: number } = {},
+  driverOptions: { stepLoops?: number; observedPlayerId?: number; mapData?: Uint8Array } = {},
 ): Harness {
   const bus = new EventBus();
   const client = new FakeClient({ ...options, stepLoops: driverOptions.stepLoops });
@@ -163,6 +164,7 @@ function harness(
     connect: async () => client,
     replayData: new Uint8Array([1, 2, 3, 4]),
     observedPlayerId: driverOptions.observedPlayerId,
+    mapData: driverOptions.mapData,
     stepLoops: driverOptions.stepLoops,
     speed: "max",
   });
@@ -179,6 +181,7 @@ function checkReplayFile(scratch: string): void {
   check("the replay's build is read from the file", info.build, 75689);
   check("and its length", info.durationLoops, 408);
   check("and its map", info.mapName, "Torches AIE");
+  check("and the map file it names", info.mapFile, "TorchesAIE_v4.SC2Map");
   check("and its players, numbered as the client numbers them", info.players, [
     { playerId: 1, name: "testbot", race: "Zerg" },
     { playerId: 2, name: "Computer 2", race: "Zerg" },
@@ -195,6 +198,45 @@ function checkReplayFile(scratch: string): void {
   check("a file that is not a replay is refused with a reason", problem, "not a StarCraft II replay");
 }
 
+/**
+ * A replay names its map by the path it had where it was recorded, and the
+ * client opens exactly that path. Measured on 4.10: a replay naming
+ * `Melee/Flat128.SC2Map` failed with "Unable to open map." against a top-level
+ * `Flat128.SC2Map`, and played once that file was sent as `map_data`.
+ */
+async function checkMaps(scratch: string): Promise<void> {
+  const maps = path.join(scratch, "maps");
+  mkdirSync(path.join(maps, "Ladder"), { recursive: true });
+  writeFileSync(path.join(maps, "Flat128.SC2Map"), "flat");
+  writeFileSync(path.join(maps, "PylonAIE_v4.SC2Map"), "pylon");
+  writeFileSync(path.join(maps, "Ladder", "TorchesAIE_v4.SC2Map"), "torches");
+  const found = (requested: string): string | null => {
+    const file = findMapFile(maps, requested);
+    return file ? path.relative(maps, file).replace(/\\/g, "/") : null;
+  };
+  check("a map at the path the replay names", found("PylonAIE_v4.SC2Map"), "PylonAIE_v4.SC2Map");
+  check("a map the replay names inside a folder", found("Melee/Flat128.SC2Map"), "Flat128.SC2Map");
+  check("a map spelled in other letter case", found("pylonaie_v4.sc2map"), "PylonAIE_v4.SC2Map");
+  check("a map kept in a subfolder", found("TorchesAIE_v4.SC2Map"), "Ladder/TorchesAIE_v4.SC2Map");
+  check("a map that is not there", found("Melee/Flat64.SC2Map"), null);
+
+  const withMap = harness({}, { mapData: new Uint8Array([7, 7]) });
+  await withMap.driver.start();
+  check("the map found is sent with the replay", Array.from((withMap.client.startRequest?.["map_data"] as Uint8Array) ?? []), [7, 7]);
+  const withoutMap = harness();
+  await withoutMap.driver.start();
+  check("no map is sent when none was found", withoutMap.client.startRequest?.["map_data"], undefined);
+
+  const refused = harness({ startError: { error: 7, error_details: "Unable to open map." } });
+  let message = "";
+  try {
+    await refused.driver.start();
+  } catch (err) {
+    message = (err as Error).message;
+  }
+  check("a map the client cannot open is named", message, "the client would not play that replay (map TorchesAIE.SC2Map): Unable to open map.");
+}
+
 async function main(): Promise<void> {
   const scratch = mkdtempSync(path.join(tmpdir(), "spectator-replay-"));
   try {
@@ -206,6 +248,7 @@ async function main(): Promise<void> {
     checkSession(scratch);
     await checkQueue(scratch);
     checkReplayFile(scratch);
+    await checkMaps(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

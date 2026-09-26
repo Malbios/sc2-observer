@@ -18,6 +18,7 @@ import { GameOverlays } from "../state/GameOverlays";
 import { extractUnitTypeInfo } from "../state/unitTypes";
 import { describePlayers, namesFromMeta } from "../state/players";
 import { CONVERSION_SESSION_ID, ReplayQueue } from "../replay/ReplayQueue";
+import { findMapFile } from "../replay/mapFiles";
 import { readReplayFile, SUPPORTED_BUILD } from "../replay/replayFile";
 import { connectSc2 } from "../protocol/connection";
 import { telemetryRefusal } from "../telemetry/attachRule";
@@ -180,6 +181,10 @@ function queue(): ReplayQueue {
       if (!existsSync(file)) throw new Error("That replay is no longer on disk.");
       return readFileSync(file);
     },
+    readMap: (localMapPath) => {
+      const found = findMapFile(mapsDir(), localMapPath);
+      return found ? readFileSync(found) : null;
+    },
     ensureClient: async () => {
       const ready = await docker().ensureClientReady();
       if (!ready.ok) return ready.reason ?? "The client is not available.";
@@ -201,13 +206,17 @@ function queue(): ReplayQueue {
 
 /** A replay as the import dialog shows it, or why it cannot be imported. */
 function describeReplay(filePath: string): ReplayDescriptionIpc {
-  const base = { filePath, fileName: path.basename(filePath), mapName: "", durationLoops: 0, players: [] };
+  const base = { filePath, fileName: path.basename(filePath), mapName: "", mapFile: "", durationLoops: 0, players: [] };
   try {
     const info = readReplayFile(filePath);
     if (info.build !== SUPPORTED_BUILD) {
       return { ...base, problem: `recorded with SC2 build ${info.build}; this client plays ${SUPPORTED_BUILD}` };
     }
-    return { ...base, mapName: info.mapName, durationLoops: info.durationLoops, players: info.players, problem: null };
+    const described = { ...base, mapName: info.mapName, mapFile: info.mapFile, durationLoops: info.durationLoops, players: info.players };
+    if (!findMapFile(mapsDir(), info.mapFile)) {
+      return { ...described, problem: `needs map ${info.mapFile || info.mapName}, which is not in maps/` };
+    }
+    return { ...described, problem: null };
   } catch (err) {
     return { ...base, problem: existsSync(filePath) ? (err as Error).message : "that file is no longer on disk" };
   }

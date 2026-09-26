@@ -15,6 +15,8 @@ export interface ReplayFileInfo {
   build: number;
   durationLoops: number;
   mapName: string;
+  /** The map file as the replay names it, relative to SC2's maps folder. */
+  mapFile: string;
   players: ReplayFilePlayer[];
 }
 
@@ -41,7 +43,7 @@ export function readReplayFile(source: string | Buffer): ReplayFileInfo {
   const header = new VersionedDecoder(headerBytes, typeinfos).instance(replay_header_typeid) as ReplayHeader;
   const build = Number(header.m_version.m_baseBuild);
   const durationLoops = Number(header.m_elapsedGameLoops);
-  if (build !== SUPPORTED_BUILD) return { build, durationLoops, mapName: "", players: [] };
+  if (build !== SUPPORTED_BUILD) return { build, durationLoops, mapName: "", mapFile: "", players: [] };
 
   const detailsBytes = archive.readFile("replay.details");
   if (!detailsBytes) throw new Error("the replay has no player list");
@@ -50,5 +52,5 @@ export function readReplayFile(source: string | Buffer): ReplayFileInfo {
   const players = (details.m_playerList ?? [])
     .filter((player) => Number(player.m_observe) === 0)
     .map((player, index) => ({ playerId: index + 1, name: text(player.m_name), race: text(player.m_race) }));
-  return { build, durationLoops, mapName: text(details.m_title), players };
+  return { build, durationLoops, mapName: text(details.m_title), mapFile: text(details.m_mapFileName), players };
 }

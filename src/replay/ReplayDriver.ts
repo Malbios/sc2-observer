@@ -70,6 +70,9 @@ export interface ReplayDriverOptions {
   connect: () => Promise<Sc2Connection>;
   /** The replay itself. Sent as bytes; the file never leaves this process. */
   replayData: Uint8Array;
+  /** The map, sent with the replay so the client need not find the path the
+   * replay recorded, which may be in a folder or spelled differently. */
+  mapData?: Uint8Array | null;
   /** Whose eyes to watch through. `OBSERVER_SLOT` (the default) sees
    * everything; a player id sees exactly what that player could see. */
   observedPlayerId?: number;
@@ -119,6 +122,8 @@ export class ReplayDriver {
   private readonly sessionId: string;
   private readonly connectFn: () => Promise<Sc2Connection>;
   private readonly replayData: Uint8Array;
+  private readonly mapData: Uint8Array | null;
+  private localMapPath = "";
   private readonly frames: FramePublisher;
   private readonly stepLoops: number;
 
@@ -139,6 +144,7 @@ export class ReplayDriver {
     this.sessionId = options.sessionId;
     this.connectFn = options.connect;
     this.replayData = options.replayData;
+    this.mapData = options.mapData ?? null;
     this.observedPlayerId = options.observedPlayerId ?? OBSERVER_SLOT;
     this.stepLoops = options.stepLoops ?? DEFAULT_STEP_LOOPS;
     this.speed = options.speed ?? "max";
@@ -171,9 +177,10 @@ export class ReplayDriver {
     }
     const players = ((info["player_info"] as Record<string, unknown>[]) ?? []).map(toPlayer);
     this.totalLoops = Number(info["game_duration_loops"] ?? 0);
+    this.localMapPath = String(info["local_map_path"] ?? "");
     return {
       mapName: String(info["map_name"] ?? ""),
-      localMapPath: String(info["local_map_path"] ?? ""),
+      localMapPath: this.localMapPath,
       durationLoops: this.totalLoops,
       durationSeconds: Number(info["game_duration_seconds"] ?? 0),
       gameVersion: String(info["game_version"] ?? ""),
@@ -223,10 +230,14 @@ export class ReplayDriver {
         // reproduces that player's vision exactly.
         disable_fog: this.observedPlayerId === OBSERVER_SLOT,
         realtime: false,
+        ...(this.mapData ? { map_data: this.mapData } : {}),
       },
     });
     const problem = replayError(started.start_replay as Record<string, unknown> | undefined);
-    if (problem) throw new ReplayRefused(`the client would not play that replay: ${problem}`);
+    if (problem) {
+      const map = this.localMapPath ? ` (map ${this.localMapPath})` : "";
+      throw new ReplayRefused(`the client would not play that replay${map}: ${problem}`);
+    }
     if (started.status !== SC2_STATUS.inReplay) {
       throw new ReplayRefused(`the client did not enter a replay (status ${statusName(started.status)})`);
     }

@@ -24,6 +24,9 @@ export interface ReplayQueueOptions {
   connect: () => Promise<Sc2Connection>;
   gamesDir: string;
   readReplay: (path: string) => Uint8Array;
+  /** The map a replay names, from the maps folder, or null when it is not
+   * there; the client then looks for the replay's own path. */
+  readMap?: (localMapPath: string) => Uint8Array | null;
   /** Brings the client up; resolves to the reason it could not, or null. */
   ensureClient?: () => Promise<string | null>;
   /** False while something else (a live session) holds the client. Items
@@ -225,6 +228,7 @@ export class ReplayQueue {
     this.session = session;
     item.passes = passes.length;
     item.totalLoops = info.durationLoops;
+    const mapData = this.options.readMap?.(info.localMapPath) ?? null;
 
     let failure: string | null = null;
     for (let index = 0; index < passes.length && !item.stopRequested; index++) {
@@ -235,7 +239,7 @@ export class ReplayQueue {
       this.changed();
 
       session.setViewpoint(viewpoint);
-      const driver = this.newDriver(replayData, viewpoint);
+      const driver = this.newDriver(replayData, viewpoint, mapData);
       this.driver = driver;
       try {
         await driver.start();
@@ -279,12 +283,13 @@ export class ReplayQueue {
     this.changed();
   }
 
-  private newDriver(replayData: Uint8Array, viewpoint: number): ReplayDriver {
+  private newDriver(replayData: Uint8Array, viewpoint: number, mapData: Uint8Array | null = null): ReplayDriver {
     return new ReplayDriver({
       bus: this.options.bus,
       sessionId: CONVERSION_SESSION_ID,
       connect: this.options.connect,
       replayData,
+      mapData,
       observedPlayerId: viewpoint,
       stepLoops: this.options.stepLoops,
       speed: "max",

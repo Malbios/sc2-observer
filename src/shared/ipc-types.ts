@@ -156,6 +156,8 @@ export interface ReplayDescriptionIpc {
   filePath: string;
   fileName: string;
   mapName: string;
+  /** The map file the replay names, such as `Melee/Flat128.SC2Map`. */
+  mapFile: string;
   durationLoops: number;
   players: { playerId: number; name: string; race: string }[];
   problem: string | null;
