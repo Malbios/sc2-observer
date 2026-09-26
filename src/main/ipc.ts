@@ -18,6 +18,7 @@ import { GameOverlays } from "../state/GameOverlays";
 import { extractUnitTypeInfo } from "../state/unitTypes";
 import { describePlayers, namesFromMeta } from "../state/players";
 import { CONVERSION_SESSION_ID, ReplayQueue } from "../replay/ReplayQueue";
+import { readReplayFile, SUPPORTED_BUILD } from "../replay/replayFile";
 import { connectSc2 } from "../protocol/connection";
 import { telemetryRefusal } from "../telemetry/attachRule";
 import { detachStream } from "../telemetry/detach";
@@ -27,6 +28,8 @@ import { TelemetryTailer } from "../telemetry/TelemetryTailer";
 import type {
   AttachTelemetryResultIpc,
   ConversionIpc,
+  ReplayDescriptionIpc,
+  ReplayImportIpc,
   DetachStreamResultIpc,
   DockerStateIpc,
   FrameAtLoopIpc,
@@ -194,6 +197,20 @@ function queue(): ReplayQueue {
     }, CONVERSION_PUSH_INTERVAL_MS);
   });
   return replayQueue;
+}
+
+/** A replay as the import dialog shows it, or why it cannot be imported. */
+function describeReplay(filePath: string): ReplayDescriptionIpc {
+  const base = { filePath, fileName: path.basename(filePath), mapName: "", durationLoops: 0, players: [] };
+  try {
+    const info = readReplayFile(filePath);
+    if (info.build !== SUPPORTED_BUILD) {
+      return { ...base, problem: `recorded with SC2 build ${info.build}; this client plays ${SUPPORTED_BUILD}` };
+    }
+    return { ...base, mapName: info.mapName, durationLoops: info.durationLoops, players: info.players, problem: null };
+  } catch (err) {
+    return { ...base, problem: existsSync(filePath) ? (err as Error).message : "that file is no longer on disk" };
+  }
 }
 
 /** A game file the queue is still writing, which is not a game yet. */
@@ -1109,22 +1126,25 @@ export function registerIpcHandlers(): void {
 
   // -- replays (§7's replay driver) -----------------------------------------
 
-  ipcMain.handle("spectator:enqueueReplays", (_event, filePaths: string[]): ConversionIpc[] => {
-    const files = (filePaths ?? []).map((file) => path.resolve(file));
-    if (files.length > 0) rememberPickerDir(path.dirname(files[0]!));
-    return queue().enqueue(files);
-  });
+  ipcMain.handle("spectator:describeReplays", (_event, filePaths: string[]): ReplayDescriptionIpc[] =>
+    (filePaths ?? []).map((file) => describeReplay(path.resolve(file)))
+  );
 
-  ipcMain.handle("spectator:pickReplays", async (): Promise<ConversionIpc[]> => {
+  ipcMain.handle("spectator:pickReplayFiles", async (): Promise<string[]> => {
     const result = await dialog.showOpenDialog({
       title: "Open Replays",
       defaultPath: pickerDir(),
       filters: [{ name: "StarCraft II replays", extensions: ["SC2Replay"] }],
       properties: ["openFile", "multiSelections"],
     });
-    if (result.canceled || result.filePaths.length === 0) return conversions();
-    rememberPickerDir(path.dirname(result.filePaths[0]!));
-    return queue().enqueue(result.filePaths);
+    if (result.canceled) return [];
+    return result.filePaths;
+  });
+
+  ipcMain.handle("spectator:enqueueReplays", (_event, imports: ReplayImportIpc[]): ConversionIpc[] => {
+    const resolved = (imports ?? []).map((entry) => ({ ...entry, filePath: path.resolve(entry.filePath) }));
+    if (resolved.length > 0) rememberPickerDir(path.dirname(resolved[0]!.filePath));
+    return queue().enqueue(resolved);
   });
 
   ipcMain.handle("spectator:stopConversion", (_event, id: number): ConversionIpc[] => {

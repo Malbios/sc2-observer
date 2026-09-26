@@ -1,3 +1,4 @@
+/// <reference path="./mpyqjs2.d.ts" />
 import { MPQArchive } from "mpyqjs2/mpyq.js";
 import { VersionedDecoder } from "../vendor/s2protocol/decoders.js";
 import { game_details_typeid, replay_header_typeid, typeinfos } from "../vendor/s2protocol/protocol75689.js";

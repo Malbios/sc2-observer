@@ -76,7 +76,6 @@ async function main(): Promise<void> {
     gamesDir: gamesDir ? resolve(gamesDir) : join(REPO_ROOT, "games"),
     outPath: out ? resolve(out) : undefined,
     readReplay: (file) => readFileSync(file),
-    viewpoints: watch === undefined ? null : [Number(watch)],
     subjectPlayerId: player === undefined ? null : Number(player),
     stepLoops: step ? Number(step) : undefined,
     appVersion: appVersion(),
@@ -98,7 +97,7 @@ async function main(): Promise<void> {
   });
 
   const startedAt = Date.now();
-  queue.enqueue(files);
+  queue.enqueue(files.map((filePath) => ({ filePath, viewpoints: watch === undefined ? null : [Number(watch)] })));
   await queue.whenIdle();
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
 

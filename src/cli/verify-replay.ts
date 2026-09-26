@@ -515,7 +515,7 @@ async function checkQueue(scratch: string): Promise<void> {
         midway = peekGame(item.gameFile).state;
       }
     });
-    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    queue.enqueue([{ filePath: path.join(scratch, "ladder.SC2Replay"), viewpoints: null }]);
     await queue.whenIdle();
     const item = queue.conversions[0]!;
     check("a replay converts", item.state, "done");
@@ -543,7 +543,7 @@ async function checkQueue(scratch: string): Promise<void> {
       const item = queue.conversions[0];
       if (item?.state === "converting" && item.pass === 2 && item.loop >= 16) queue.stop(item.id);
     });
-    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    queue.enqueue([{ filePath: path.join(scratch, "ladder.SC2Replay"), viewpoints: null }]);
     await queue.whenIdle();
     const item = queue.conversions[0]!;
     check("a stopped replay says so", item.state, "stopped");
@@ -570,7 +570,10 @@ async function checkQueue(scratch: string): Promise<void> {
         if (entry.state === "converting" && !order.includes(entry.sourceName)) order.push(entry.sourceName);
       }
     });
-    queue.enqueue([path.join(scratch, "refused.SC2Replay"), path.join(scratch, "ladder.SC2Replay")]);
+    queue.enqueue([
+      { filePath: path.join(scratch, "refused.SC2Replay"), viewpoints: null },
+      { filePath: path.join(scratch, "ladder.SC2Replay"), viewpoints: null },
+    ]);
     check("a queued replay waits its turn", queue.conversions[1]!.state, "waiting");
     await queue.whenIdle();
     const [refused, good] = queue.conversions;
@@ -590,9 +593,8 @@ async function checkQueue(scratch: string): Promise<void> {
       gamesDir: dir,
       readReplay: () => new Uint8Array([1]),
       clientFree: () => free,
-      viewpoints: [0],
     });
-    queue.enqueue([path.join(scratch, "ladder.SC2Replay")]);
+    queue.enqueue([{ filePath: path.join(scratch, "ladder.SC2Replay"), viewpoints: [0] }]);
     await new Promise((resolve) => setTimeout(resolve, 20));
     check("a replay waits while a session holds the client", queue.conversions[0]!.state, "waiting");
     check("and says why", queue.conversions[0]!.note, "waiting for the live session to end");
@@ -601,6 +603,37 @@ async function checkQueue(scratch: string): Promise<void> {
     await queue.whenIdle();
     check("it converts once the client is free", queue.conversions[0]!.state, "done");
     check("only the viewpoints asked for", queue.conversions[0]!.passes, 1);
+  }
+
+  {
+    // The views chosen at import, each replay its own: the file holds exactly
+    // those, in the usual order, and a player the replay lacks is skipped.
+    const queue = new ReplayQueue({
+      bus: new EventBus(),
+      connect: async () => new FakeClient({ loops: 16 }),
+      gamesDir: dir,
+      readReplay: () => new Uint8Array([1]),
+    });
+    const ladder = path.join(scratch, "ladder.SC2Replay");
+    queue.enqueue([
+      { filePath: ladder, viewpoints: [0] },
+      { filePath: ladder, viewpoints: [2] },
+      { filePath: ladder, viewpoints: [2, 0, 7] },
+      { filePath: ladder, viewpoints: [7] },
+    ]);
+    await queue.whenIdle();
+    const [observerOnly, playerTwo, mixed, missing] = queue.conversions;
+    const viewpointsOf = (file: string | null): number[] => {
+      const store = new HistoryStore(file!);
+      const views = store.viewpoints();
+      store.close();
+      return views;
+    };
+    check("the observer alone", viewpointsOf(observerOnly!.gameFile), [0]);
+    check("player 2 alone", viewpointsOf(playerTwo!.gameFile), [2]);
+    check("a mixed choice keeps the usual order and skips a missing player", viewpointsOf(mixed!.gameFile), [0, 2]);
+    check("a choice the replay cannot meet fails its row", missing!.state, "failed");
+    check("and says why", missing!.error, "none of the chosen views are in this replay");
   }
 }
 

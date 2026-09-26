@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import type { EventBus, ReplayProgressEvent } from "../bus/EventBus";
 import type { Sc2Connection } from "../protocol/connection";
-import type { ConversionIpc } from "../shared/ipc-types";
+import type { ConversionIpc, ReplayImportIpc } from "../shared/ipc-types";
 import { OBSERVER_SLOT, ReplayDriver, type ReplayInfo } from "./ReplayDriver";
 import { ReplaySession } from "./ReplaySession";
 
@@ -29,8 +29,6 @@ export interface ReplayQueueOptions {
   /** False while something else (a live session) holds the client. Items
    * then wait, and `kick()` resumes them when it is free again. */
   clientFree?: () => boolean;
-  /** Only these viewpoints instead of all of them (the CLI's `--watch`). */
-  viewpoints?: number[] | null;
   /** Whose result the file reports; the first participant by default. */
   subjectPlayerId?: number | null;
   /** A fixed file for a single conversion (the CLI's `--out`). */
@@ -45,6 +43,8 @@ export const CONVERSION_SESSION_ID = "conversion";
 
 interface Item extends ConversionIpc {
   stopRequested: boolean;
+  /** Null is every view the replay has. */
+  chosenViewpoints: number[] | null;
 }
 
 export class ReplayQueue {
@@ -66,7 +66,7 @@ export class ReplayQueue {
 
   /** A copy of every item, oldest first, for the list. */
   get conversions(): ConversionIpc[] {
-    return this.items.map(({ stopRequested: _stop, ...item }) => ({ ...item }));
+    return this.items.map(({ stopRequested: _stop, chosenViewpoints: _chosen, ...item }) => ({ ...item }));
   }
 
   /** Whether a conversion holds the client right now. */
@@ -87,8 +87,8 @@ export class ReplayQueue {
     return () => this.listeners.delete(listener);
   }
 
-  enqueue(paths: string[]): ConversionIpc[] {
-    for (const sourcePath of paths) {
+  enqueue(imports: ReplayImportIpc[]): ConversionIpc[] {
+    for (const { filePath: sourcePath, viewpoints } of imports) {
       this.items.push({
         id: this.nextId++,
         sourcePath,
@@ -102,6 +102,7 @@ export class ReplayQueue {
         totalLoops: 0,
         error: null,
         stopRequested: false,
+        chosenViewpoints: viewpoints,
       });
     }
     this.changed();
@@ -204,7 +205,9 @@ export class ReplayQueue {
     // The observer first, so the view that sees everything exists even if
     // the rest are stopped, then every player, in id order.
     const all = [OBSERVER_SLOT, ...info.players.map((player) => player.playerId).sort((a, b) => a - b)];
-    const passes = [...new Set(this.options.viewpoints ?? all)];
+    const chosen = item.chosenViewpoints;
+    const passes = chosen === null ? all : all.filter((viewpoint) => chosen.includes(viewpoint));
+    if (passes.length === 0) return this.fail(item, "none of the chosen views are in this replay");
     const subject =
       this.options.subjectPlayerId ?? info.players.find((player) => player.type === "Participant")?.playerId ?? 1;
 

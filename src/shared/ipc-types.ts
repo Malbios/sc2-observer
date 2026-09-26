@@ -143,6 +143,24 @@ export interface ReplayInfoIpc {
   players: ReplayPlayerIpc[];
 }
 
+/** A replay to convert, and which views of it: 0 is the observer slot, else
+ * a player id. Null converts every view the replay has. */
+export interface ReplayImportIpc {
+  filePath: string;
+  viewpoints: number[] | null;
+}
+
+/** What the import dialog shows about a replay before it is queued, read
+ * from the file itself. `problem` says why it cannot be imported. */
+export interface ReplayDescriptionIpc {
+  filePath: string;
+  fileName: string;
+  mapName: string;
+  durationLoops: number;
+  players: { playerId: number; name: string; race: string }[];
+  problem: string | null;
+}
+
 /**
  * One replay in the conversion queue. A replay is converted once per
  * viewpoint (the observer slot, which sees everything, then each player), all
@@ -372,11 +390,14 @@ export interface SpectatorApi {
    * rows, checkpoints and all. */
   detachStream(streamId: number): Promise<DetachStreamResultIpc>;
 
-  /** Queues replays for conversion: each becomes one game file holding every
-   * viewpoint, offered in the list once all of them are done. */
-  enqueueReplays(filePaths: string[]): Promise<ConversionIpc[]>;
-  /** The same, from a multi-select picker. */
-  pickReplays(): Promise<ConversionIpc[]>;
+  /** Reads each replay's map, length and players from the file, for the
+   * import dialog. Needs no client. */
+  describeReplays(filePaths: string[]): Promise<ReplayDescriptionIpc[]>;
+  /** A multi-select picker; empty when cancelled. */
+  pickReplayFiles(): Promise<string[]>;
+  /** Queues replays for conversion, each with the views chosen for it. Each
+   * becomes one game file, offered in the list once its views are done. */
+  enqueueReplays(imports: ReplayImportIpc[]): Promise<ConversionIpc[]>;
   /** Removes a waiting replay, stops a converting one (keeping the views it
    * finished), or dismisses a finished row. */
   stopConversion(id: number): Promise<ConversionIpc[]>;

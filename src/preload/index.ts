@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   DockerLogIpc,
   ConversionIpc,
+  ReplayImportIpc,
   FrameAtLoopIpc,
   LiveTerrainIpc,
   SessionStatusIpc,
@@ -29,8 +30,9 @@ const api: SpectatorApi = {
   setGameTags: (filePath: string, tags: string[]) => ipcRenderer.invoke("spectator:setGameTags", filePath, tags),
   detachStream: (streamId: number) => ipcRenderer.invoke("spectator:detachStream", streamId),
 
-  enqueueReplays: (filePaths: string[]) => ipcRenderer.invoke("spectator:enqueueReplays", filePaths),
-  pickReplays: () => ipcRenderer.invoke("spectator:pickReplays"),
+  describeReplays: (filePaths: string[]) => ipcRenderer.invoke("spectator:describeReplays", filePaths),
+  pickReplayFiles: () => ipcRenderer.invoke("spectator:pickReplayFiles"),
+  enqueueReplays: (imports: ReplayImportIpc[]) => ipcRenderer.invoke("spectator:enqueueReplays", imports),
   stopConversion: (id: number) => ipcRenderer.invoke("spectator:stopConversion", id),
   getConversions: () => ipcRenderer.invoke("spectator:getConversions"),
   onConversions: (listener: (conversions: ConversionIpc[]) => void) => subscribe("spectator:conversions", listener),

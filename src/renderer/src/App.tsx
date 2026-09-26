@@ -8,6 +8,8 @@ import type {
   GameCatalogIpc,
   GameSummaryIpc,
   PlayerIpc,
+  ReplayDescriptionIpc,
+  ReplayImportIpc,
   RecordingInfo,
   SessionStatusIpc,
   StartSessionOptionsIpc,
@@ -20,6 +22,7 @@ import type { ChannelIpc, EventIpc, TelemetryStateIpc, TelemetryStreamIpc } from
 import { ChannelTree } from "./components/ChannelTree";
 import { EventLog } from "./components/EventLog";
 import { GameCatalog } from "./components/GameCatalog";
+import { ImportReplaysDialog } from "./components/ImportReplaysDialog";
 import { MapView, type MapViewHandle } from "./components/MapView";
 import { Minimap } from "./components/Minimap";
 import { SeriesChart } from "./components/SeriesChart";
@@ -102,6 +105,8 @@ export function App(): JSX.Element {
    * conversion runs in main whatever the window is showing.
    */
   const [conversions, setConversions] = useState<ConversionIpc[]>([]);
+  /** Replays read and waiting for their views to be chosen. */
+  const [replaysToImport, setReplaysToImport] = useState<ReplayDescriptionIpc[] | null>(null);
   /** The open recording's viewpoints (0 is the observer slot), and the one on
    * screen. Empty for a file with one viewpoint, which offers no switch. */
   const [viewpoints, setViewpoints] = useState<number[]>([]);
@@ -586,16 +591,22 @@ export function App(): JSX.Element {
   // -- replays ---------------------------------------------------------------
 
   /**
-   * Queues replays for conversion. The window stays where it is: the Games
-   * list shows each one's progress, and it opens like any game once every
-   * viewpoint is in.
+   * Every way in (a drop, the picker, a game's own replay) reads the replays
+   * first and asks which views to convert. Queuing leaves the window where it
+   * is: the Games list shows each one's progress.
    */
-  const enqueueReplays = useCallback(async (filePaths: string[]) => {
-    setConversions(await window.spectator.enqueueReplays(filePaths));
+  const chooseReplayViews = useCallback(async (filePaths: string[]) => {
+    if (filePaths.length === 0) return;
+    setReplaysToImport(await window.spectator.describeReplays(filePaths));
   }, []);
 
   const pickReplays = useCallback(async () => {
-    setConversions(await window.spectator.pickReplays());
+    await chooseReplayViews(await window.spectator.pickReplayFiles());
+  }, [chooseReplayViews]);
+
+  const importReplays = useCallback(async (imports: ReplayImportIpc[]) => {
+    setReplaysToImport(null);
+    setConversions(await window.spectator.enqueueReplays(imports));
   }, []);
 
   /**
@@ -639,7 +650,7 @@ export function App(): JSX.Element {
       const paths = Array.from(files).map((file) => window.spectator.pathForFile(file));
       const replays = paths.filter((filePath) => /\.SC2Replay$/i.test(filePath));
       if (replays.length > 0) {
-        await enqueueReplays(replays);
+        await chooseReplayViews(replays);
         return;
       }
       const telemetryFile = paths.find((filePath) => /\.ndjson$/i.test(filePath));
@@ -649,7 +660,7 @@ export function App(): JSX.Element {
       }
       setNotice("Drop .SC2Replay files to convert them, or an .ndjson to attach telemetry.");
     },
-    [enqueueReplays, importTelemetryFile]
+    [chooseReplayViews, importTelemetryFile]
   );
 
   /**
@@ -872,6 +883,15 @@ export function App(): JSX.Element {
     />
   );
 
+  const importDialog = replaysToImport && (
+    <ImportReplaysDialog
+      key={replaysToImport.map((replay) => replay.filePath).join("|")}
+      replays={replaysToImport}
+      onImport={(imports) => void importReplays(imports)}
+      onCancel={() => setReplaysToImport(null)}
+    />
+  );
+
   /**
    * The whole window takes files. `.SC2Replay` files are queued for
    * conversion, an `.ndjson` is telemetry for the game on screen; §7 asks for the first and
@@ -908,6 +928,7 @@ export function App(): JSX.Element {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }} {...dropTarget}>
         {newGamePanel}
+        {importDialog}
         <div
           style={{
             padding: "8px 16px",
@@ -956,7 +977,7 @@ export function App(): JSX.Element {
           onSetTags={(game, tags) => void setGameTags(game, tags)}
           onExport={(game) => void exportGame(game)}
           onDelete={(game) => void deleteGame(game)}
-          onConvertReplay={(game) => void enqueueReplays([game.filePath.replace(/\.sqlite$/i, ".SC2Replay")])}
+          onConvertReplay={(game) => void chooseReplayViews([game.filePath.replace(/\.sqlite$/i, ".SC2Replay")])}
           conversions={conversions}
           onStopConversion={(id) => void window.spectator.stopConversion(id).then(setConversions)}
         />
@@ -966,6 +987,7 @@ export function App(): JSX.Element {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }} {...dropTarget}>
+      {importDialog}
       <div
         style={{
           padding: "8px 16px",
