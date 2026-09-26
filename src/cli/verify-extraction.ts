@@ -151,6 +151,13 @@ function runChecks(fixturePath: string): void {
   expectCategory("SpawningPool", "building");
   expectCategory("Zergling", "unit");
   expectCategory("Drone", "unit");
+  expectCategory("Extractor", "building");
+  expectCategory("ExtractorRich", "building");
+  expectCategory("Refinery", "building");
+  expectCategory("AssimilatorRich", "building");
+  expectCategory("RichVespeneGeyser", "gas");
+  expectCategory("MineralField", "mineral");
+  expectCategory("KD8Charge", "unit");
 
   const observationBytes = store.readFrameAtOrBefore("observation", 100);
   if (!observationBytes) throw new Error("no observation frame in fixture");

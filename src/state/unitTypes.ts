@@ -8,10 +8,20 @@ export interface UnitTypeInfo {
 }
 
 const STRUCTURE_ATTRIBUTE = 8; // data.proto Attribute.Structure
+const NO_RACE = 0;
+
+/** Gas buildings carry vespene too; only a race-less type is a resource. */
+function isResource(unit: any): boolean {
+  return (unit.race ?? NO_RACE) === NO_RACE;
+}
+
+/** Short-lived effects that SC2 marks as structures. */
+const EFFECTS_MARKED_AS_STRUCTURES = new Set(["KD8Charge"]);
 
 function categorize(unit: any): UnitCategory {
-  if (unit.has_minerals) return "mineral";
-  if (unit.has_vespene) return "gas";
+  if (unit.has_minerals && isResource(unit)) return "mineral";
+  if (unit.has_vespene && isResource(unit)) return "gas";
+  if (EFFECTS_MARKED_AS_STRUCTURES.has(unit.name)) return "unit";
   if ((unit.attributes ?? []).includes(STRUCTURE_ATTRIBUTE)) return "building";
   return "unit";
 }
