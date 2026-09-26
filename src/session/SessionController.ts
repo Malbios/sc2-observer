@@ -421,7 +421,7 @@ export class SessionController {
     const missing = asked - found;
     this.warning =
       `This map has room for ${found} players, so ${missing} of the AIs asked for ${missing === 1 ? "was" : "were"} left out. ` +
-      "Pick a map with more start locations, such as Flat64.";
+      "Pick a map with more start locations.";
     this.log(this.warning);
     this.store?.setMeta("warning", this.warning);
     this.announce();

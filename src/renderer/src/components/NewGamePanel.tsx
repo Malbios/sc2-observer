@@ -173,7 +173,7 @@ export function NewGamePanel({
                   <button style={{ fontSize: 11 }} onClick={() => set({ ais: [...ais, DEFAULT_AI] })}>
                     Add AI
                   </button>
-                  more than one AI needs a map with more start locations, such as Flat64
+                  more than one AI needs a map with more start locations
                 </span>
               )}
             </div>

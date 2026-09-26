@@ -1,9 +1,7 @@
 node_modules/
+# Everyone brings their own maps; none are shipped.
 maps/*
 !maps/.gitkeep
-# Four-player test maps from Blizzard's Melee pack, for games against several AIs.
-!maps/Flat*.SC2Map
-!maps/SOURCE.md
 *.log
 dist/
 out/
