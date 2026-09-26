@@ -21,6 +21,7 @@ import { encodeResponse } from "../protocol/schema";
 import { SC2_STATUS } from "../protocol/status";
 import { OBSERVER_SLOT, ReplayDriver, ReplayRefused, type ReplayInfo } from "../replay/ReplayDriver";
 import { ReplayQueue } from "../replay/ReplayQueue";
+import { readReplayFile } from "../replay/replayFile";
 import { ReplaySession } from "../replay/ReplaySession";
 import { peekGame } from "../history/peek";
 
@@ -168,6 +169,32 @@ function harness(
   return { bus, client, driver, frames, ends, progress };
 }
 
+/**
+ * Reading a replay's players from the file, without the client. The expected
+ * values are what the SC2 client's `replay_info` reported for the same file
+ * (`probe-replay`, 2026-09-26), so the two agree on player ids.
+ */
+function checkReplayFile(scratch: string): void {
+  const info = readReplayFile("fixtures/testbot-vs-ai.SC2Replay");
+  check("the replay's build is read from the file", info.build, 75689);
+  check("and its length", info.durationLoops, 408);
+  check("and its map", info.mapName, "Torches AIE");
+  check("and its players, numbered as the client numbers them", info.players, [
+    { playerId: 1, name: "testbot", race: "Zerg" },
+    { playerId: 2, name: "Computer 2", race: "Zerg" },
+  ]);
+
+  const notAReplay = path.join(scratch, "notes.SC2Replay");
+  writeFileSync(notAReplay, "not a replay");
+  let problem = "";
+  try {
+    readReplayFile(notAReplay);
+  } catch (err) {
+    problem = (err as Error).message;
+  }
+  check("a file that is not a replay is refused with a reason", problem, "not a StarCraft II replay");
+}
+
 async function main(): Promise<void> {
   const scratch = mkdtempSync(path.join(tmpdir(), "spectator-replay-"));
   try {
@@ -178,6 +205,7 @@ async function main(): Promise<void> {
     await checkPauseAndStop();
     checkSession(scratch);
     await checkQueue(scratch);
+    checkReplayFile(scratch);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

@@ -80,7 +80,8 @@ One Electron main process owns the Docker manager, game proxy, session controlle
 ```
 src/bus/          EventBus: frame, gameEnded, telemetry
 src/proxy/        GameProxy (Mode A: the proxy sends createGame itself)
-src/replay/       ReplayDriver (plays a .SC2Replay), ReplaySession (records it), ReplayQueue (every viewpoint, one replay at a time)
+src/replay/       ReplayDriver (plays a .SC2Replay), ReplaySession (records it), ReplayQueue (every viewpoint, one replay at a time),
+                  replayFile (reads a replay's build and players straight from the file, no client)
 src/protocol/     protobufjs loader for the vendored .proto files
 src/state/        decode helpers: frames (units, request/response classification), terrain, unitTypes;
                   and the overlays derived from the game itself: intent, debugDraw, GameOverlays
@@ -92,6 +93,7 @@ src/renderer/     React + PixiJS viewer
 src/cli/          record, dump, import-telemetry, testbot, verify-*
 emitter/python/   the emitter bots vendor, plus its sample and tests
 vendor/           s2clientprotocol .proto files, pinned
+src/vendor/       Blizzard's s2protocol decoder, build 75689 only (see its SOURCE.md)
 ```
 
 ### Traps that have already cost time
@@ -124,6 +126,7 @@ Field spellings live in `src/shared/telemetry-types.ts`, which both the viewer a
 Everything below the viewer is tested against recorded frames and bytes, never against a live game, so tests stay deterministic:
 
 - `npm run verify` builds and runs nine suites: `verify-extraction` (decode/terrain/unit categorization against a temp copy of `fixtures/phase1-sample-game.sqlite`, so the committed 20 MB fixture is never dirtied), `verify-overlays` (command-intent lines against the same fixture copy, plus synthetic chains, unit targets and debug draws), `verify-telemetry` (checkpointing across multiple streams, and detach), `verify-catalog` (peeking real files in a temp folder, tags, export), `verify-replay` (the driver against a scripted client, the game file a replay becomes, and the queue: every viewpoint, stopping, refusals, waiting for the client), `verify-tailer` (partial lines, a UTF-8 character split across reads, rejections, one file per game and the ignore list, driving `poll()` directly rather than racing its timer), `verify-docker`, `verify-proxy` and `verify-session`.
+- `fixtures/testbot-vs-ai.SC2Replay` is a replay of the test bot against the built-in AI; `verify-replay` checks the file reader against what the SC2 client reported for it.
 - `fixtures/testbot-smoke.sqlite` plus `fixtures/testbot-smoke.ndjson` are a paired recording and telemetry file on the same loops, for viewer work.
 - **Never let a build write to a committed fixture.** Opening one migrates it and leaves the repo dirty; copy it to a temp dir first.
 
