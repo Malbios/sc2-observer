@@ -20,7 +20,8 @@ renamed on the way in where they differ:
   and `-defender_mode` `LiberatorAG`; `siege_tank-tank_mode` is `SiegeTank` and
   `-siege_mode` `SiegeTankSieged`; `thor-explosive_payload` is `Thor` and
   `-high_impact_mode` `ThorAP`; `viking-fighter_mode` is `VikingFighter` and
-  `-assault_mode` `VikingAssault`; `<building>-flying` is `<Building>Flying`.
+  `-assault_mode` `VikingAssault`; `<building>-flying` is `<Building>Flying`;
+  `refinery-rich` is `RefineryRich` (and `assimilator-rich` `AssimilatorRich`).
 - Protoss: `robotics_support_bay` is `RoboticsBay`, `templar_archives` is
   `TemplarArchive`, `stasis_ward` is `OracleStasisTrap`, `adept-shade` is
   `AdeptPhaseShift`, `disruptor-phased` is `DisruptorPhased`,

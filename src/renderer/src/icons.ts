@@ -99,12 +99,13 @@ const PNG_ICONS = new Set([
   "InfestorTerran", "InfestedTerransEgg",
   "Armory", "AutoTurret", "Barracks", "BarracksFlying", "Bunker", "CommandCenter", "CommandCenterFlying",
   "EngineeringBay", "Factory", "FactoryFlying", "FusionCore", "GhostAcademy", "MissileTurret",
-  "OrbitalCommand", "OrbitalCommandFlying", "PlanetaryFortress", "Reactor", "Refinery", "SensorTower",
+  "OrbitalCommand", "OrbitalCommandFlying", "PlanetaryFortress", "Reactor", "Refinery", "RefineryRich",
+  "SensorTower",
   "Starport", "StarportFlying", "SupplyDepot", "SupplyDepotLowered", "TechLab",
   "Banshee", "Battlecruiser", "Cyclone", "Ghost", "Hellion", "HellionTank", "Liberator", "LiberatorAG",
   "Marauder", "Marine", "Medivac", "MULE", "Raven", "Reaper", "SCV", "SiegeTank", "SiegeTankSieged", "Thor",
   "ThorAP", "VikingAssault", "VikingFighter", "WidowMine", "WidowMineBurrowed",
-  "Assimilator", "CyberneticsCore", "DarkShrine", "FleetBeacon", "Forge", "Gateway", "Nexus", "PhotonCannon",
+  "Assimilator", "AssimilatorRich", "CyberneticsCore", "DarkShrine", "FleetBeacon", "Forge", "Gateway", "Nexus", "PhotonCannon",
   "Pylon", "RoboticsFacility", "RoboticsBay", "ShieldBattery", "Stargate", "OracleStasisTrap", "TemplarArchive",
   "TwilightCouncil", "WarpGate",
   "Adept", "AdeptPhaseShift", "Archon", "Carrier", "Colossus", "DarkTemplar", "Disruptor", "DisruptorPhased",
@@ -145,12 +146,10 @@ const ICON_ALIASES: Record<string, string> = {
   BarracksReactor: "Reactor",
   FactoryReactor: "Reactor",
   StarportReactor: "Reactor",
-  RefineryRich: "Refinery",
   BroodlingEscort: "Broodling",
   LocustMPPrecursor: "LocustMP",
   ObserverSiegeMode: "Observer",
   PylonOvercharged: "Pylon",
-  AssimilatorRich: "Assimilator",
 };
 
 /** Relative, not `/icons/`: the built app loads index.html from disk, where
