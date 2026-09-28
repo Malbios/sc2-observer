@@ -167,8 +167,28 @@ function resolveIconUrl(requested: string, hallucination: boolean): string | nul
   return PNG_ICONS.has(name) ? `icons/${name}.png` : null;
 }
 
-/** The eye badge on its own, for marking a hallucination outside the map. */
-export const HALLUCINATION_BADGE_URL = "icons/Hallucination.png";
+export interface UnitBadge {
+  url: string;
+  label: string;
+}
+
+const HALLUCINATION_BADGE: UnitBadge = { url: "icons/Hallucination.png", label: "Hallucination" };
+const LIFTED_BADGE: UnitBadge = { url: "icons/Flying.png", label: "Lifted off" };
+const SHADE_BADGE: UnitBadge = { url: "icons/Shade.png", label: "Adept shade" };
+
+const LIFTED_BUILDINGS = new Set([
+  "BarracksFlying", "CommandCenterFlying", "FactoryFlying", "OrbitalCommandFlying", "StarportFlying",
+]);
+
+/** The badges drawn into a unit's map icon, on their own, for marking the
+ * unit outside the map. */
+export function unitBadges(typeName: string | undefined, hallucination: boolean): UnitBadge[] {
+  const badges: UnitBadge[] = [];
+  if (hallucination) badges.push(HALLUCINATION_BADGE);
+  if (typeName && LIFTED_BUILDINGS.has(typeName)) badges.push(LIFTED_BADGE);
+  if (typeName === "AdeptPhaseShift") badges.push(SHADE_BADGE);
+  return badges;
+}
 
 /** Loads the icon for a unit type name (see public/icons/SOURCE.md for
  * provenance of the portraits), caching both hits and misses by name

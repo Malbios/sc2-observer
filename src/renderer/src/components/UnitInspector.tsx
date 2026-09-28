@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import type { PlayerIpc, UnitSummaryIpc, UnitTypeInfoIpc } from "../../../shared/ipc-types";
 import type { EntityStateIpc } from "../../../shared/telemetry-types";
 import { colorForCategory, colorForChannel, colorForOwner, cssColor, NEUTRAL_OWNER } from "../colors";
-import { HALLUCINATION_BADGE_URL } from "../icons";
+import { unitBadges } from "../icons";
 
 interface Props {
   unit: UnitSummaryIpc | null;
@@ -64,14 +64,15 @@ export function UnitInspector({ unit, unitTypeInfo, players, entities }: Props):
         />
         {name}
       </div>
-      {/* Only ever true when this recording's viewpoint knows it; the
-          opponent's view of the same unit reports false (see frames.ts). */}
-      {unit.isHallucination && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6cc4ff" }}>
-          <img src={HALLUCINATION_BADGE_URL} alt="" width={18} height={18} />
-          Hallucination
+      {/* A hallucination is only ever flagged when this recording's viewpoint
+          knows it; the opponent's view of the same unit reports false (see
+          frames.ts). */}
+      {unitBadges(info?.name, unit.isHallucination).map((badge) => (
+        <div key={badge.label} style={{ display: "flex", alignItems: "center", gap: 6, color: "#6cc4ff" }}>
+          <img src={badge.url} alt="" width={18} height={18} />
+          {badge.label}
         </div>
-      )}
+      ))}
       <div style={{ color: "#8b93a1", fontFamily: "monospace", fontSize: 12 }}>
         {info?.category ?? "unknown"}
         <br />

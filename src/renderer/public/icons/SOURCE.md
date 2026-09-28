@@ -42,5 +42,6 @@ renamed on the way in where they differ:
 
 The `<Unit>Hallucination.png` files (the unit with an eye badge) are what a
 Sentry can hallucinate, drawn only when the recording's viewpoint knows the
-unit is one. `Hallucination.png` is the badge alone (the owner's
-`icon-hallucination`), for the unit inspector.
+unit is one. `Hallucination.png`, `Flying.png` and `Shade.png` are the
+badges alone (the owner's `icon-hallucination`, `icon-flying` and
+`icon-shade`), for the unit inspector.
