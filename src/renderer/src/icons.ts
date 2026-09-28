@@ -72,12 +72,13 @@ async function loadProcessedTexture(url: string): Promise<PIXI.Texture> {
  * earlier vscode-starcraft `minerals.png`/`vespene.png`, which turned out to
  * be generic resource-counter icons for a HUD panel, not the map object
  * itself. The first pattern that matches wins, so rich comes before plain.
- * Rich geysers have no art of their own yet and use the ordinary one.
  */
 const GENERIC_ICON_PATTERNS: [RegExp, string][] = [
   [/richmineralfield/i, "richminerals.png"],
   [/mineralfield/i, "minerals.png"],
+  [/richvespenegeyser/i, "richvespene.png"],
   [/geyser|vespene/i, "vespene.png"],
+  [/^DestructibleRock/i, "rocks.png"],
 ];
 
 /** Unit types with user-supplied .png art (see public/icons/SOURCE.md),
@@ -86,66 +87,57 @@ const GENERIC_ICON_PATTERNS: [RegExp, string][] = [
  * here, not aliased and not a resource has no icon and draws as a shape,
  * without a request for a file that does not exist. */
 const PNG_ICONS = new Set([
-  "BanelingNest", "CreepTumor", "EvolutionChamber", "Extractor", "GreaterSpire", "Hatchery", "Hive",
-  "HydraliskDen", "InfestationPit", "Lair", "LurkerDenMP", "NydusNetwork", "NydusCanal", "RoachWarren",
+  "BanelingNest", "CreepTumor", "EvolutionChamber", "Extractor", "ExtractorRich", "GreaterSpire", "Hatchery",
+  "Hive", "HydraliskDen", "InfestationPit", "Lair", "LurkerDenMP", "NydusNetwork", "NydusCanal", "RoachWarren",
   "SpawningPool", "SpineCrawler", "Spire", "SporeCrawler", "UltraliskCavern",
   "Baneling", "Changeling", "Corruptor", "Drone", "Egg", "Hydralisk", "Infestor", "Larva", "LocustMP",
   "LocustMPFlying", "LurkerMP", "Mutalisk", "Overlord", "OverlordTransport", "Overseer", "Queen",
   "Ravager", "Roach", "SwarmHostMP", "Viper", "Zergling", "Ultralisk", "BroodLord", "Broodling",
+  "BanelingBurrowed", "DroneBurrowed", "HydraliskBurrowed", "InfestorBurrowed", "LurkerMPBurrowed",
+  "QueenBurrowed", "RavagerBurrowed", "RoachBurrowed", "SwarmHostBurrowedMP", "UltraliskBurrowed",
+  "ZerglingBurrowed", "BanelingCocoon", "BroodLordCocoon", "LurkerMPEgg", "OverlordCocoon", "RavagerCocoon",
+  "InfestorTerran", "InfestedTerransEgg",
   "Armory", "AutoTurret", "Barracks", "BarracksFlying", "Bunker", "CommandCenter", "CommandCenterFlying",
   "EngineeringBay", "Factory", "FactoryFlying", "FusionCore", "GhostAcademy", "MissileTurret",
   "OrbitalCommand", "OrbitalCommandFlying", "PlanetaryFortress", "Reactor", "Refinery", "SensorTower",
   "Starport", "StarportFlying", "SupplyDepot", "SupplyDepotLowered", "TechLab",
-  "Banshee", "Battlecruiser", "Cyclone", "Ghost", "Hellion", "HellionTank", "Liberator", "Marauder", "Marine",
-  "Medivac", "MULE", "Raven", "Reaper", "SCV", "SiegeTank", "Thor", "VikingFighter", "WidowMine",
+  "Banshee", "Battlecruiser", "Cyclone", "Ghost", "Hellion", "HellionTank", "Liberator", "LiberatorAG",
+  "Marauder", "Marine", "Medivac", "MULE", "Raven", "Reaper", "SCV", "SiegeTank", "SiegeTankSieged", "Thor",
+  "ThorAP", "VikingAssault", "VikingFighter", "WidowMine", "WidowMineBurrowed",
   "Assimilator", "CyberneticsCore", "DarkShrine", "FleetBeacon", "Forge", "Gateway", "Nexus", "PhotonCannon",
   "Pylon", "RoboticsFacility", "RoboticsBay", "ShieldBattery", "Stargate", "OracleStasisTrap", "TemplarArchive",
   "TwilightCouncil", "WarpGate",
   "Adept", "AdeptPhaseShift", "Archon", "Carrier", "Colossus", "DarkTemplar", "Disruptor", "DisruptorPhased",
   "HighTemplar", "Immortal", "Interceptor", "Mothership", "Observer", "Oracle", "Phoenix", "Probe", "Sentry",
-  "Stalker", "Tempest", "VoidRay", "WarpPrism", "Zealot", "ForceField",
+  "Stalker", "Tempest", "VoidRay", "WarpPrism", "WarpPrismPhasing", "Zealot", "ForceField",
+  "XelNagaTower", "InhibitorZoneSmall",
   // What a Sentry can hallucinate, drawn with the eye badge. See
   // resolveIconUrl below; the plain Hallucination.png is the badge
   // alone, for the unit inspector, not a unit type.
   "AdeptHallucination", "ArchonHallucination", "ColossusHallucination", "DisruptorHallucination",
   "HighTemplarHallucination", "ImmortalHallucination", "OracleHallucination", "PhoenixHallucination",
   "ProbeHallucination", "StalkerHallucination", "VoidRayHallucination", "WarpPrismHallucination",
-  "ZealotHallucination",
+  "WarpPrismPhasingHallucination", "ZealotHallucination",
 ]);
 
 /** Unit types that are another form of one we have art for: burrowed,
  * uprooted, morphing or disguised. The API gives each its own name, so
  * without this they would draw as plain shapes. */
 const ICON_ALIASES: Record<string, string> = {
-  BanelingBurrowed: "Baneling",
-  DroneBurrowed: "Drone",
-  HydraliskBurrowed: "Hydralisk",
-  RoachBurrowed: "Roach",
-  ZerglingBurrowed: "Zergling",
-  QueenBurrowed: "Queen",
-  InfestorBurrowed: "Infestor",
-  RavagerBurrowed: "Ravager",
-  UltraliskBurrowed: "Ultralisk",
-  LurkerMPBurrowed: "LurkerMP",
-  SwarmHostBurrowedMP: "SwarmHostMP",
+  InfestorTerranBurrowed: "InfestorTerran",
   CreepTumorBurrowed: "CreepTumor",
   CreepTumorQueen: "CreepTumor",
   SpineCrawlerUprooted: "SpineCrawler",
   SporeCrawlerUprooted: "SporeCrawler",
   OverseerSiegeMode: "Overseer",
-  ExtractorRich: "Extractor",
   ChangelingZealot: "Changeling",
   ChangelingMarine: "Changeling",
   ChangelingMarineShield: "Changeling",
   ChangelingZergling: "Changeling",
   ChangelingZerglingWings: "Changeling",
-  // Morph cocoons have no art of their own; the egg is the closest.
-  BanelingCocoon: "Egg",
-  RavagerCocoon: "Egg",
-  BroodLordCocoon: "Egg",
-  OverlordCocoon: "Egg",
-  TransportOverlordCocoon: "Egg",
-  LurkerMPEgg: "Egg",
+  TransportOverlordCocoon: "OverlordCocoon",
+  InhibitorZoneMedium: "InhibitorZoneSmall",
+  InhibitorZoneLarge: "InhibitorZoneSmall",
   // Add-ons are named after the building they are attached to.
   BarracksTechLab: "TechLab",
   FactoryTechLab: "TechLab",
@@ -153,19 +145,12 @@ const ICON_ALIASES: Record<string, string> = {
   BarracksReactor: "Reactor",
   FactoryReactor: "Reactor",
   StarportReactor: "Reactor",
-  WidowMineBurrowed: "WidowMine",
-  ThorAP: "Thor",
   RefineryRich: "Refinery",
   BroodlingEscort: "Broodling",
   LocustMPPrecursor: "LocustMP",
-  WarpPrismPhasing: "WarpPrism",
   ObserverSiegeMode: "Observer",
   PylonOvercharged: "Pylon",
   AssimilatorRich: "Assimilator",
-  // Stand-ins until these modes get art of their own.
-  SiegeTankSieged: "SiegeTank",
-  VikingAssault: "VikingFighter",
-  LiberatorAG: "Liberator",
 };
 
 /** Relative, not `/icons/`: the built app loads index.html from disk, where
