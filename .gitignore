@@ -14,5 +14,4 @@ out/
 __pycache__/
 *.pyc
 /games/
-/images/
 /.playwright-mcp/
