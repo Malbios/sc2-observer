@@ -2,16 +2,9 @@ import * as PIXI from "pixi.js";
 
 const cache = new Map<string, Promise<PIXI.Texture | null>>();
 
-/** Source icons are 512px square or more, but ever render on screen at a
- * few dozen px at most -- a 50x+ minification ratio. Checked the raw pixel
- * data of minerals.png/vespene.png directly: fully-transparent regions are
- * already RGB (0,0,0), so the black boxes weren't a source-data or
- * premultiply problem (premultiplying didn't change these pixels at all,
- * which matches it having made no visible difference). That ratio is
- * squarely GPU minification/mipmap territory instead. Pre-shrinking here
- * with the canvas's own high-quality resampling brings the ratio down to
- * something ordinary bilinear filtering handles cleanly, sidestepping the
- * GPU-side issue entirely rather than fighting its exact mechanism. */
+/** Icons render at a few dozen px, and GPU minification from 512px drew
+ * black boxes around them. Pre-shrinking with the canvas's resampling
+ * avoids that. */
 const MAX_TEXTURE_SIZE = 256;
 
 function toCanvas(img: HTMLImageElement): HTMLCanvasElement {
@@ -28,17 +21,8 @@ function toCanvas(img: HTMLImageElement): HTMLCanvasElement {
   return canvas;
 }
 
-/** Every pixel's RGB is premultiplied by its
- * own alpha before the texture is created, and the texture is marked as
- * already premultiplied (see below). Canvas ImageData is straight (not
- * premultiplied) alpha; left that way, GPU mipmap generation for a
- * minified texture averages RGB and alpha independently, which can drag
- * a "dead" background color back in at edges even though the pixel is
- * nominally transparent -- exactly the black/gray boxes that only showed
- * up on small, heavily-downscaled instances of an icon and not on a
- * larger one of the same texture. Premultiplying first makes the RGB of a
- * fully transparent pixel genuinely 0, so averaging it with a neighbor
- * can't reintroduce its original color. */
+/** Mipmapping straight alpha averages in the color of transparent pixels,
+ * which showed as gray edges on small icons. Premultiplied, that color is 0. */
 function cleanTransparency(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const ctx = canvas.getContext("2d")!;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
