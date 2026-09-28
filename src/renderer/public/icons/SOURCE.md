@@ -10,7 +10,8 @@ of the project owner on 2026-09-19. All of them have since been replaced or
 deleted, so none of that art ships any more. It is still in the git history.
 
 On 2026-09-28 the whole set was replaced by the owner's new images (one per
-entity, named `<race>-<unit|building>-<name>[-variant]`). Each was cropped to
+entity, named `<race>-<unit|building>-<name>[-variant]`, kept full size in
+`images/` at the repo root). Each was cropped to
 its drawn area, padded to a square with transparent pixels, and downscaled to
 512px, which is still twice the size the viewer ever uses. Files are named
 after the unit type names the SC2 API reports, so the source names were
